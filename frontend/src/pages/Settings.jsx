@@ -48,12 +48,38 @@ export default function Settings() {
     try {
       const mcApiBase = `http://${window.location.hostname}:5056`
       const res = await fetch(`${mcApiBase}/remote/test?target=${encodeURIComponent(base)}`)
-      const data = await res.json()
+      if (res.ok) {
+        const data = await res.json()
+        setTestResult({
+          ok: Boolean(data?.ok),
+          message: data?.message || 'Unknown response from test endpoint',
+        })
+        return
+      }
+    } catch {
+      // fallback below
+    }
 
-      setTestResult({
-        ok: Boolean(data?.ok),
-        message: data?.message || 'Unknown response from test endpoint',
-      })
+    // Fallback: test directly from browser (useful if backend cannot route to LAN gateway)
+    try {
+      const healthRes = await fetch(`${base}/health`)
+      if (!healthRes.ok) {
+        throw new Error(`/health returned ${healthRes.status}`)
+      }
+      const health = await healthRes.json().catch(() => ({}))
+      const platform = String(health?.platform || '').toLowerCase()
+
+      if (platform === 'hermes-agent') {
+        setTestResult({
+          ok: true,
+          message: 'Connected (browser fallback): /health OK on Hermes gateway. Backend route to this host may be blocked from cluster network.',
+        })
+      } else {
+        setTestResult({
+          ok: true,
+          message: 'Connected (browser fallback): /health OK.',
+        })
+      }
     } catch (error) {
       setTestResult({
         ok: false,
