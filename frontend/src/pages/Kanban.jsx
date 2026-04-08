@@ -91,7 +91,6 @@ export default function Kanban() {
 
   const [now, setNow] = React.useState(new Date())
   const [draggedId, setDraggedId] = React.useState(null)
-  const [agents, setAgents] = React.useState([])
   const [savingId, setSavingId] = React.useState(null)
   const [boardLoading, setBoardLoading] = React.useState(false)
   const [board, setBoard] = React.useState({ todos: [], updated_at: null })
@@ -128,22 +127,6 @@ export default function Kanban() {
     return () => clearInterval(t)
   }, [loadBoard])
 
-  React.useEffect(() => {
-    async function loadAgents() {
-      try {
-        const res = await fetch(`${API_BASE}/todos/agents`)
-        const data = await res.json()
-        if (Array.isArray(data?.agents)) {
-          setAgents(data.agents)
-        }
-      } catch (error) {
-        console.error('Failed to load agent profiles:', error)
-      }
-    }
-
-    loadAgents()
-  }, [])
-
   const todos = board.todos || []
   const scopedAgentName = agentScope === 'all'
     ? ''
@@ -160,7 +143,7 @@ export default function Kanban() {
   }, [scopedAgentName])
 
   const dedupedAgents = Array.from(new Set([
-    ...agents,
+    ...configuredAgents.map((agent) => agent.name).filter(Boolean),
     ...todos.map((t) => t.assigned_agent).filter(Boolean),
   ]))
 
