@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Body
 from urllib.parse import urlparse
 from datetime import datetime
 from typing import Any, Dict, List
@@ -82,6 +82,120 @@ async def remote_state(target: str = Query(..., description="Remote gateway base
             if state_res.status_code != 200:
                 raise HTTPException(status_code=502, detail=f"Remote /state returned {state_res.status_code}")
             return state_res.json()
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Remote fetch failed: {e}")
+
+
+@router.get("/skills")
+async def remote_skills(target: str = Query(..., description="Remote gateway base URL")):
+    base = _normalize_target(target)
+
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True) as client:
+            health = await client.get(f"{base}/health")
+            if health.status_code != 200:
+                raise HTTPException(status_code=502, detail=f"Remote /health returned {health.status_code}")
+
+            platform = ""
+            try:
+                platform = str((health.json() or {}).get("platform", "")).lower()
+            except Exception:
+                platform = ""
+
+            if platform == "hermes-agent":
+                # Hermes API server does not expose Mission-Control skill routes.
+                return {"skills": []}
+
+            skills_res = await client.get(f"{base}/skills")
+            if skills_res.status_code != 200:
+                raise HTTPException(status_code=502, detail=f"Remote /skills returned {skills_res.status_code}")
+            return skills_res.json() or {"skills": []}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Remote fetch failed: {e}")
+
+
+@router.get("/skills/content")
+async def remote_skill_content(
+    target: str = Query(..., description="Remote gateway base URL"),
+    name: str = Query(..., description="Skill name"),
+):
+    base = _normalize_target(target)
+    skill_name = (name or '').strip()
+    if not skill_name:
+        raise HTTPException(status_code=400, detail="Missing skill name")
+
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True) as client:
+            health = await client.get(f"{base}/health")
+            if health.status_code != 200:
+                raise HTTPException(status_code=502, detail=f"Remote /health returned {health.status_code}")
+
+            platform = ""
+            try:
+                platform = str((health.json() or {}).get("platform", "")).lower()
+            except Exception:
+                platform = ""
+
+            if platform == "hermes-agent":
+                return {"content": "Skill content is unavailable for Hermes API gateways."}
+
+            content_res = await client.get(f"{base}/skills/{skill_name}/content")
+            if content_res.status_code != 200:
+                raise HTTPException(status_code=502, detail=f"Remote /skills/{{name}}/content returned {content_res.status_code}")
+            return content_res.json() or {"content": ""}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Remote fetch failed: {e}")
+
+
+@router.post("/cron/run")
+async def remote_cron_run(
+    target: str = Query(..., description="Remote gateway base URL"),
+    job_id: str = Query(..., description="Cron job id"),
+):
+    base = _normalize_target(target)
+    jid = (job_id or '').strip()
+    if not jid:
+        raise HTTPException(status_code=400, detail="Missing job_id")
+
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True) as client:
+            res = await client.post(f"{base}/cron/{jid}/run")
+            if res.status_code not in (200, 201, 204):
+                raise HTTPException(status_code=502, detail=f"Remote cron run returned {res.status_code}")
+            if res.status_code == 204:
+                return {"ok": True}
+            return res.json() if res.text else {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Remote fetch failed: {e}")
+
+
+@router.patch("/cron")
+async def remote_cron_patch(
+    target: str = Query(..., description="Remote gateway base URL"),
+    job_id: str = Query(..., description="Cron job id"),
+    payload: Dict[str, Any] = Body(default={}),
+):
+    base = _normalize_target(target)
+    jid = (job_id or '').strip()
+    if not jid:
+        raise HTTPException(status_code=400, detail="Missing job_id")
+
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True) as client:
+            res = await client.patch(f"{base}/cron/{jid}", json=payload or {})
+            if res.status_code not in (200, 201, 204):
+                raise HTTPException(status_code=502, detail=f"Remote cron patch returned {res.status_code}")
+            if res.status_code == 204:
+                return {"ok": True}
+            return res.json() if res.text else {"ok": True}
     except HTTPException:
         raise
     except Exception as e:

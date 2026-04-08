@@ -1,7 +1,13 @@
 import React, { useState } from 'react'
 import { useWebSocket } from '../hooks/useWebSocket'
+import { useAgentContext } from '../context/AgentContext'
 import { Nav } from '../components/Nav'
 import { Header } from '../components/Header'
+import { AgentScopePicker } from '../components/AgentScopePicker'
+import { LoadingOverlay } from '../components/LoadingOverlay'
+import { getApiBase } from '../lib/apiBase'
+
+const API_BASE = getApiBase()
 
 const STATUS_COLORS = {
   ok: 'bg-emerald-500/20 text-emerald-400',
@@ -19,7 +25,9 @@ function StatusBadge({ status }) {
 }
 
 export default function Crons() {
-  const { connected, state, refresh, gatewayBase } = useWebSocket()
+  const { agents } = useAgentContext()
+  const [agentScope, setAgentScope] = useState('all')
+  const { connected, loading, state, refresh } = useWebSocket({ agentScope })
   const [now, setNow] = useState(new Date())
   const [selectedCron, setSelectedCron] = useState(null)
   const [triggering, setTriggering] = useState(null)
@@ -32,6 +40,12 @@ export default function Crons() {
     const t = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(t)
   }, [])
+
+  React.useEffect(() => {
+    setSelectedCron(null)
+    setEditingPrompt(null)
+    setSelectedSkill(null)
+  }, [agentScope])
 
   const handleSkillClick = (skill, e) => {
     e.stopPropagation()
@@ -46,9 +60,10 @@ export default function Crons() {
   }
 
   const handleSavePrompt = async () => {
+    if (!selectedGateway || !selected?.id) return
     setSavingPrompt(true)
     try {
-      await fetch(`${gatewayBase}/cron/${selected.id}`, {
+      await fetch(`${API_BASE}/remote/cron?target=${encodeURIComponent(selectedGateway)}&job_id=${encodeURIComponent(selected.id)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt_preview: promptValue })
@@ -70,16 +85,21 @@ export default function Crons() {
 
   const cronJobs = state?.cron_jobs || []
   const activity = state?.recent_activity || []
+  const selectedGateway = agentScope === 'all' ? null : (agents.find((a) => a.id === agentScope)?.url || null)
+  const subtitle = agentScope === 'all'
+    ? 'Scope: All agents'
+    : `Scope: ${agents.find((a) => a.id === agentScope)?.name || agentScope}`
 
   // Filter activity to cron runs for selected cron
   const cronActivity = selectedCron
     ? activity.filter(e => e.title && e.title.includes(selectedCron.name))
     : []
 
-  const handleTrigger = async (jobId, jobName) => {
+  const handleTrigger = async (jobId) => {
+    if (!selectedGateway) return
     setTriggering(jobId)
     try {
-      await fetch(`${gatewayBase}/cron/${jobId}/run`, { method: 'POST' })
+      await fetch(`${API_BASE}/remote/cron/run?target=${encodeURIComponent(selectedGateway)}&job_id=${encodeURIComponent(jobId)}`, { method: 'POST' })
     } catch (e) {
       console.error('Failed to trigger cron:', e)
     } finally {
@@ -90,20 +110,27 @@ export default function Crons() {
   const selected = cronJobs.find(j => j.id === selectedCron?.id) || selectedCron
 
   return (
-    <div className="min-h-screen bg-slate-950">
-      <Header connected={connected} lastUpdate={state?.updated_at} now={now} />
+    <div className="min-h-screen bg-slate-950 relative">
+      <Header connected={connected} lastUpdate={state?.updated_at} now={now} subtitle={subtitle} />
+      <LoadingOverlay show={loading} label="Loading cron data..." />
 
       <main className="max-w-7xl mx-auto px-4 py-6">
         <div className="mb-6">
-          <Nav />
+          <Nav rightContent={<AgentScopePicker agents={agents} value={agentScope} onChange={setAgentScope} />} />
         </div>
 
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-3">
           <h1 className="text-2xl font-bold text-white">Cron Jobs</h1>
           <button onClick={refresh} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs font-medium transition-colors">
             Refresh
           </button>
         </div>
+
+        {agentScope === 'all' && (
+          <div className="mb-4 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+            All-agents view is read-only for cron actions. Pick one agent to run or edit cron prompts.
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Cron list */}
@@ -112,6 +139,7 @@ export default function Crons() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-800 text-left">
+                    <th className="px-4 py-3 text-slate-500 font-medium text-xs uppercase tracking-wider">Agent</th>
                     <th className="px-4 py-3 text-slate-500 font-medium text-xs uppercase tracking-wider">Name</th>
                     <th className="px-4 py-3 text-slate-500 font-medium text-xs uppercase tracking-wider">Schedule</th>
                     <th className="px-4 py-3 text-slate-500 font-medium text-xs uppercase tracking-wider">Last Run</th>
@@ -123,7 +151,7 @@ export default function Crons() {
                 <tbody>
                   {cronJobs.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-4 py-12 text-center text-slate-600">
+                      <td colSpan={7} className="px-4 py-12 text-center text-slate-600">
                         No cron jobs found
                       </td>
                     </tr>
@@ -136,6 +164,7 @@ export default function Crons() {
                       }`}
                       onClick={() => setSelectedCron(job.id === selected?.id ? null : job)}
                     >
+                      <td className="px-4 py-3 text-slate-400 text-xs">{job._agent_name || '—'}</td>
                       <td className="px-4 py-3 text-slate-200 font-medium">{job.name}</td>
                       <td className="px-4 py-3 text-slate-400 text-xs font-mono">{job.schedule}</td>
                       <td className="px-4 py-3 text-slate-500 text-xs">
@@ -246,7 +275,8 @@ export default function Crons() {
                       {editingPrompt !== selected.id && (
                         <button
                           onClick={handleEditPrompt}
-                          className="text-blue-400 hover:text-blue-300 text-xs mb-1"
+                          disabled={!selectedGateway}
+                          className="text-blue-400 hover:text-blue-300 text-xs mb-1 disabled:opacity-50"
                         >
                           Edit
                         </button>
@@ -323,8 +353,8 @@ export default function Crons() {
                 </div>
 
                 <button
-                  onClick={() => handleTrigger(selected.id, selected.name)}
-                  disabled={triggering === selected.id}
+                  onClick={() => handleTrigger(selected.id)}
+                  disabled={triggering === selected.id || !selectedGateway}
                   className="mt-4 w-full px-3 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded text-sm font-medium transition-colors"
                 >
                   {triggering === selected.id ? 'Triggering...' : 'Run Now'}

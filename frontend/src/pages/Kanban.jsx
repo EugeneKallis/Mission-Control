@@ -1,8 +1,10 @@
 import React from 'react'
-import { useLocation } from 'react-router-dom'
+import { useAgentContext } from '../context/AgentContext'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { Nav } from '../components/Nav'
 import { Header } from '../components/Header'
+import { AgentScopePicker } from '../components/AgentScopePicker'
+import { LoadingOverlay } from '../components/LoadingOverlay'
 import { getApiBase } from '../lib/apiBase'
 
 const API_BASE = getApiBase()
@@ -35,7 +37,7 @@ function AgentBadge({ agent }) {
   )
 }
 
-function Card({ todo, agents, onAssign, onMove, onDragStart, lockAgent }) {
+function Card({ todo, agents, onAssign, onMove, onDragStart }) {
   return (
     <div
       draggable
@@ -57,8 +59,7 @@ function Card({ todo, agents, onAssign, onMove, onDragStart, lockAgent }) {
         <select
           value={todo.assigned_agent || ''}
           onChange={(e) => onAssign(todo.id, e.target.value)}
-          disabled={Boolean(lockAgent)}
-          className="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded px-2 py-1 disabled:opacity-50"
+          className="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded px-2 py-1"
         >
           <option value="">Unassigned</option>
           {agents.map((agent) => (
@@ -81,20 +82,19 @@ function Card({ todo, agents, onAssign, onMove, onDragStart, lockAgent }) {
 }
 
 export default function Kanban() {
-  const { connected, state: wsState } = useWebSocket()
-  const location = useLocation()
+  const { agents: configuredAgents } = useAgentContext()
+  const { connected, loading: wsLoading, state: wsState } = useWebSocket({ agentScope: 'all' })
 
   const [now, setNow] = React.useState(new Date())
   const [draggedId, setDraggedId] = React.useState(null)
   const [agents, setAgents] = React.useState([])
   const [savingId, setSavingId] = React.useState(null)
+  const [boardLoading, setBoardLoading] = React.useState(false)
   const [board, setBoard] = React.useState({ todos: [], updated_at: null })
-
-  const params = new URLSearchParams(location.search)
-  const lockAgent = (params.get('agent') || '').trim()
+  const [agentScope, setAgentScope] = React.useState('all')
 
   const [newContent, setNewContent] = React.useState('')
-  const [newAgent, setNewAgent] = React.useState(lockAgent)
+  const [newAgent, setNewAgent] = React.useState('')
   const [newStatus, setNewStatus] = React.useState('pending')
 
   React.useEffect(() => {
@@ -102,7 +102,8 @@ export default function Kanban() {
     return () => clearInterval(timer)
   }, [])
 
-  const loadBoard = React.useCallback(async () => {
+  const loadBoard = React.useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setBoardLoading(true)
     try {
       const res = await fetch(`${API_BASE}/state?t=${Date.now()}`, { cache: 'no-store' })
       if (!res.ok) throw new Error(`state ${res.status}`)
@@ -113,12 +114,14 @@ export default function Kanban() {
       })
     } catch (error) {
       console.error('Failed to load board:', error)
+    } finally {
+      if (!silent) setBoardLoading(false)
     }
   }, [])
 
   React.useEffect(() => {
-    loadBoard()
-    const t = setInterval(loadBoard, 12000)
+    loadBoard({ silent: false })
+    const t = setInterval(() => loadBoard({ silent: true }), 12000)
     return () => clearInterval(t)
   }, [loadBoard])
 
@@ -138,14 +141,20 @@ export default function Kanban() {
     loadAgents()
   }, [])
 
-  React.useEffect(() => {
-    if (lockAgent) setNewAgent(lockAgent)
-  }, [lockAgent])
-
   const todos = board.todos || []
-  const filteredTodos = lockAgent
-    ? todos.filter((t) => (t.assigned_agent || '').toLowerCase() === lockAgent.toLowerCase())
+  const scopedAgentName = agentScope === 'all'
+    ? ''
+    : (configuredAgents.find((a) => a.id === agentScope)?.name || '')
+
+  const filteredTodos = scopedAgentName
+    ? todos.filter((t) => (t.assigned_agent || '').toLowerCase() === scopedAgentName.toLowerCase())
     : todos
+
+  React.useEffect(() => {
+    if (scopedAgentName) {
+      setNewAgent(scopedAgentName)
+    }
+  }, [scopedAgentName])
 
   const dedupedAgents = Array.from(new Set([
     ...agents,
@@ -194,7 +203,7 @@ export default function Kanban() {
     try {
       const payload = {
         content: newContent.trim(),
-        assigned_agent: (lockAgent || newAgent || '').trim() || null,
+        assigned_agent: (newAgent || scopedAgentName || '').trim() || null,
         status: newStatus,
       }
       const res = await fetch(`${API_BASE}/todos/`, {
@@ -216,9 +225,9 @@ export default function Kanban() {
       }
 
       setNewContent('')
-      if (!lockAgent) setNewAgent('')
+      setNewAgent('')
       setNewStatus('pending')
-      loadBoard()
+      loadBoard({ silent: true })
     } catch (error) {
       console.error('Failed to create todo:', error)
     } finally {
@@ -236,13 +245,18 @@ export default function Kanban() {
     setDraggedId(null)
   }
 
+  const subtitle = agentScope === 'all'
+    ? 'Scope: All agents'
+    : `Scope: ${configuredAgents.find((a) => a.id === agentScope)?.name || agentScope}`
+
   return (
-    <div className="min-h-screen bg-slate-950">
-      <Header connected={connected} lastUpdate={board.updated_at || wsState?.updated_at} now={now} />
+    <div className="min-h-screen bg-slate-950 relative">
+      <Header connected={connected} lastUpdate={board.updated_at || wsState?.updated_at} now={now} subtitle={subtitle} />
+      <LoadingOverlay show={boardLoading || wsLoading} label="Loading board data..." />
 
       <main className="max-w-7xl mx-auto px-4 py-6">
         <div className="mb-6">
-          <Nav />
+          <Nav rightContent={<AgentScopePicker agents={configuredAgents} value={agentScope} onChange={setAgentScope} />} />
         </div>
 
         <div className="flex items-center justify-between mb-4">
@@ -251,12 +265,6 @@ export default function Kanban() {
             {savingId ? `Saving ${savingId}...` : 'Always move card to In Progress before starting work'}
           </div>
         </div>
-
-        {lockAgent && (
-          <div className="mb-4 rounded border border-violet-500/40 bg-violet-500/10 px-3 py-2 text-sm text-violet-200">
-            Agent mode: showing only tasks assigned to <span className="font-semibold">{lockAgent}</span>
-          </div>
-        )}
 
         <form onSubmit={createTodo} className="bg-slate-900/50 border border-slate-800 rounded-lg p-3 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
@@ -267,10 +275,9 @@ export default function Kanban() {
               className="md:col-span-2 bg-slate-900 border border-slate-700 text-slate-100 text-sm rounded px-3 py-2"
             />
             <select
-              value={lockAgent || newAgent}
+              value={newAgent}
               onChange={(e) => setNewAgent(e.target.value)}
-              disabled={Boolean(lockAgent)}
-              className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded px-2 py-2 disabled:opacity-50"
+              className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded px-2 py-2"
             >
               <option value="">Unassigned</option>
               {dedupedAgents.map((agent) => (
@@ -338,7 +345,6 @@ export default function Kanban() {
                     onAssign={handleAssign}
                     onMove={handleMove}
                     onDragStart={(_, id) => setDraggedId(id)}
-                    lockAgent={lockAgent}
                   />
                 ))
               )}
