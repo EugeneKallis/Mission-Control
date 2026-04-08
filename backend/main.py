@@ -1,6 +1,6 @@
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from api import todos, cron, processes, jobs, system, hermes_sync, skills
+from api import todos, cron, processes, jobs, system, hermes_sync, skills, remote
 from core.websocket import handle_websocket, manager
 from core.state import state
 import uvicorn
@@ -31,6 +31,7 @@ app.include_router(jobs.router)
 app.include_router(system.router)
 app.include_router(hermes_sync.router)
 app.include_router(skills.router)
+app.include_router(remote.router)
 
 
 @app.websocket("/ws")
