@@ -17,6 +17,7 @@ class TodoItem(BaseModel):
     status: TaskStatus
     created_at: datetime
     completed_at: Optional[datetime] = None
+    assigned_agent: Optional[str] = None
 
 
 class CronJob(BaseModel):
@@ -74,6 +75,17 @@ class ActivityEvent(BaseModel):
     detail: Optional[str] = None
     timestamp: str
     status: str = "ok"  # "ok", "error", "info"
+
+
+class AgentConfig(BaseModel):
+    id: str
+    name: str
+    url: str
+
+
+class AgentSettingsResponse(BaseModel):
+    agents: List[AgentConfig]
+    selected_agent_id: Optional[str] = None
 
 
 class DashboardStateResponse(BaseModel):
