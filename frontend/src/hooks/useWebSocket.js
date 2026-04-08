@@ -27,6 +27,46 @@ export function useWebSocket() {
 
       const platform = String(healthJson?.platform || '').toLowerCase()
       if (platform === 'hermes-agent') {
+        try {
+          const jobsRes = await fetch(`${gatewayBase}/api/jobs`)
+          if (jobsRes.ok) {
+            const jobsJson = await jobsRes.json()
+            const jobs = Array.isArray(jobsJson?.jobs) ? jobsJson.jobs : []
+            const mappedCrons = jobs.map((j) => ({
+              id: j.id,
+              name: j.name || 'Unnamed',
+              schedule: j.schedule_display || j.schedule?.display || j.schedule?.expr || '',
+              deliver: j.deliver || 'origin',
+              enabled: Boolean(j.enabled),
+              last_run: j.last_run_at || null,
+              next_run: j.next_run_at || null,
+              last_status: j.last_status || 'unknown',
+              state: j.state || 'unknown',
+              prompt_preview: j.prompt || null,
+              model: j.model || null,
+              skills: Array.isArray(j.skills) ? j.skills : (j.skill ? [j.skill] : []),
+              provider: j.provider || null,
+              base_url: j.base_url || null,
+              repeat: j.repeat?.display || null,
+              paused_at: j.paused_at || null,
+              paused_reason: j.paused_reason || null,
+            }))
+
+            setState((prev) => ({
+              ...(prev || {}),
+              todos: [],
+              cron_jobs: mappedCrons,
+              active_processes: [],
+              job_search_today: null,
+              system_stats: null,
+              recent_activity: [],
+              updated_at: new Date().toISOString(),
+            }))
+          }
+        } catch (err) {
+          console.warn('Hermes /api/jobs fetch failed:', err)
+        }
+
         setConnected(true)
         return
       }
