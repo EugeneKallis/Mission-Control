@@ -64,64 +64,49 @@ export default function AgentGuide() {
   const workerPrompt = useMemo(() => {
     if (!targetAgent) return ''
 
-    const step9 = `9. When the task is done, PATCH the todo with:
-   {"status":"completed","content":"<keep the existing content and append a concise completion note>"}`
+    return `You are the autonomous Mission Control Kanban worker for agent "${targetAgent.name}".
 
-    const step10 = discordNotifyUrl
-      ? `10. Send a Discord notification — POST to ${discordNotifyUrl} with this exact JSON body:
-   {"content": "✅ Task completed by ${targetAgent.name}: <brief summary of what was done>"}`
-      : `10. If you are blocked or cannot complete the task safely, PATCH the todo with:
-   {"status":"pending","content":"<keep the existing content and append a concise blocker note with what is needed>"}`
+Mission Control URLs
+- UI: ${boardUrl}
+- Read board state: GET ${stateUrl}
+- Update a task: PATCH ${updateTodoUrl}
 
-    const step11 = discordNotifyUrl
-      ? `11. If you are blocked or cannot complete the task safely, PATCH the todo with:
-   {"status":"pending","content":"<keep the existing content and append a concise blocker note with what is needed>"}`
-      : null
+Your assignment rules
+- ONLY work tasks whose assigned_agent exactly equals "${targetAgent.name}".
+- Ignore tasks assigned to any other agent.
+- Ignore tasks already in completed or cancelled status.
+- Valid statuses you should use are: pending, in_progress, completed.
 
-    const maxTasks = Math.max(1, Number(maxTasksPerRun) || 1)
-    const noTaskMsg = noTaskBehavior === 'silent'
-      ? 'exit silently with no message.'
-      : 'send a short summary saying no tasks are currently assigned to you.'
+Run loop for every execution
+1. GET ${stateUrl}
+2. Read the todos array.
+3. Filter to tasks assigned to "${targetAgent.name}".
+4. If there is already an in_progress task assigned to you, resume that first.
+5. Otherwise pick the oldest pending task assigned to you.
+6. Before starting work, immediately PATCH ${updateTodoUrl} with:
+   {"status":"in_progress"}
+7. Do the actual task work.
+8. If you make meaningful progress and the task notes should be updated, PATCH the todo again with:
+   {"content":"<keep the existing content and append a short progress note>"}
+9. When the task is done, PATCH the todo with:
+   {"status":"completed","content":"<keep the existing content and append a concise completion note>"}
+${discordNotifyUrl ? `10. Send a Discord notification — POST to ${discordNotifyUrl} with this exact JSON body:
+   {"content": "✅ Task completed by ${targetAgent.name}: <brief summary of what was done>"}
+11. If you are blocked or cannot complete the task safely, PATCH the todo with:
+   {"status":"pending","content":"<keep the existing content and append a concise blocker note with what is needed>"}
+12. Re-fetch ${stateUrl} and continue until you have processed ${Math.max(1, Number(maxTasksPerRun) || 1)} task(s) this run or there is no more work assigned to you.` : `10. If you are blocked or cannot complete the task safely, PATCH the todo with:
+   {"status":"pending","content":"<keep the existing content and append a concise blocker note with what is needed>"}
+11. Re-fetch ${stateUrl} and continue until you have processed ${Math.max(1, Number(maxTasksPerRun) || 1)} task(s) this run or there is no more work assigned to you.`}
 
-    return [
-      `You are the autonomous Mission Control Kanban worker for agent "${targetAgent.name}".`,
-      '',
-      'Mission Control URLs',
-      `- UI: ${boardUrl}`,
-      `- Read board state: GET ${stateUrl}`,
-      `- Update a task: PATCH ${updateTodoUrl}`,
-      '',
-      'Your assignment rules',
-      `- ONLY work tasks whose assigned_agent exactly equals "${targetAgent.name}".`,
-      '- Ignore tasks assigned to any other agent.',
-      '- Ignore tasks already in completed or cancelled status.',
-      '- Valid statuses you should use are: pending, in_progress, completed.',
-      '',
-      'Run loop for every execution',
-      `1. GET ${stateUrl}`,
-      '2. Read the todos array.',
-      `3. Filter to tasks assigned to "${targetAgent.name}".`,
-      '4. If there is already an in_progress task assigned to you, resume that first.',
-      '5. Otherwise pick the oldest pending task assigned to you.',
-      `6. Before starting work, immediately PATCH ${updateTodoUrl} with:`,
-      '{"status":"in_progress"}',
-      '7. Do the actual task work.',
-      '8. If you make meaningful progress and the task notes should be updated, PATCH the todo again with:',
-      '{"content":"<keep the existing content and append a short progress note>"}',
-      step9,
-      step10,
-      ...(step11 ? [step11] : []),
-      `12. Re-fetch ${stateUrl} and continue until you have processed ${maxTasks} task(s) this run or there is no more work assigned to you.`,
-      '',
-      'Behavior expectations',
-      '- Work one task at a time.',
-      '- Never steal work from another agent.',
-      '- Keep notes concise and useful.',
-      '- Do not wipe existing task content when adding notes; preserve it and append to it.',
-      '- If Eugene manually tells you "check the board", treat that as an immediate out-of-band trigger to run this board-check workflow right away instead of waiting for the next scheduled cron tick.',
-      `- If no tasks are assigned to you, ${noTaskMsg}`,
-      '- Never recursively create another cron job from inside the recurring worker run.',
-    ].join('\n')
+Behavior expectations
+- Work one task at a time.
+- Never steal work from another agent.
+- Keep notes concise and useful.
+- Do not wipe existing task content when adding notes; preserve it and append to it.
+- If Eugene manually tells you "check the board", treat that as an immediate out-of-band trigger to run this board-check workflow right away instead of waiting for the next scheduled cron tick.
+- If no tasks are assigned to you, ${noTaskBehavior === 'silent' ? 'exit silently with no message.' : 'send a short summary saying no tasks are currently assigned to you.'}
+- Never recursively create another cron job from inside the recurring worker run.
+`
   }, [targetAgent, boardUrl, stateUrl, updateTodoUrl, discordNotifyUrl, maxTasksPerRun, noTaskBehavior])
 
   const bootstrapPrompt = useMemo(() => {
