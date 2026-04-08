@@ -51,19 +51,31 @@ export default function Settings() {
         throw new Error(`/health returned ${healthRes.status}`)
       }
 
+      // Mission Control gateway shape
       const stateRes = await fetch(`${base}/state`)
-      if (!stateRes.ok) {
-        throw new Error(`/state returned ${stateRes.status}`)
+      if (stateRes.ok) {
+        const stateJson = await stateRes.json()
+        const todoCount = Array.isArray(stateJson?.todos) ? stateJson.todos.length : 0
+        const cronCount = Array.isArray(stateJson?.cron_jobs) ? stateJson.cron_jobs.length : 0
+
+        setTestResult({
+          ok: true,
+          message: `Connected (Mission Control). /health + /state OK • ${todoCount} tasks, ${cronCount} crons`,
+        })
+        return
       }
 
-      const stateJson = await stateRes.json()
-      const todoCount = Array.isArray(stateJson?.todos) ? stateJson.todos.length : 0
-      const cronCount = Array.isArray(stateJson?.cron_jobs) ? stateJson.cron_jobs.length : 0
+      // Hermes API-server shape
+      const modelsRes = await fetch(`${base}/v1/models`)
+      if (modelsRes.ok) {
+        setTestResult({
+          ok: true,
+          message: 'Connected (Hermes API server). /health + /v1/models OK. Note: board pages need Mission Control /state endpoints.',
+        })
+        return
+      }
 
-      setTestResult({
-        ok: true,
-        message: `Connected. /health and /state OK • ${todoCount} tasks, ${cronCount} crons`,
-      })
+      throw new Error(`/state returned ${stateRes.status}; /v1/models returned ${modelsRes.status}`)
     } catch (error) {
       setTestResult({
         ok: false,
