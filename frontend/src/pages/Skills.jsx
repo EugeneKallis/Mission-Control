@@ -26,9 +26,8 @@ function CategoryBadge({ category }) {
 }
 
 export default function Skills() {
-  const { agents } = useAgentContext()
-  const [agentScope, setAgentScope] = useState('all')
-  const { connected, loading, state, refresh } = useWebSocket({ agentScope })
+  const { agents, selectedScopeId: agentScope, setSelectedScopeId: setAgentScope } = useAgentContext()
+  const { connected, connection, loading, state, refresh } = useWebSocket({ agentScope })
 
   const [now, setNow] = useState(new Date())
   const [skills, setSkills] = useState([])
@@ -36,11 +35,40 @@ export default function Skills() {
   const [expandedSkill, setExpandedSkill] = useState(null)
   const [skillContent, setSkillContent] = useState({})
   const [reloadTick, setReloadTick] = useState(0)
+  const [loadNotes, setLoadNotes] = useState([])
 
   const scopedAgents = agentScope === 'all' ? agents : agents.filter((a) => a.id === agentScope)
   const subtitle = agentScope === 'all'
     ? 'Scope: All agents'
     : `Scope: ${agents.find((a) => a.id === agentScope)?.name || agentScope}`
+
+  const fallbackSkills = React.useMemo(() => {
+    const jobs = Array.isArray(state?.cron_jobs) ? state.cron_jobs : []
+    const scopedIds = new Set(scopedAgents.map((agent) => agent.id))
+    const seen = new Set()
+
+    return jobs.flatMap((job) => {
+      if (!job?._agent_id || !scopedIds.has(job._agent_id)) return []
+
+      return (Array.isArray(job.skills) ? job.skills : [])
+        .filter(Boolean)
+        .filter((name) => {
+          const key = `${job._agent_id}:${name}`
+          if (seen.has(key)) return false
+          seen.add(key)
+          return true
+        })
+        .map((name) => ({
+          name,
+          description: `Referenced by cron job ${job.name}`,
+          category: 'cron reference',
+          _agent_id: job._agent_id,
+          _agent_name: job._agent_name,
+          _key: `${job._agent_id}:${name}`,
+          _fallback: true,
+        }))
+    })
+  }, [state?.cron_jobs, scopedAgents])
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000)
@@ -54,6 +82,7 @@ export default function Skills() {
     async function fetchSkills() {
       if (scopedAgents.length === 0) {
         setSkills([])
+        setLoadNotes([])
         return
       }
 
@@ -65,20 +94,31 @@ export default function Skills() {
             if (!res.ok) throw new Error(`skills ${res.status}`)
             const data = await res.json()
             const list = Array.isArray(data?.skills) ? data.skills : []
-            return list.map((skill) => ({
-              ...skill,
-              _agent_id: agent.id,
-              _agent_name: agent.name,
-              _key: `${agent.id}:${skill.name}`,
-            }))
+            return {
+              agent,
+              message: data?.message || null,
+              skills: list.map((skill) => ({
+                ...skill,
+                _agent_id: agent.id,
+                _agent_name: agent.name,
+                _key: `${agent.id}:${skill.name}`,
+              })),
+            }
           })
         )
 
         const merged = results
           .filter((r) => r.status === 'fulfilled')
-          .flatMap((r) => r.value)
+          .flatMap((r) => r.value.skills)
+
+        const notes = results
+          .filter((r) => r.status === 'fulfilled')
+          .map((r) => r.value)
+          .filter((entry) => entry.message)
+          .map((entry) => `${entry.agent.name}: ${entry.message}`)
 
         setSkills(merged)
+        setLoadNotes(notes)
 
         const failed = results.filter((r) => r.status === 'rejected')
         if (failed.length > 0) {
@@ -87,6 +127,7 @@ export default function Skills() {
       } catch (e) {
         console.error('Failed to fetch skills:', e)
         setSkills([])
+        setLoadNotes([])
       } finally {
         setSkillsLoading(false)
       }
@@ -96,7 +137,7 @@ export default function Skills() {
   }, [agentScope, scopedAgents, reloadTick])
 
   useEffect(() => {
-    if (!expandedSkill) return
+    if (!expandedSkill || expandedSkill._fallback) return
     if (skillContent[expandedSkill._key]) return
 
     async function fetchContent() {
@@ -120,7 +161,7 @@ export default function Skills() {
 
   return (
     <div className="min-h-screen bg-slate-950 relative">
-      <Header connected={connected} lastUpdate={state?.updated_at} now={now} subtitle={subtitle} />
+      <Header connected={connected} connection={connection} lastUpdate={state?.updated_at} now={now} subtitle={subtitle} />
       <LoadingOverlay show={loading || skillsLoading} label="Loading skills..." />
 
       <main className="max-w-7xl mx-auto px-4 py-6">
@@ -135,13 +176,24 @@ export default function Skills() {
           </button>
         </div>
 
-        {!skillsLoading && skills.length === 0 ? (
+        {loadNotes.length > 0 && (
+          <div className="mb-4 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200 space-y-1">
+            {loadNotes.map((note) => (
+              <div key={note}>{note}</div>
+            ))}
+            {fallbackSkills.length > 0 && (
+              <div className="text-amber-300/80">Showing cron-referenced skills as a fallback.</div>
+            )}
+          </div>
+        )}
+
+        {!skillsLoading && skills.length === 0 && fallbackSkills.length === 0 ? (
           <div className="bg-slate-900/50 rounded-lg border border-slate-800 p-12 text-center text-slate-600">
             No skills found for current scope
           </div>
         ) : (
           <div className="space-y-3">
-            {skills.map((skill) => (
+            {[...skills, ...fallbackSkills.filter((fallback) => !skills.some((skill) => skill._key === fallback._key))].map((skill) => (
               <div key={skill._key} className="bg-slate-900/50 rounded-lg border border-slate-800 overflow-hidden">
                 <div
                   className="px-4 py-4 flex items-center justify-between cursor-pointer hover:bg-slate-800/30 transition-colors"
@@ -158,6 +210,11 @@ export default function Skills() {
                       {skill._agent_name}
                     </span>
                     <CategoryBadge category={skill.category} />
+                    {skill._fallback && (
+                      <span className="text-[10px] uppercase tracking-wide text-amber-300 bg-amber-500/20 border border-amber-500/30 rounded px-2 py-0.5">
+                        Fallback
+                      </span>
+                    )}
                     <span className="text-slate-600">{expandedSkill?._key === skill._key ? '▲' : '▼'}</span>
                   </div>
                 </div>
@@ -166,7 +223,11 @@ export default function Skills() {
                   <div className="px-4 pb-4 border-t border-slate-800/50">
                     <div className="pt-4">
                       <div className="text-slate-500 text-xs uppercase tracking-wider mb-2">Skill Content</div>
-                      {skillContent[skill._key] ? (
+                      {skill._fallback ? (
+                        <div className="text-xs text-amber-200 bg-amber-500/10 border border-amber-500/30 rounded p-3">
+                          This gateway did not expose an installed-skills endpoint, so Mission Control only knows this skill is referenced by one of the cron jobs. Full skill content is unavailable from the current agent API.
+                        </div>
+                      ) : skillContent[skill._key] ? (
                         <pre className="text-xs text-slate-300 bg-slate-800/50 rounded p-3 whitespace-pre-wrap max-h-96 overflow-y-auto font-mono">
                           {skillContent[skill._key]}
                         </pre>

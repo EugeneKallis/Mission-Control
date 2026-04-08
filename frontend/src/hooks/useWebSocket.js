@@ -60,6 +60,21 @@ function mergeStates(items) {
   return base
 }
 
+function summarizeConnections(scopeAgents, okCount) {
+  const total = scopeAgents.length
+  const online = okCount
+  const offline = Math.max(total - online, 0)
+  const status = online === 0 ? 'offline' : offline === 0 ? 'live' : 'partial'
+
+  return {
+    status,
+    total,
+    online,
+    offline,
+    label: total <= 1 ? status.toUpperCase() : `${online}/${total} AGENTS`,
+  }
+}
+
 export function useWebSocket(options = {}) {
   const { agents, selectedAgent } = useAgentContext()
   const { agentScope = 'selected' } = options
@@ -67,6 +82,7 @@ export function useWebSocket(options = {}) {
   const [connected, setConnected] = useState(false)
   const [state, setState] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [connection, setConnection] = useState(() => summarizeConnections([], 0))
 
   const ws = useRef(null)
   const pollTimer = useRef(null)
@@ -101,6 +117,7 @@ export function useWebSocket(options = {}) {
     if (scopeAgents.length === 0) {
       setConnected(false)
       setState(null)
+      setConnection(summarizeConnections([], 0))
       return
     }
 
@@ -116,11 +133,13 @@ export function useWebSocket(options = {}) {
 
     if (ok.length > 0) {
       setState(mergeStates(ok))
-      setConnected(true)
+      setConnected(ok.length === scopeAgents.length)
     } else {
       setConnected(false)
       if (!silent) setState(null)
     }
+
+    setConnection(summarizeConnections(scopeAgents, ok.length))
 
     if (failed.length > 0) {
       console.error('State fetch failed for one or more agents:', failed.map((f) => f.reason?.message || String(f.reason)))
@@ -143,6 +162,7 @@ export function useWebSocket(options = {}) {
     setLoading(true)
     setState(null)
     setConnected(false)
+    setConnection(summarizeConnections(scopeAgents, 0))
 
     if (ws.current) {
       ws.current.close()
@@ -164,6 +184,7 @@ export function useWebSocket(options = {}) {
 
   return {
     connected,
+    connection,
     loading,
     state,
     send,
