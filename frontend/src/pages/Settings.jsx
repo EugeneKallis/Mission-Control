@@ -75,6 +75,14 @@ export default function Settings() {
         return
       }
 
+      if (modelsRes.status === 401) {
+        setTestResult({
+          ok: true,
+          message: 'Connected (Hermes API server) but auth is required for /v1/models (401). Add API key support to this agent config if needed.',
+        })
+        return
+      }
+
       throw new Error(`/state returned ${stateRes.status}; /v1/models returned ${modelsRes.status}`)
     } catch (error) {
       setTestResult({
