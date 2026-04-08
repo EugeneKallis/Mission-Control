@@ -51,6 +51,47 @@ export default function Settings() {
         throw new Error(`/health returned ${healthRes.status}`)
       }
 
+      let healthJson = null
+      try {
+        healthJson = await healthRes.json()
+      } catch {
+        healthJson = null
+      }
+
+      const platform = String(healthJson?.platform || '').toLowerCase()
+
+      // Hermes API-server shape (skip /state entirely)
+      if (platform === 'hermes-agent') {
+        try {
+          const modelsRes = await fetch(`${base}/v1/models`)
+          if (modelsRes.ok) {
+            setTestResult({
+              ok: true,
+              message: 'Connected (Hermes API server). /health + /v1/models OK. Note: board pages need Mission Control /state endpoints.',
+            })
+            return
+          }
+          if (modelsRes.status === 401) {
+            setTestResult({
+              ok: true,
+              message: 'Connected (Hermes API server) but auth is required for /v1/models (401).',
+            })
+            return
+          }
+          setTestResult({
+            ok: true,
+            message: `Connected (Hermes API server). /health OK, /v1/models returned ${modelsRes.status}.`,
+          })
+          return
+        } catch {
+          setTestResult({
+            ok: true,
+            message: 'Connected (Hermes API server). /health OK, but /v1/models was unreachable from browser (likely CORS/auth).',
+          })
+          return
+        }
+      }
+
       // Mission Control gateway shape
       const stateRes = await fetch(`${base}/state`)
       if (stateRes.ok) {
@@ -65,25 +106,7 @@ export default function Settings() {
         return
       }
 
-      // Hermes API-server shape
-      const modelsRes = await fetch(`${base}/v1/models`)
-      if (modelsRes.ok) {
-        setTestResult({
-          ok: true,
-          message: 'Connected (Hermes API server). /health + /v1/models OK. Note: board pages need Mission Control /state endpoints.',
-        })
-        return
-      }
-
-      if (modelsRes.status === 401) {
-        setTestResult({
-          ok: true,
-          message: 'Connected (Hermes API server) but auth is required for /v1/models (401). Add API key support to this agent config if needed.',
-        })
-        return
-      }
-
-      throw new Error(`/state returned ${stateRes.status}; /v1/models returned ${modelsRes.status}`)
+      throw new Error(`/state returned ${stateRes.status}`)
     } catch (error) {
       setTestResult({
         ok: false,

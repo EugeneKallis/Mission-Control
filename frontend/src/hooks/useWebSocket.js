@@ -14,22 +14,28 @@ export function useWebSocket() {
   const fetchState = useCallback(async () => {
     if (!gatewayBase) return
     try {
-      const res = await fetch(`${gatewayBase}/state`)
-      if (res.ok) {
-        const data = await res.json()
-        setState(data)
-        setConnected(true)
-        return
-      }
-
-      // Hermes API server doesn't expose /state; treat healthy /health as connected.
+      // Probe health first so Hermes API servers don't get spammed with /state calls.
       const healthRes = await fetch(`${gatewayBase}/health`)
-      if (healthRes.ok) {
+      if (!healthRes.ok) throw new Error(`/health=${healthRes.status}`)
+
+      let healthJson = null
+      try {
+        healthJson = await healthRes.json()
+      } catch {
+        healthJson = null
+      }
+
+      const platform = String(healthJson?.platform || '').toLowerCase()
+      if (platform === 'hermes-agent') {
         setConnected(true)
         return
       }
 
-      throw new Error(`/state=${res.status}, /health=${healthRes.status}`)
+      const res = await fetch(`${gatewayBase}/state`)
+      if (!res.ok) throw new Error(`/state=${res.status}`)
+      const data = await res.json()
+      setState(data)
+      setConnected(true)
     } catch (error) {
       console.error('State fetch failed:', error)
       setConnected(false)
