@@ -3,8 +3,6 @@ import { useWebSocket } from '../hooks/useWebSocket'
 import { Nav } from '../components/Nav'
 import { Header } from '../components/Header'
 
-const API_BASE = `http://${window.location.hostname}:5056`
-
 const COLUMNS = [
   { id: 'pending', label: 'To Do', color: 'text-amber-400' },
   { id: 'in_progress', label: 'In Progress', color: 'text-blue-400' },
@@ -59,7 +57,7 @@ function Card({ todo, agents, onAssign, onMove, onDragStart }) {
 }
 
 export default function Kanban() {
-  const { connected, state, refresh } = useWebSocket()
+  const { connected, state, refresh, gatewayBase } = useWebSocket()
   const [now, setNow] = React.useState(new Date())
   const [draggedId, setDraggedId] = React.useState(null)
   const [agents, setAgents] = React.useState([])
@@ -73,7 +71,7 @@ export default function Kanban() {
   React.useEffect(() => {
     async function loadAgents() {
       try {
-        const res = await fetch(`${API_BASE}/todos/agents`)
+        const res = await fetch(`${gatewayBase}/todos/agents`)
         const data = await res.json()
         if (Array.isArray(data?.agents)) {
           setAgents(data.agents)
@@ -84,7 +82,7 @@ export default function Kanban() {
     }
 
     loadAgents()
-  }, [])
+  }, [gatewayBase])
 
   const todos = state?.todos || []
   const dedupedAgents = Array.from(new Set([
@@ -107,7 +105,7 @@ export default function Kanban() {
   async function patchTodo(todoId, payload) {
     setSavingId(todoId)
     try {
-      const res = await fetch(`${API_BASE}/todos/${todoId}`, {
+      const res = await fetch(`${gatewayBase}/todos/${todoId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

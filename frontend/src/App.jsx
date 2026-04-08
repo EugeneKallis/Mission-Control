@@ -4,6 +4,8 @@ import Tasks from './pages/Tasks'
 import Crons from './pages/Crons'
 import Skills from './pages/Skills'
 import Kanban from './pages/Kanban'
+import Settings from './pages/Settings'
+import AgentGuide from './pages/AgentGuide'
 
 function App() {
   return (
@@ -14,6 +16,8 @@ function App() {
         <Route path="/kanban" element={<Kanban />} />
         <Route path="/crons" element={<Crons />} />
         <Route path="/skills" element={<Skills />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/agent-guide" element={<AgentGuide />} />
       </Routes>
     </BrowserRouter>
   )

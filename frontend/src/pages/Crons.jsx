@@ -19,7 +19,7 @@ function StatusBadge({ status }) {
 }
 
 export default function Crons() {
-  const { connected, state, refresh } = useWebSocket()
+  const { connected, state, refresh, gatewayBase } = useWebSocket()
   const [now, setNow] = useState(new Date())
   const [selectedCron, setSelectedCron] = useState(null)
   const [triggering, setTriggering] = useState(null)
@@ -48,7 +48,7 @@ export default function Crons() {
   const handleSavePrompt = async () => {
     setSavingPrompt(true)
     try {
-      await fetch(`http://${window.location.hostname}:5056/cron/${selected.id}`, {
+      await fetch(`${gatewayBase}/cron/${selected.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt_preview: promptValue })
@@ -79,7 +79,7 @@ export default function Crons() {
   const handleTrigger = async (jobId, jobName) => {
     setTriggering(jobId)
     try {
-      await fetch(`http://${window.location.hostname}:5056/cron/${jobId}/run`, { method: 'POST' })
+      await fetch(`${gatewayBase}/cron/${jobId}/run`, { method: 'POST' })
     } catch (e) {
       console.error('Failed to trigger cron:', e)
     } finally {

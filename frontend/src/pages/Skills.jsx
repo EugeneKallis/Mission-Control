@@ -20,7 +20,7 @@ function CategoryBadge({ category }) {
 }
 
 export default function Skills() {
-  const { connected, state, refresh } = useWebSocket()
+  const { connected, state, refresh, gatewayBase } = useWebSocket()
   const [now, setNow] = useState(new Date())
   const [skills, setSkills] = useState([])
   const [loading, setLoading] = useState(true)
@@ -35,8 +35,10 @@ export default function Skills() {
   // Fetch skills from API
   useEffect(() => {
     async function fetchSkills() {
+      if (!gatewayBase) return
+      setLoading(true)
       try {
-        const res = await fetch(`http://${window.location.hostname}:5056/skills`)
+        const res = await fetch(`${gatewayBase}/skills`)
         if (res.ok) {
           const data = await res.json()
           setSkills(data.skills || [])
@@ -48,7 +50,7 @@ export default function Skills() {
       }
     }
     fetchSkills()
-  }, [])
+  }, [gatewayBase])
 
   // Fetch skill markdown content when expanded
   useEffect(() => {
@@ -57,7 +59,7 @@ export default function Skills() {
 
     async function fetchContent() {
       try {
-        const res = await fetch(`http://${window.location.hostname}:5056/skills/${encodeURIComponent(expandedSkill)}/content`)
+        const res = await fetch(`${gatewayBase}/skills/${encodeURIComponent(expandedSkill)}/content`)
         if (res.ok) {
           const data = await res.json()
           setSkillContent(prev => ({ ...prev, [expandedSkill]: data.content }))
@@ -67,7 +69,7 @@ export default function Skills() {
       }
     }
     fetchContent()
-  }, [expandedSkill])
+  }, [expandedSkill, gatewayBase])
 
   return (
     <div className="min-h-screen bg-slate-950">

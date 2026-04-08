@@ -1,72 +1,117 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-
-const WS_URL = (() => {
-  const host = window.location.hostname
-  const port = host === 'localhost' ? '5056' : '5056'
-  return `ws://${host}:${port}/ws`
-})()
+import { useAgentContext } from '../context/AgentContext'
 
 export function useWebSocket() {
+  const { selectedAgent } = useAgentContext()
   const [connected, setConnected] = useState(false)
   const [state, setState] = useState(null)
   const ws = useRef(null)
+  const pollTimer = useRef(null)
+
+  const gatewayBase = selectedAgent?.url
+  const isLocal = selectedAgent?.id === 'local'
+
+  const fetchState = useCallback(async () => {
+    if (!gatewayBase) return
+    try {
+      const res = await fetch(`${gatewayBase}/state`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      setState(data)
+      setConnected(true)
+    } catch (error) {
+      console.error('State fetch failed:', error)
+      setConnected(false)
+    }
+  }, [gatewayBase])
 
   const send = useCallback((data) => {
-    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+    if (isLocal && ws.current && ws.current.readyState === WebSocket.OPEN) {
       ws.current.send(JSON.stringify(data))
     }
-  }, [])
+  }, [isLocal])
 
   const refresh = useCallback(() => {
-    send({ type: 'refresh' })
-  }, [send])
+    if (isLocal) {
+      send({ type: 'refresh' })
+      return
+    }
+    fetchState()
+  }, [isLocal, send, fetchState])
 
   useEffect(() => {
-    const connect = () => {
-      ws.current = new WebSocket(WS_URL)
+    if (!gatewayBase) return
 
-      ws.current.onopen = () => {
-        setConnected(true)
-        console.log('Mission Control: Connected')
-      }
+    let cancelled = false
 
-      ws.current.onmessage = (event) => {
-        const message = JSON.parse(event.data)
-        console.log("WS msg:", message.type, message.data)
-        if (message.type === 'state_full' || message.type === 'state_update' || message.type === 'hermes_sync') {
-          setState(message.data)
+    if (ws.current) {
+      ws.current.close()
+      ws.current = null
+    }
+
+    if (pollTimer.current) {
+      clearInterval(pollTimer.current)
+      pollTimer.current = null
+    }
+
+    if (isLocal) {
+      const wsUrl = gatewayBase.replace(/^http/, 'ws') + '/ws'
+
+      const connect = () => {
+        if (cancelled) return
+        ws.current = new WebSocket(wsUrl)
+
+        ws.current.onopen = () => {
+          if (cancelled) return
+          setConnected(true)
+          console.log('Mission Control: Connected to local websocket')
+        }
+
+        ws.current.onmessage = (event) => {
+          if (cancelled) return
+          const message = JSON.parse(event.data)
+          if (message.type === 'state_full' || message.type === 'state_update' || message.type === 'hermes_sync') {
+            setState(message.data)
+          }
+        }
+
+        ws.current.onclose = () => {
+          if (cancelled) return
+          setConnected(false)
+          setTimeout(connect, 3000)
+        }
+
+        ws.current.onerror = () => {
+          if (cancelled) return
+          setConnected(false)
+          ws.current?.close()
         }
       }
 
-      ws.current.onclose = () => {
-        setConnected(false)
-        console.log('Mission Control: Disconnected, retrying in 3s...')
-        setTimeout(connect, 3000)
-      }
+      connect()
 
-      ws.current.onerror = (err) => {
-        console.error('WebSocket error:', err)
-        ws.current.close()
+      return () => {
+        cancelled = true
+        if (ws.current) ws.current.close()
       }
     }
 
-    connect()
+    fetchState()
+    pollTimer.current = setInterval(fetchState, 15000)
 
     return () => {
-      if (ws.current) {
-        ws.current.close()
-      }
+      cancelled = true
+      if (pollTimer.current) clearInterval(pollTimer.current)
     }
-  }, [])
+  }, [gatewayBase, isLocal, fetchState])
 
-  // Keepalive ping
   useEffect(() => {
-    if (!connected) return
+    if (!isLocal || !connected) return
     const interval = setInterval(() => {
       send({ type: 'ping' })
     }, 30000)
     return () => clearInterval(interval)
-  }, [connected, send])
+  }, [isLocal, connected, send])
 
-  return { connected, state, send, refresh }
+  return { connected, state, send, refresh, gatewayBase, selectedAgent }
 }

@@ -28,6 +28,12 @@ export function Nav() {
       <Link to="/skills" className={navClasses(location.pathname === '/skills')}>
         Skills
       </Link>
+      <Link to="/settings" className={navClasses(location.pathname === '/settings')}>
+        Settings
+      </Link>
+      <Link to="/agent-guide" className={navClasses(location.pathname === '/agent-guide')}>
+        Guide
+      </Link>
     </nav>
   )
 }
