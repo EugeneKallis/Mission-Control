@@ -15,6 +15,12 @@ class TodoUpdateInput(BaseModel):
     content: Optional[str] = None
 
 
+class TodoCreateInput(BaseModel):
+    content: str
+    assigned_agent: Optional[str] = None
+    status: TaskStatus = TaskStatus.PENDING
+
+
 @router.get("/", response_model=List[TodoItem])
 async def get_todos():
     """Get all current todos."""
@@ -27,6 +33,22 @@ async def sync_todos(todos: List[TodoItem]):
     state.set_todos(todos)
     await manager.broadcast_state_change("state_update", state.get_full_state())
     return {"status": "ok", "count": len(todos)}
+
+
+@router.post("/", response_model=TodoItem)
+async def create_todo(payload: TodoCreateInput):
+    """Create a new task for the Kanban board."""
+    content = (payload.content or '').strip()
+    if not content:
+        raise HTTPException(status_code=400, detail='content is required')
+
+    todo = state.create_todo(
+        content,
+        status=payload.status,
+        assigned_agent=payload.assigned_agent,
+    )
+    await manager.broadcast_state_change("state_update", state.get_full_state())
+    return todo
 
 
 @router.patch("/{todo_id}", response_model=TodoItem)

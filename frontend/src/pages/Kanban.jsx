@@ -1,7 +1,10 @@
 import React from 'react'
+import { useLocation } from 'react-router-dom'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { Nav } from '../components/Nav'
 import { Header } from '../components/Header'
+
+const API_BASE = `http://${window.location.hostname}:5056`
 
 const COLUMNS = [
   { id: 'pending', label: 'To Do', color: 'text-amber-400' },
@@ -16,25 +19,45 @@ const STATUS_LABEL = {
   cancelled: 'Cancelled',
 }
 
-function Card({ todo, agents, onAssign, onMove, onDragStart }) {
+function AgentBadge({ agent }) {
+  const assigned = Boolean(agent)
+  return (
+    <span
+      className={`px-2 py-0.5 rounded text-[10px] font-semibold tracking-wide uppercase border ${
+        assigned
+          ? 'bg-violet-500/20 text-violet-300 border-violet-500/40'
+          : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+      }`}
+    >
+      {assigned ? `Agent: ${agent}` : 'Agent: Unassigned'}
+    </span>
+  )
+}
+
+function Card({ todo, agents, onAssign, onMove, onDragStart, lockAgent }) {
   return (
     <div
       draggable
       onDragStart={(e) => onDragStart(e, todo.id)}
       className="bg-slate-800 border border-slate-700 rounded p-3 mb-2 cursor-grab active:cursor-grabbing"
     >
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <AgentBadge agent={todo.assigned_agent} />
+        <span className="text-[10px] text-slate-500">{new Date(todo.created_at).toLocaleDateString()}</span>
+      </div>
+
       <div className="text-sm text-slate-100 mb-2">{todo.content}</div>
 
       <div className="flex items-center justify-between gap-2 mb-2">
         <span className="text-[10px] uppercase tracking-wide text-slate-500">{STATUS_LABEL[todo.status] || todo.status}</span>
-        <span className="text-[10px] text-slate-500">{new Date(todo.created_at).toLocaleDateString()}</span>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
         <select
           value={todo.assigned_agent || ''}
           onChange={(e) => onAssign(todo.id, e.target.value)}
-          className="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded px-2 py-1"
+          disabled={Boolean(lockAgent)}
+          className="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded px-2 py-1 disabled:opacity-50"
         >
           <option value="">Unassigned</option>
           {agents.map((agent) => (
@@ -57,21 +80,51 @@ function Card({ todo, agents, onAssign, onMove, onDragStart }) {
 }
 
 export default function Kanban() {
-  const { connected, state, refresh, gatewayBase } = useWebSocket()
+  const { connected, state: wsState } = useWebSocket()
+  const location = useLocation()
+
   const [now, setNow] = React.useState(new Date())
   const [draggedId, setDraggedId] = React.useState(null)
   const [agents, setAgents] = React.useState([])
   const [savingId, setSavingId] = React.useState(null)
+  const [board, setBoard] = React.useState({ todos: [], updated_at: null })
+
+  const params = new URLSearchParams(location.search)
+  const lockAgent = (params.get('agent') || '').trim()
+
+  const [newContent, setNewContent] = React.useState('')
+  const [newAgent, setNewAgent] = React.useState(lockAgent)
+  const [newStatus, setNewStatus] = React.useState('pending')
 
   React.useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
 
+  const loadBoard = React.useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/state`)
+      if (!res.ok) throw new Error(`state ${res.status}`)
+      const data = await res.json()
+      setBoard({
+        todos: Array.isArray(data?.todos) ? data.todos : [],
+        updated_at: data?.updated_at || null,
+      })
+    } catch (error) {
+      console.error('Failed to load board:', error)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    loadBoard()
+    const t = setInterval(loadBoard, 12000)
+    return () => clearInterval(t)
+  }, [loadBoard])
+
   React.useEffect(() => {
     async function loadAgents() {
       try {
-        const res = await fetch(`${gatewayBase}/todos/agents`)
+        const res = await fetch(`${API_BASE}/todos/agents`)
         const data = await res.json()
         if (Array.isArray(data?.agents)) {
           setAgents(data.agents)
@@ -82,18 +135,26 @@ export default function Kanban() {
     }
 
     loadAgents()
-  }, [gatewayBase])
+  }, [])
 
-  const todos = state?.todos || []
+  React.useEffect(() => {
+    if (lockAgent) setNewAgent(lockAgent)
+  }, [lockAgent])
+
+  const todos = board.todos || []
+  const filteredTodos = lockAgent
+    ? todos.filter((t) => (t.assigned_agent || '').toLowerCase() === lockAgent.toLowerCase())
+    : todos
+
   const dedupedAgents = Array.from(new Set([
     ...agents,
     ...todos.map((t) => t.assigned_agent).filter(Boolean),
   ]))
 
   const byStatus = {
-    pending: todos.filter((t) => t.status === 'pending'),
-    in_progress: todos.filter((t) => t.status === 'in_progress'),
-    completed: todos.filter((t) => t.status === 'completed' || t.status === 'cancelled'),
+    pending: filteredTodos.filter((t) => t.status === 'pending'),
+    in_progress: filteredTodos.filter((t) => t.status === 'in_progress'),
+    completed: filteredTodos.filter((t) => t.status === 'completed' || t.status === 'cancelled'),
   }
 
   const counts = {
@@ -105,7 +166,7 @@ export default function Kanban() {
   async function patchTodo(todoId, payload) {
     setSavingId(todoId)
     try {
-      const res = await fetch(`${gatewayBase}/todos/${todoId}`, {
+      const res = await fetch(`${API_BASE}/todos/${todoId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -116,9 +177,41 @@ export default function Kanban() {
         throw new Error(text || `Failed with ${res.status}`)
       }
 
-      refresh()
+      await loadBoard()
     } catch (error) {
       console.error('Failed to update todo:', error)
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  async function createTodo(e) {
+    e.preventDefault()
+    if (!newContent.trim()) return
+
+    setSavingId('new')
+    try {
+      const payload = {
+        content: newContent.trim(),
+        assigned_agent: (lockAgent || newAgent || '').trim() || null,
+        status: newStatus,
+      }
+      const res = await fetch(`${API_BASE}/todos/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const text = await res.text()
+        throw new Error(text || `Failed with ${res.status}`)
+      }
+
+      setNewContent('')
+      if (!lockAgent) setNewAgent('')
+      setNewStatus('pending')
+      await loadBoard()
+    } catch (error) {
+      console.error('Failed to create todo:', error)
     } finally {
       setSavingId(null)
     }
@@ -136,19 +229,64 @@ export default function Kanban() {
 
   return (
     <div className="min-h-screen bg-slate-950">
-      <Header connected={connected} lastUpdate={state?.updated_at} now={now} />
+      <Header connected={connected} lastUpdate={board.updated_at || wsState?.updated_at} now={now} />
 
       <main className="max-w-7xl mx-auto px-4 py-6">
         <div className="mb-6">
           <Nav />
         </div>
 
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-white">Kanban Board</h1>
           <div className="text-xs text-slate-500">
-            {savingId ? `Saving ${savingId}...` : 'Drag cards or use dropdowns'}
+            {savingId ? `Saving ${savingId}...` : 'Always move card to In Progress before starting work'}
           </div>
         </div>
+
+        {lockAgent && (
+          <div className="mb-4 rounded border border-violet-500/40 bg-violet-500/10 px-3 py-2 text-sm text-violet-200">
+            Agent mode: showing only tasks assigned to <span className="font-semibold">{lockAgent}</span>
+          </div>
+        )}
+
+        <form onSubmit={createTodo} className="bg-slate-900/50 border border-slate-800 rounded-lg p-3 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+            <input
+              value={newContent}
+              onChange={(e) => setNewContent(e.target.value)}
+              placeholder="Add a new task..."
+              className="md:col-span-2 bg-slate-900 border border-slate-700 text-slate-100 text-sm rounded px-3 py-2"
+            />
+            <select
+              value={lockAgent || newAgent}
+              onChange={(e) => setNewAgent(e.target.value)}
+              disabled={Boolean(lockAgent)}
+              className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded px-2 py-2 disabled:opacity-50"
+            >
+              <option value="">Unassigned</option>
+              {dedupedAgents.map((agent) => (
+                <option key={agent} value={agent}>{agent}</option>
+              ))}
+            </select>
+            <select
+              value={newStatus}
+              onChange={(e) => setNewStatus(e.target.value)}
+              className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded px-2 py-2"
+            >
+              {COLUMNS.map((column) => (
+                <option key={column.id} value={column.id}>{column.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="mt-2">
+            <button
+              type="submit"
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm font-medium"
+            >
+              Add Task
+            </button>
+          </div>
+        </form>
 
         <div className="grid grid-cols-3 gap-3 mb-6">
           <div className="bg-slate-900/50 border border-slate-800 rounded p-3 text-center">
@@ -180,7 +318,7 @@ export default function Kanban() {
 
               {byStatus[column.id].length === 0 ? (
                 <div className="text-xs text-slate-600 border border-dashed border-slate-700 rounded p-3 text-center">
-                  Nothing here. Beautiful chaos.
+                  No tasks in this column.
                 </div>
               ) : (
                 byStatus[column.id].map((todo) => (
@@ -191,6 +329,7 @@ export default function Kanban() {
                     onAssign={handleAssign}
                     onMove={handleMove}
                     onDragStart={(_, id) => setDraggedId(id)}
+                    lockAgent={lockAgent}
                   />
                 ))
               )}

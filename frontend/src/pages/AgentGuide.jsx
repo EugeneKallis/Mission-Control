@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { Nav } from '../components/Nav'
 import { Header } from '../components/Header'
@@ -7,12 +8,21 @@ import { useAgentContext } from '../context/AgentContext'
 export default function AgentGuide() {
   const { connected, state } = useWebSocket()
   const { selectedAgent, agents } = useAgentContext()
+  const location = useLocation()
   const [now, setNow] = useState(new Date())
+
+  const params = new URLSearchParams(location.search)
+  const targetAgent = (params.get('agent') || '').trim()
+  const origin = window.location.origin
 
   React.useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(t)
   }, [])
+
+  const directBoardLink = targetAgent
+    ? `${origin}/kanban?agent=${encodeURIComponent(targetAgent)}`
+    : `${origin}/kanban`
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -26,45 +36,56 @@ export default function AgentGuide() {
         <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-6 space-y-5">
           <h1 className="text-2xl font-bold text-white">Agent Quickstart</h1>
           <p className="text-slate-400 text-sm">
-            Share this page with any Hermes agent/profile. It explains how to use Mission Control without guesswork.
+            Share this with any Hermes agent so they instantly know the board workflow.
           </p>
 
           <div>
-            <div className="text-slate-200 font-semibold mb-2">Current selected agent</div>
+            <div className="text-slate-200 font-semibold mb-2">Current selected gateway</div>
             <div className="text-sm text-blue-300">{selectedAgent?.name}</div>
             <div className="text-xs text-slate-500 font-mono">{selectedAgent?.url}</div>
           </div>
 
+          {targetAgent ? (
+            <div className="rounded border border-violet-500/40 bg-violet-500/10 p-3">
+              <div className="text-sm text-violet-200">
+                This guide is scoped to agent <span className="font-semibold">{targetAgent}</span>.
+                The board link below only shows tasks assigned to this agent.
+              </div>
+              <div className="mt-2 text-xs text-slate-300 font-mono break-all">{directBoardLink}</div>
+            </div>
+          ) : (
+            <div className="rounded border border-slate-700 bg-slate-800/40 p-3 text-sm text-slate-300">
+              Add <span className="font-mono">?agent=agent-name</span> to this page URL to generate a dedicated per-agent guide and board link.
+            </div>
+          )}
+
           <div>
-            <div className="text-slate-200 font-semibold mb-2">How to use</div>
+            <div className="text-slate-200 font-semibold mb-2">Required workflow for agents</div>
             <ol className="list-decimal list-inside text-sm text-slate-300 space-y-1">
-              <li>Open Settings and add each agent with its gateway URL.</li>
-              <li>Use the agent selector in the top header to switch context.</li>
-              <li>Overview, Tasks, Kanban, Crons, and Skills now read from that selected gateway.</li>
-              <li>If data looks stale, hit Refresh on the page.</li>
+              <li>Open your dedicated Kanban link.</li>
+              <li>Only work tasks assigned to your agent name.</li>
+              <li>Before starting any task, move it to <span className="font-semibold">In Progress</span>.</li>
+              <li>Update the card at each major step so status is always current.</li>
+              <li>When done, move to <span className="font-semibold">Done</span> and add final notes in task content if needed.</li>
             </ol>
           </div>
 
           <div>
-            <div className="text-slate-200 font-semibold mb-2">Gateway API expected</div>
-            <ul className="text-sm text-slate-300 space-y-1">
-              <li><span className="font-mono text-slate-400">GET /state</span> - full dashboard state</li>
-              <li><span className="font-mono text-slate-400">GET /skills</span> - list skills</li>
-              <li><span className="font-mono text-slate-400">GET /skills/:name/content</span> - skill markdown</li>
-              <li><span className="font-mono text-slate-400">PATCH /todos/:id</span> - update status / assignment</li>
-              <li><span className="font-mono text-slate-400">GET /todos/agents</span> - available profile names</li>
-            </ul>
-          </div>
-
-          <div>
-            <div className="text-slate-200 font-semibold mb-2">Configured agents ({agents.length})</div>
+            <div className="text-slate-200 font-semibold mb-2">Agent-specific links</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {agents.map((a) => (
-                <div key={a.id} className="bg-slate-800/50 border border-slate-700 rounded p-2">
-                  <div className="text-sm text-slate-200">{a.name}</div>
-                  <div className="text-xs text-slate-500 font-mono break-all">{a.url}</div>
-                </div>
-              ))}
+              {agents.map((a) => {
+                const g = `${origin}/agent-guide?agent=${encodeURIComponent(a.name)}`
+                const b = `${origin}/kanban?agent=${encodeURIComponent(a.name)}`
+                return (
+                  <div key={a.id} className="bg-slate-800/50 border border-slate-700 rounded p-3">
+                    <div className="text-sm text-slate-100 font-medium mb-1">{a.name}</div>
+                    <div className="text-[11px] text-slate-400 mb-1">Guide:</div>
+                    <div className="text-xs text-blue-300 font-mono break-all mb-2">{g}</div>
+                    <div className="text-[11px] text-slate-400 mb-1">Board:</div>
+                    <div className="text-xs text-violet-300 font-mono break-all">{b}</div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         </div>

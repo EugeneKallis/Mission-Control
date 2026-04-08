@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { Nav } from '../components/Nav'
 import { Header } from '../components/Header'
-import { TodoWidget } from '../components/TodoWidget'
 import { CronWidget } from '../components/CronWidget'
 import { ProcessWidget } from '../components/ProcessWidget'
 import { SystemStatsWidget } from '../components/SystemStatsWidget'
@@ -39,7 +38,6 @@ export default function Dashboard() {
   }, [])
 
   const s = state
-  const todos = s?.todos || []
   const cronJobs = s?.cron_jobs || []
   const processes = s?.active_processes || []
   const jobStats = s?.job_search_today
@@ -47,9 +45,6 @@ export default function Dashboard() {
   const activity = s?.recent_activity || []
 
   const activeCronCount = cronJobs.filter(j => j.enabled).length
-  const pendingTodos = todos.filter(t => t.status === 'pending').length
-  const inProgressTodos = todos.filter(t => t.status === 'in_progress').length
-  const doneTodos = todos.filter(t => t.status === 'completed').length
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -64,24 +59,13 @@ export default function Dashboard() {
         {/* ── Top stats bar ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <StatCard label="Active Crons" value={activeCronCount} color="text-amber-400" sublabel={`${cronJobs.length} total`} />
-          <StatCard label="Pending Tasks" value={pendingTodos} color="text-yellow-400" sublabel={`${inProgressTodos} in progress`} />
           <StatCard label="Processes" value={processes.length} color="text-emerald-400" />
           <StatCard label="Jobs Submitted" value={jobStats?.roles_submitted || 0} color="text-purple-400" sublabel="today" />
-        </div>
-
-        {/* ── Task summary (To Do / In Progress / Done) ── */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          <StatCard label="To Do" value={pendingTodos} color="text-amber-400" />
-          <StatCard label="In Progress" value={inProgressTodos} color="text-blue-400" />
-          <StatCard label="Done" value={doneTodos} color="text-emerald-400" />
+          <StatCard label="Board" value="Kanban" color="text-blue-400" sublabel="Task assignment" />
         </div>
 
         {/* ── Quick nav cards ── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <Link to="/tasks" className="p-4 rounded bg-slate-800/50 hover:bg-slate-800 transition-colors text-center">
-            <div className="text-lg font-bold text-yellow-400">{todos.length}</div>
-            <div className="text-xs text-slate-500">Tasks</div>
-          </Link>
+        <div className="grid grid-cols-3 gap-4 mb-6">
           <Link to="/kanban" className="p-4 rounded bg-slate-800/50 hover:bg-slate-800 transition-colors text-center">
             <div className="text-lg font-bold text-blue-400">Board</div>
             <div className="text-xs text-slate-500">Kanban</div>
@@ -97,8 +81,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── Main grid ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-          <TodoWidget todos={todos} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <CronWidget jobs={cronJobs} />
           <ProcessWidget processes={processes} />
         </div>

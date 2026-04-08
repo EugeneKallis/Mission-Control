@@ -141,6 +141,21 @@ class DashboardState:
     def get_todos(self) -> List[TodoItem]:
         return self.todos
 
+    def create_todo(self, content: str, *, status: TaskStatus = TaskStatus.PENDING, assigned_agent: Optional[str] = None) -> TodoItem:
+        import uuid
+
+        todo = TodoItem(
+            id=uuid.uuid4().hex[:12],
+            content=content.strip(),
+            status=status,
+            created_at=datetime.now(),
+            completed_at=datetime.now() if status == TaskStatus.COMPLETED else None,
+            assigned_agent=(assigned_agent or '').strip() or None,
+        )
+        self.todos.append(todo)
+        self._notify()
+        return todo
+
     def update_todo(self, todo_id: str, *, status: Optional[TaskStatus] = None, assigned_agent: Optional[str] = None, content: Optional[str] = None) -> Optional[TodoItem]:
         for todo in self.todos:
             if todo.id != todo_id:

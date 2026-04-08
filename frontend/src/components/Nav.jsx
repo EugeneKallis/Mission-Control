@@ -16,9 +16,6 @@ export function Nav() {
       <Link to="/" className={navClasses(location.pathname === '/')}>
         Overview
       </Link>
-      <Link to="/tasks" className={navClasses(location.pathname === '/tasks')}>
-        Tasks
-      </Link>
       <Link to="/kanban" className={navClasses(location.pathname === '/kanban')}>
         Kanban
       </Link>
