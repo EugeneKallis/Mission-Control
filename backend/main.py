@@ -62,12 +62,14 @@ async def health_api_alias():
 @app.get("/state")
 async def get_full_state():
     """Get complete dashboard state."""
+    await state.refresh_todos_from_storage()
     return state.get_full_state()
 
 
 @app.get("/api/state")
 async def get_full_state_api_alias():
     """Get complete dashboard state (api alias)."""
+    await state.refresh_todos_from_storage()
     return state.get_full_state()
 
 
@@ -186,6 +188,8 @@ async def poll_loop():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Initialize DB-backed state first
+    await state.initialize_storage()
     # Load full cron jobs from Hermes's jobs.json on startup
     state.load_crons_from_hermes()
     # Start background poll loop

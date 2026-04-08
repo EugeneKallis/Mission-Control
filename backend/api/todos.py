@@ -24,6 +24,7 @@ class TodoCreateInput(BaseModel):
 @router.get("/", response_model=List[TodoItem])
 async def get_todos():
     """Get all current todos."""
+    await state.refresh_todos_from_storage()
     return state.get_todos()
 
 
@@ -54,6 +55,7 @@ async def create_todo(payload: TodoCreateInput):
 @router.patch("/{todo_id}", response_model=TodoItem)
 async def update_todo(todo_id: str, payload: TodoUpdateInput):
     """Update a single task (status, assignment, or content)."""
+    await state.refresh_todos_from_storage()
     updated = state.update_todo(
         todo_id,
         status=payload.status,
