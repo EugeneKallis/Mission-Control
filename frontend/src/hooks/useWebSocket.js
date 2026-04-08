@@ -118,6 +118,7 @@ export function useWebSocket(options = {}) {
       setConnected(false)
       setState(null)
       setConnection(summarizeConnections([], 0))
+      if (!silent) setLoading(false)
       return
     }
 
