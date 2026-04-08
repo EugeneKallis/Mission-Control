@@ -210,6 +210,13 @@ class DashboardState:
             self.selected_agent_id = None
             return
 
+        if isinstance(payload, str):
+            try:
+                payload = json.loads(payload)
+            except Exception:
+                print("Mission Control DB: invalid app_settings JSON payload for agent_settings")
+                payload = {}
+
         agents = payload.get("agents") if isinstance(payload, dict) else []
         selected = payload.get("selected_agent_id") if isinstance(payload, dict) else None
 
