@@ -17,21 +17,9 @@ function makeId(name) {
     .replace(/^-+|-+$/g, '') || `agent-${Date.now()}`
 }
 
-function getLocalAgent() {
-  const host = window.location.hostname
-  const isLocalDev = window.location.port === '5173' || host === 'localhost' || host === '127.0.0.1'
-
-  return {
-    id: 'local',
-    name: 'local',
-    url: isLocalDev ? `http://${host}:5056` : `${window.location.origin}/api`,
-    readonly: true,
-  }
-}
-
 export function AgentProvider({ children }) {
   const [customAgents, setCustomAgents] = useState([])
-  const [selectedAgentId, setSelectedAgentId] = useState('local')
+  const [selectedAgentId, setSelectedAgentId] = useState('')
 
   useEffect(() => {
     try {
@@ -41,21 +29,27 @@ export function AgentProvider({ children }) {
       if (rawAgents) {
         const parsed = JSON.parse(rawAgents)
         if (Array.isArray(parsed)) {
-          setCustomAgents(
-            parsed
-              .filter((a) => a && a.name && a.url)
-              .map((a) => ({
-                id: a.id || makeId(a.name),
-                name: a.name,
-                url: normalizeUrl(a.url),
-              })),
-          )
+          const normalized = parsed
+            .filter((a) => a && a.name && a.url)
+            .map((a) => ({
+              id: a.id || makeId(a.name),
+              name: a.name,
+              url: normalizeUrl(a.url),
+            }))
+            .filter((a) => a.id !== 'local')
+
+          setCustomAgents(normalized)
+
+          if (rawSelected && normalized.some((a) => a.id === rawSelected)) {
+            setSelectedAgentId(rawSelected)
+          } else {
+            setSelectedAgentId(normalized[0]?.id || '')
+          }
+          return
         }
       }
 
-      if (rawSelected) {
-        setSelectedAgentId(rawSelected)
-      }
+      setSelectedAgentId('')
     } catch (error) {
       console.error('Failed to load agent settings:', error)
     }
@@ -66,32 +60,35 @@ export function AgentProvider({ children }) {
   }, [customAgents])
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_SELECTED, selectedAgentId)
+    if (selectedAgentId) {
+      localStorage.setItem(STORAGE_SELECTED, selectedAgentId)
+    } else {
+      localStorage.removeItem(STORAGE_SELECTED)
+    }
   }, [selectedAgentId])
 
   const agents = useMemo(() => {
-    const local = getLocalAgent()
-    const deduped = [local]
-
-    for (const agent of customAgents) {
-      if (!agent?.name || !agent?.url) continue
-      if (agent.id === 'local') continue
-      deduped.push({
+    return customAgents
+      .filter((agent) => agent?.name && agent?.url)
+      .map((agent) => ({
         id: agent.id || makeId(agent.name),
         name: agent.name,
         url: normalizeUrl(agent.url),
-      })
-    }
-
-    return deduped
+      }))
   }, [customAgents])
 
   const selectedAgent = useMemo(() => {
-    return agents.find((a) => a.id === selectedAgentId) || agents[0] || getLocalAgent()
+    return agents.find((a) => a.id === selectedAgentId) || agents[0] || null
   }, [agents, selectedAgentId])
 
+  useEffect(() => {
+    if (!selectedAgent && agents.length > 0) {
+      setSelectedAgentId(agents[0].id)
+    }
+  }, [agents, selectedAgent])
+
   function upsertAgent(agent) {
-    const id = agent.id && agent.id !== 'local' ? agent.id : makeId(agent.name)
+    const id = agent.id ? agent.id : makeId(agent.name)
     const normalized = {
       id,
       name: agent.name?.trim() || id,
@@ -107,14 +104,21 @@ export function AgentProvider({ children }) {
       }
       return [...prev, normalized]
     })
+
+    if (!selectedAgentId) {
+      setSelectedAgentId(id)
+    }
   }
 
   function removeAgent(id) {
-    if (!id || id === 'local') return
-    setCustomAgents((prev) => prev.filter((a) => a.id !== id))
-    if (selectedAgentId === id) {
-      setSelectedAgentId('local')
-    }
+    if (!id) return
+    setCustomAgents((prev) => {
+      const next = prev.filter((a) => a.id !== id)
+      if (selectedAgentId === id) {
+        setSelectedAgentId(next[0]?.id || '')
+      }
+      return next
+    })
   }
 
   const value = {

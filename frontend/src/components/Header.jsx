@@ -53,13 +53,18 @@ export function Header({ connected, lastUpdate, now }) {
               className="w-36 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200"
             />
             <select
-              value={selectedAgentId}
+              value={selectedAgentId || ''}
               onChange={(e) => setSelectedAgentId(e.target.value)}
-              className="flex-1 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200"
+              disabled={agents.length === 0}
+              className="flex-1 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 disabled:opacity-60"
             >
-              {filtered.map((agent) => (
-                <option key={agent.id} value={agent.id}>{agent.name}</option>
-              ))}
+              {agents.length === 0 ? (
+                <option value="">No agents configured</option>
+              ) : (
+                filtered.map((agent) => (
+                  <option key={agent.id} value={agent.id}>{agent.name}</option>
+                ))
+              )}
             </select>
           </div>
         </div>

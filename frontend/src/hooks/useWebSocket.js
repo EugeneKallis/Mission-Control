@@ -15,7 +15,11 @@ export function useWebSocket() {
   const localOverIngress = isLocal && String(gatewayBase || '').endsWith('/api')
 
   const fetchState = useCallback(async () => {
-    if (!gatewayBase) return
+    if (!gatewayBase) {
+      setConnected(false)
+      setState(null)
+      return
+    }
 
     try {
       const url = isLocal
