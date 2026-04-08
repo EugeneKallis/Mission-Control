@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional, Any
 from datetime import datetime
-from models.schemas import TodoItem, CronJob, ProcessInfo, JobSearchStats, SystemStats, ActivityEvent
+from models.schemas import TodoItem, TaskStatus, CronJob, ProcessInfo, JobSearchStats, SystemStats, ActivityEvent
 import json
 import os
 import asyncio
@@ -125,11 +125,44 @@ class DashboardState:
     # ── Todos ─────────────────────────────────────────────────────────────────
     
     def set_todos(self, todos: List[TodoItem]):
-        self.todos = todos
+        # Preserve local task metadata (like assigned_agent) across Hermes syncs.
+        existing_by_id = {t.id: t for t in self.todos}
+        merged: List[TodoItem] = []
+
+        for todo in todos:
+            current = existing_by_id.get(todo.id)
+            if current and not todo.assigned_agent:
+                todo.assigned_agent = current.assigned_agent
+            merged.append(todo)
+
+        self.todos = merged
         self._notify()
     
     def get_todos(self) -> List[TodoItem]:
         return self.todos
+
+    def update_todo(self, todo_id: str, *, status: Optional[TaskStatus] = None, assigned_agent: Optional[str] = None, content: Optional[str] = None) -> Optional[TodoItem]:
+        for todo in self.todos:
+            if todo.id != todo_id:
+                continue
+
+            if status is not None:
+                todo.status = status
+                if status == "completed":
+                    todo.completed_at = datetime.now()
+                elif status != "completed":
+                    todo.completed_at = None
+
+            if assigned_agent is not None:
+                todo.assigned_agent = assigned_agent.strip() or None
+
+            if content is not None:
+                todo.content = content
+
+            self._notify()
+            return todo
+
+        return None
     
     # ── Cron Jobs ─────────────────────────────────────────────────────────────
     

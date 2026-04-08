@@ -3,6 +3,7 @@ import Dashboard from './pages/Dashboard'
 import Tasks from './pages/Tasks'
 import Crons from './pages/Crons'
 import Skills from './pages/Skills'
+import Kanban from './pages/Kanban'
 
 function App() {
   return (
@@ -10,6 +11,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/tasks" element={<Tasks />} />
+        <Route path="/kanban" element={<Kanban />} />
         <Route path="/crons" element={<Crons />} />
         <Route path="/skills" element={<Skills />} />
       </Routes>

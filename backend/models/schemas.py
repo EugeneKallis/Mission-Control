@@ -17,6 +17,7 @@ class TodoItem(BaseModel):
     status: TaskStatus
     created_at: datetime
     completed_at: Optional[datetime] = None
+    assigned_agent: Optional[str] = None
 
 
 class CronJob(BaseModel):

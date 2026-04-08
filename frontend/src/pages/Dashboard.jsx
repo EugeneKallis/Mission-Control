@@ -49,6 +49,7 @@ export default function Dashboard() {
   const activeCronCount = cronJobs.filter(j => j.enabled).length
   const pendingTodos = todos.filter(t => t.status === 'pending').length
   const inProgressTodos = todos.filter(t => t.status === 'in_progress').length
+  const doneTodos = todos.filter(t => t.status === 'completed').length
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -68,11 +69,22 @@ export default function Dashboard() {
           <StatCard label="Jobs Submitted" value={jobStats?.roles_submitted || 0} color="text-purple-400" sublabel="today" />
         </div>
 
+        {/* ── Task summary (To Do / In Progress / Done) ── */}
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          <StatCard label="To Do" value={pendingTodos} color="text-amber-400" />
+          <StatCard label="In Progress" value={inProgressTodos} color="text-blue-400" />
+          <StatCard label="Done" value={doneTodos} color="text-emerald-400" />
+        </div>
+
         {/* ── Quick nav cards ── */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <Link to="/tasks" className="p-4 rounded bg-slate-800/50 hover:bg-slate-800 transition-colors text-center">
             <div className="text-lg font-bold text-yellow-400">{todos.length}</div>
             <div className="text-xs text-slate-500">Tasks</div>
+          </Link>
+          <Link to="/kanban" className="p-4 rounded bg-slate-800/50 hover:bg-slate-800 transition-colors text-center">
+            <div className="text-lg font-bold text-blue-400">Board</div>
+            <div className="text-xs text-slate-500">Kanban</div>
           </Link>
           <Link to="/crons" className="p-4 rounded bg-slate-800/50 hover:bg-slate-800 transition-colors text-center">
             <div className="text-lg font-bold text-amber-400">{cronJobs.length}</div>

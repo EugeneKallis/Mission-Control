@@ -19,6 +19,9 @@ export function Nav() {
       <Link to="/tasks" className={navClasses(location.pathname === '/tasks')}>
         Tasks
       </Link>
+      <Link to="/kanban" className={navClasses(location.pathname === '/kanban')}>
+        Kanban
+      </Link>
       <Link to="/crons" className={navClasses(location.pathname === '/crons')}>
         Crons
       </Link>
