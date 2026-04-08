@@ -91,7 +91,8 @@ export function AgentProvider({ children }) {
   }, [agents, selectedAgentId])
 
   async function upsertAgent(agent) {
-    const id = agent.id ? agent.id : makeId(agent.name)
+    const isEdit = Boolean(agent.id)
+    const id = isEdit ? agent.id : `${makeId(agent.name)}-${Date.now().toString(36)}`
     const normalized = {
       id,
       name: agent.name?.trim() || id,
