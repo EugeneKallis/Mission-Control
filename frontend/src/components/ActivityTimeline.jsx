@@ -1,4 +1,5 @@
 import React from 'react'
+import { AgentTag } from './AgentTag'
 
 function EventIcon({ type }) {
   const icons = {
@@ -86,9 +87,10 @@ export function ActivityTimeline({ events }) {
 
               {/* Content */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className={`w-1.5 h-1.5 rounded-full ${statusDot(event.status)}`} />
                   <span className="text-sm font-medium text-slate-200 truncate">{event.title}</span>
+                  <AgentTag name={event._agent_name} />
                 </div>
                 {event.detail && (
                   <p className="text-xs text-slate-500 mt-0.5 truncate">{event.detail}</p>

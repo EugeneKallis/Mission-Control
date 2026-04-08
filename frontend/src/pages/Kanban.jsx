@@ -82,8 +82,12 @@ function Card({ todo, agents, onAssign, onMove, onDragStart }) {
 }
 
 export default function Kanban() {
-  const { agents: configuredAgents } = useAgentContext()
-  const { connected, loading: wsLoading, state: wsState } = useWebSocket({ agentScope: 'all' })
+  const {
+    agents: configuredAgents,
+    selectedScopeId: agentScope,
+    setSelectedScopeId: setAgentScope,
+  } = useAgentContext()
+  const { connected, connection, loading: wsLoading, state: wsState } = useWebSocket({ agentScope })
 
   const [now, setNow] = React.useState(new Date())
   const [draggedId, setDraggedId] = React.useState(null)
@@ -91,7 +95,6 @@ export default function Kanban() {
   const [savingId, setSavingId] = React.useState(null)
   const [boardLoading, setBoardLoading] = React.useState(false)
   const [board, setBoard] = React.useState({ todos: [], updated_at: null })
-  const [agentScope, setAgentScope] = React.useState('all')
 
   const [newContent, setNewContent] = React.useState('')
   const [newAgent, setNewAgent] = React.useState('')
@@ -251,7 +254,7 @@ export default function Kanban() {
 
   return (
     <div className="min-h-screen bg-slate-950 relative">
-      <Header connected={connected} lastUpdate={board.updated_at || wsState?.updated_at} now={now} subtitle={subtitle} />
+      <Header connected={connected} connection={connection} lastUpdate={board.updated_at || wsState?.updated_at} now={now} subtitle={subtitle} />
       <LoadingOverlay show={boardLoading || wsLoading} label="Loading board data..." />
 
       <main className="max-w-7xl mx-auto px-4 py-6">

@@ -105,8 +105,12 @@ async def remote_skills(target: str = Query(..., description="Remote gateway bas
                 platform = ""
 
             if platform == "hermes-agent":
-                # Hermes API server does not expose Mission-Control skill routes.
-                return {"skills": []}
+                # Hermes API server does not expose installed skills yet.
+                return {
+                    "skills": [],
+                    "available": False,
+                    "message": "Hermes API gateways do not expose installed skills yet. Only cron-referenced skills can be shown right now.",
+                }
 
             skills_res = await client.get(f"{base}/skills")
             if skills_res.status_code != 200:

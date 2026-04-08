@@ -1,4 +1,5 @@
 import React from 'react'
+import { AgentTag } from './AgentTag'
 
 export function CronWidget({ jobs }) {
   if (!jobs) return <div className="card h-64">Loading cron jobs...</div>
@@ -28,8 +29,9 @@ export function CronWidget({ jobs }) {
                   <div className={`w-1.5 h-1.5 rounded-full ${job.enabled ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                   <span className="text-sm font-medium text-slate-200 truncate">{job.name}</span>
                 </div>
-                <div className="text-xs text-slate-500 ml-3 mt-1">
+                <div className="text-xs text-slate-500 ml-3 mt-1 flex items-center gap-2 flex-wrap">
                   {job.schedule} · {job.deliver}
+                  <AgentTag name={job._agent_name} />
                 </div>
               </div>
               {job.last_run && (

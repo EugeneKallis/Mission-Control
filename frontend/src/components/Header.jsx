@@ -1,15 +1,29 @@
 import React from 'react'
 
-function ConnectionStatus({ connected }) {
+function ConnectionStatus({ connected, connection }) {
+  const status = connection?.status || (connected ? 'live' : 'offline')
+  const detail = connection?.total > 1 ? `${connection.online}/${connection.total} agents reachable` : null
+
+  const palette = {
+    live: 'bg-emerald-500 text-emerald-400',
+    partial: 'bg-amber-500 text-amber-400',
+    offline: 'bg-rose-500 text-rose-400',
+  }
+
+  const [dotClass, textClass] = (palette[status] || palette.offline).split(' ')
+
   return (
     <div className="flex items-center gap-2">
       <div
-        className={`w-2 h-2 rounded-full ${connected ? 'bg-emerald-500' : 'bg-rose-500'}`}
-        style={connected ? { animation: 'pulse 2s ease-in-out infinite' } : {}}
+        className={`w-2 h-2 rounded-full ${dotClass}`}
+        style={status === 'live' ? { animation: 'pulse 2s ease-in-out infinite' } : {}}
       />
-      <span className={`text-xs font-medium ${connected ? 'text-emerald-400' : 'text-rose-400'}`}>
-        {connected ? 'LIVE' : 'OFFLINE'}
-      </span>
+      <div className="flex flex-col items-end leading-none">
+        <span className={`text-xs font-medium ${textClass}`}>
+          {status === 'live' ? 'LIVE' : status === 'partial' ? 'PARTIAL' : 'OFFLINE'}
+        </span>
+        {detail ? <span className="text-[10px] text-slate-500">{detail}</span> : null}
+      </div>
     </div>
   )
 }
@@ -23,7 +37,7 @@ function Clock({ now }) {
   )
 }
 
-export function Header({ connected, lastUpdate, now, subtitle }) {
+export function Header({ connected, connection, lastUpdate, now, subtitle }) {
   return (
     <header className="bg-slate-900/80 backdrop-blur border-b border-slate-800 sticky top-0 z-10">
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
@@ -42,7 +56,7 @@ export function Header({ connected, lastUpdate, now, subtitle }) {
               Updated {new Date(lastUpdate).toLocaleTimeString()}
             </span>
           )}
-          <ConnectionStatus connected={connected} />
+          <ConnectionStatus connected={connected} connection={connection} />
         </div>
       </div>
     </header>

@@ -25,9 +25,8 @@ function StatusBadge({ status }) {
 }
 
 export default function Crons() {
-  const { agents } = useAgentContext()
-  const [agentScope, setAgentScope] = useState('all')
-  const { connected, loading, state, refresh } = useWebSocket({ agentScope })
+  const { agents, selectedScopeId: agentScope, setSelectedScopeId: setAgentScope } = useAgentContext()
+  const { connected, connection, loading, state, refresh } = useWebSocket({ agentScope })
   const [now, setNow] = useState(new Date())
   const [selectedCron, setSelectedCron] = useState(null)
   const [triggering, setTriggering] = useState(null)
@@ -111,7 +110,7 @@ export default function Crons() {
 
   return (
     <div className="min-h-screen bg-slate-950 relative">
-      <Header connected={connected} lastUpdate={state?.updated_at} now={now} subtitle={subtitle} />
+      <Header connected={connected} connection={connection} lastUpdate={state?.updated_at} now={now} subtitle={subtitle} />
       <LoadingOverlay show={loading} label="Loading cron data..." />
 
       <main className="max-w-7xl mx-auto px-4 py-6">
