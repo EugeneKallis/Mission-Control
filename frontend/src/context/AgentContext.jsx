@@ -18,10 +18,13 @@ function makeId(name) {
 }
 
 function getLocalAgent() {
+  const host = window.location.hostname
+  const isLocalDev = window.location.port === '5173' || host === 'localhost' || host === '127.0.0.1'
+
   return {
     id: 'local',
     name: 'local',
-    url: `http://${window.location.hostname}:5056`,
+    url: isLocalDev ? `http://${host}:5056` : `${window.location.origin}/api`,
     readonly: true,
   }
 }

@@ -3,8 +3,9 @@ import { useLocation } from 'react-router-dom'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { Nav } from '../components/Nav'
 import { Header } from '../components/Header'
+import { getApiBase } from '../lib/apiBase'
 
-const API_BASE = `http://${window.location.hostname}:5056`
+const API_BASE = getApiBase()
 
 const COLUMNS = [
   { id: 'pending', label: 'To Do', color: 'text-amber-400' },

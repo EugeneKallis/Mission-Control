@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useAgentContext } from '../context/AgentContext'
+import { getApiBase } from '../lib/apiBase'
 
 export function useWebSocket() {
   const { selectedAgent } = useAgentContext()
@@ -10,7 +11,8 @@ export function useWebSocket() {
 
   const gatewayBase = selectedAgent?.url
   const isLocal = selectedAgent?.id === 'local'
-  const mcApiBase = `http://${window.location.hostname}:5056`
+  const mcApiBase = getApiBase()
+  const localOverIngress = isLocal && String(gatewayBase || '').endsWith('/api')
 
   const fetchState = useCallback(async () => {
     if (!gatewayBase) return
@@ -64,7 +66,7 @@ export function useWebSocket() {
       pollTimer.current = null
     }
 
-    if (isLocal) {
+    if (isLocal && !localOverIngress) {
       const wsUrl = gatewayBase.replace(/^http/, 'ws') + '/ws'
 
       const connect = () => {
@@ -113,7 +115,7 @@ export function useWebSocket() {
       cancelled = true
       if (pollTimer.current) clearInterval(pollTimer.current)
     }
-  }, [gatewayBase, isLocal, fetchState])
+  }, [gatewayBase, isLocal, localOverIngress, fetchState])
 
   useEffect(() => {
     if (!isLocal || !connected) return

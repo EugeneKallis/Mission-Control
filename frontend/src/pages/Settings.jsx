@@ -3,6 +3,7 @@ import { useWebSocket } from '../hooks/useWebSocket'
 import { Nav } from '../components/Nav'
 import { Header } from '../components/Header'
 import { useAgentContext } from '../context/AgentContext'
+import { getApiBase } from '../lib/apiBase'
 
 function normalizeUrl(url) {
   return String(url || '').trim().replace(/\/+$/, '')
@@ -46,7 +47,7 @@ export default function Settings() {
     setTestResult({ ok: null, message: 'Testing connection...' })
 
     try {
-      const mcApiBase = `http://${window.location.hostname}:5056`
+      const mcApiBase = getApiBase()
       const res = await fetch(`${mcApiBase}/remote/test?target=${encodeURIComponent(base)}`)
       const data = await res.json().catch(() => ({}))
 

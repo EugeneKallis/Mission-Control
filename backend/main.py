@@ -33,6 +33,16 @@ app.include_router(hermes_sync.router)
 app.include_router(skills.router)
 app.include_router(remote.router)
 
+# Ingress-friendly aliases under /api (for k8s host routing)
+app.include_router(todos.router, prefix="/api")
+app.include_router(cron.router, prefix="/api")
+app.include_router(processes.router, prefix="/api")
+app.include_router(jobs.router, prefix="/api")
+app.include_router(system.router, prefix="/api")
+app.include_router(hermes_sync.router, prefix="/api")
+app.include_router(skills.router, prefix="/api")
+app.include_router(remote.router, prefix="/api")
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -44,9 +54,20 @@ async def health():
     return {"status": "ok", "version": "0.2.0"}
 
 
+@app.get("/api/health")
+async def health_api_alias():
+    return {"status": "ok", "version": "0.2.0"}
+
+
 @app.get("/state")
 async def get_full_state():
     """Get complete dashboard state."""
+    return state.get_full_state()
+
+
+@app.get("/api/state")
+async def get_full_state_api_alias():
+    """Get complete dashboard state (api alias)."""
     return state.get_full_state()
 
 
