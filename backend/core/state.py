@@ -74,44 +74,55 @@ class DashboardState:
     async def _init_db(self):
         """Initialize PostgreSQL persistence."""
         if not self._db_url:
-            print("Mission Control: DATABASE_URL not set, running with in-memory todos.")
+            print("Mission Control DB: DATABASE_URL not set; running in-memory mode.")
             return
 
-        self._db = await asyncpg.create_pool(self._db_url, min_size=1, max_size=5)
+        try:
+            print("Mission Control DB: connecting to PostgreSQL...")
+            self._db = await asyncpg.create_pool(self._db_url, min_size=1, max_size=5)
 
-        async with self._db.acquire() as conn:
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS todos (
-                    id TEXT PRIMARY KEY,
-                    content TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    created_at TIMESTAMPTZ NOT NULL,
-                    completed_at TIMESTAMPTZ NULL,
-                    assigned_agent TEXT NULL
-                )
-            """)
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS job_history (
-                    date TEXT PRIMARY KEY,
-                    roles_submitted INTEGER DEFAULT 0,
-                    roles_queued INTEGER DEFAULT 0,
-                    source_coverage JSONB DEFAULT '{}'::jsonb
-                )
-            """)
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS activity_log (
-                    id TEXT PRIMARY KEY,
-                    type TEXT,
-                    title TEXT,
-                    detail TEXT,
-                    timestamp TEXT,
-                    status TEXT
-                )
-            """)
+            async with self._db.acquire() as conn:
+                db_name = await conn.fetchval("SELECT current_database()")
+                db_user = await conn.fetchval("SELECT current_user")
+                db_version = await conn.fetchval("SHOW server_version")
+                print(f"Mission Control DB: connected to '{db_name}' as '{db_user}' (Postgres {db_version})")
 
-        await self._load_todos()
-        await self._load_job_history()
-        await self._load_activity()
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS todos (
+                        id TEXT PRIMARY KEY,
+                        content TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        created_at TIMESTAMPTZ NOT NULL,
+                        completed_at TIMESTAMPTZ NULL,
+                        assigned_agent TEXT NULL
+                    )
+                """)
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS job_history (
+                        date TEXT PRIMARY KEY,
+                        roles_submitted INTEGER DEFAULT 0,
+                        roles_queued INTEGER DEFAULT 0,
+                        source_coverage JSONB DEFAULT '{}'::jsonb
+                    )
+                """)
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS activity_log (
+                        id TEXT PRIMARY KEY,
+                        type TEXT,
+                        title TEXT,
+                        detail TEXT,
+                        timestamp TEXT,
+                        status TEXT
+                    )
+                """)
+
+            await self._load_todos()
+            await self._load_job_history()
+            await self._load_activity()
+            print(f"Mission Control DB: bootstrapped tables and loaded state (todos={len(self.todos)}, activity={len(self.activity_log.events)})")
+        except Exception as e:
+            print(f"Mission Control DB: connection/init failed: {e}")
+            raise
     
     async def _load_todos(self):
         await self._ensure_db()
