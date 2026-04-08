@@ -1,9 +1,7 @@
-import React, { createContext, useContext, useMemo, useState, useEffect } from 'react'
+import React, { createContext, useContext, useMemo, useState, useEffect, useCallback } from 'react'
+import { getApiBase } from '../lib/apiBase'
 
 const AgentContext = createContext(null)
-
-const STORAGE_AGENTS = 'mission_control_agents_v1'
-const STORAGE_SELECTED = 'mission_control_selected_agent_v1'
 
 function normalizeUrl(url) {
   if (!url) return ''
@@ -19,53 +17,64 @@ function makeId(name) {
 
 export function AgentProvider({ children }) {
   const [customAgents, setCustomAgents] = useState([])
-  const [selectedAgentId, setSelectedAgentId] = useState('')
+  const [selectedAgentId, setSelectedAgentIdState] = useState('')
+  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  const loadSettings = useCallback(async () => {
     try {
-      const rawAgents = localStorage.getItem(STORAGE_AGENTS)
-      const rawSelected = localStorage.getItem(STORAGE_SELECTED)
+      const apiBase = getApiBase()
+      const res = await fetch(`${apiBase}/settings/agents`, { cache: 'no-store' })
+      if (!res.ok) throw new Error(`settings ${res.status}`)
 
-      if (rawAgents) {
-        const parsed = JSON.parse(rawAgents)
-        if (Array.isArray(parsed)) {
-          const normalized = parsed
-            .filter((a) => a && a.name && a.url)
-            .map((a) => ({
-              id: a.id || makeId(a.name),
-              name: a.name,
-              url: normalizeUrl(a.url),
-            }))
-            .filter((a) => a.id !== 'local')
+      const data = await res.json()
+      const agents = Array.isArray(data?.agents)
+        ? data.agents
+            .filter((a) => a && a.id && a.name && a.url)
+            .map((a) => ({ id: a.id, name: a.name, url: normalizeUrl(a.url) }))
+        : []
 
-          setCustomAgents(normalized)
-
-          if (rawSelected && normalized.some((a) => a.id === rawSelected)) {
-            setSelectedAgentId(rawSelected)
-          } else {
-            setSelectedAgentId(normalized[0]?.id || '')
-          }
-          return
-        }
+      const selected = String(data?.selected_agent_id || '').trim()
+      setCustomAgents(agents)
+      if (selected && agents.some((a) => a.id === selected)) {
+        setSelectedAgentIdState(selected)
+      } else {
+        setSelectedAgentIdState(agents[0]?.id || '')
       }
-
-      setSelectedAgentId('')
     } catch (error) {
-      console.error('Failed to load agent settings:', error)
+      console.error('Failed to load agent settings from backend:', error)
+      setCustomAgents([])
+      setSelectedAgentIdState('')
+    } finally {
+      setLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_AGENTS, JSON.stringify(customAgents))
-  }, [customAgents])
+    loadSettings()
+  }, [loadSettings])
 
-  useEffect(() => {
-    if (selectedAgentId) {
-      localStorage.setItem(STORAGE_SELECTED, selectedAgentId)
-    } else {
-      localStorage.removeItem(STORAGE_SELECTED)
+  const persistSettings = useCallback(async (agents, selectedId) => {
+    const apiBase = getApiBase()
+    const payload = {
+      agents,
+      selected_agent_id: selectedId || null,
     }
-  }, [selectedAgentId])
+    const res = await fetch(`${apiBase}/settings/agents`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      throw new Error(text || `settings save failed (${res.status})`)
+    }
+    const data = await res.json()
+    const normalizedAgents = Array.isArray(data?.agents)
+      ? data.agents.map((a) => ({ id: a.id, name: a.name, url: normalizeUrl(a.url) }))
+      : []
+    setCustomAgents(normalizedAgents)
+    setSelectedAgentIdState(data?.selected_agent_id || normalizedAgents[0]?.id || '')
+  }, [])
 
   const agents = useMemo(() => {
     return customAgents
@@ -81,13 +90,7 @@ export function AgentProvider({ children }) {
     return agents.find((a) => a.id === selectedAgentId) || agents[0] || null
   }, [agents, selectedAgentId])
 
-  useEffect(() => {
-    if (!selectedAgent && agents.length > 0) {
-      setSelectedAgentId(agents[0].id)
-    }
-  }, [agents, selectedAgent])
-
-  function upsertAgent(agent) {
+  async function upsertAgent(agent) {
     const id = agent.id ? agent.id : makeId(agent.name)
     const normalized = {
       id,
@@ -95,41 +98,42 @@ export function AgentProvider({ children }) {
       url: normalizeUrl(agent.url),
     }
 
-    setCustomAgents((prev) => {
-      const idx = prev.findIndex((a) => a.id === id)
+    const nextAgents = (() => {
+      const idx = agents.findIndex((a) => a.id === id)
       if (idx >= 0) {
-        const next = [...prev]
-        next[idx] = normalized
-        return next
+        const arr = [...agents]
+        arr[idx] = normalized
+        return arr
       }
-      return [...prev, normalized]
-    })
+      return [...agents, normalized]
+    })()
 
-    if (!selectedAgentId) {
-      setSelectedAgentId(id)
-    }
+    const nextSelected = selectedAgentId || id
+    await persistSettings(nextAgents, nextSelected)
   }
 
-  function removeAgent(id) {
+  async function removeAgent(id) {
     if (!id) return
-    setCustomAgents((prev) => {
-      const next = prev.filter((a) => a.id !== id)
-      if (selectedAgentId === id) {
-        setSelectedAgentId(next[0]?.id || '')
-      }
-      return next
-    })
+    const nextAgents = agents.filter((a) => a.id !== id)
+    const nextSelected = selectedAgentId === id ? (nextAgents[0]?.id || '') : selectedAgentId
+    await persistSettings(nextAgents, nextSelected)
+  }
+
+  async function setSelectedAgentId(id) {
+    const nextSelected = id || ''
+    await persistSettings(agents, nextSelected)
   }
 
   const value = {
     agents,
-    customAgents,
+    customAgents: agents,
     selectedAgent,
     selectedAgentId,
     setSelectedAgentId,
     upsertAgent,
     removeAgent,
-    setCustomAgents,
+    refreshAgentSettings: loadSettings,
+    loading,
   }
 
   return <AgentContext.Provider value={value}>{children}</AgentContext.Provider>

@@ -23,12 +23,16 @@ export default function Settings() {
     return () => clearInterval(t)
   }, [])
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
     if (!form.name.trim() || !form.url.trim()) return
-    upsertAgent({ ...form, url: normalizeUrl(form.url) })
-    setForm({ id: '', name: '', url: '' })
-    setTestResult(null)
+    try {
+      await upsertAgent({ ...form, url: normalizeUrl(form.url) })
+      setForm({ id: '', name: '', url: '' })
+      setTestResult(null)
+    } catch (error) {
+      setTestResult({ ok: false, message: `Failed to save agent: ${error?.message || 'unknown error'}` })
+    }
   }
 
   function handleEdit(agent) {
@@ -162,7 +166,13 @@ export default function Settings() {
                           Edit
                         </button>
                         <button
-                          onClick={() => removeAgent(agent.id)}
+                          onClick={async () => {
+                            try {
+                              await removeAgent(agent.id)
+                            } catch (error) {
+                              setTestResult({ ok: false, message: `Failed to remove agent: ${error?.message || 'unknown error'}` })
+                            }
+                          }}
                           className="px-2 py-1 text-xs bg-rose-700/70 hover:bg-rose-600 text-rose-100 rounded"
                         >
                           Remove

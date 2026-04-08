@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional, Any
 from datetime import datetime
-from models.schemas import TodoItem, TaskStatus, CronJob, ProcessInfo, JobSearchStats, SystemStats, ActivityEvent
+from models.schemas import TodoItem, TaskStatus, CronJob, ProcessInfo, JobSearchStats, SystemStats, ActivityEvent, AgentConfig
 import json
 import os
 import asyncio
@@ -47,6 +47,8 @@ class DashboardState:
         self.processes: Dict[str, ProcessInfo] = {}
         self.job_history: Dict[str, JobSearchStats] = {}
         self.activity_log = ActivityLog()
+        self.agent_configs: List[AgentConfig] = []
+        self.selected_agent_id: Optional[str] = None
         self._subscribers: List[Any] = []
         self._db = None
         self._db_init_started = False
@@ -59,9 +61,10 @@ class DashboardState:
             pg_password = os.getenv("POSTGRES_PASSWORD") or os.getenv("PGPASSWORD") or ""
             if pg_host and pg_db and pg_user:
                 self._db_url = f"postgresql://{pg_user}:{pg_password}@{pg_host}:{pg_port}/{pg_db}"
+
         self._last_sys_poll = datetime.min
         self._cached_sys_stats: Optional[SystemStats] = None
-    
+
     async def _ensure_db(self):
         """Lazily initialize DB on first async access."""
         if self._db is None and not self._db_init_started:
@@ -115,10 +118,17 @@ class DashboardState:
                         status TEXT
                     )
                 """)
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS app_settings (
+                        key TEXT PRIMARY KEY,
+                        value JSONB NOT NULL
+                    )
+                """)
 
             await self._load_todos()
             await self._load_job_history()
             await self._load_activity()
+            await self._load_agent_settings()
             print(f"Mission Control DB: bootstrapped tables and loaded state (todos={len(self.todos)}, activity={len(self.activity_log.events)})")
         except Exception as e:
             print(f"Mission Control DB: connection/init failed: {e}")
@@ -187,6 +197,72 @@ class DashboardState:
             for r in rows
         ]
     
+    async def _load_agent_settings(self):
+        await self._ensure_db()
+        if not self._db:
+            return
+
+        async with self._db.acquire() as conn:
+            payload = await conn.fetchval("SELECT value FROM app_settings WHERE key = 'agent_settings'")
+
+        if not payload:
+            self.agent_configs = []
+            self.selected_agent_id = None
+            return
+
+        agents = payload.get("agents") if isinstance(payload, dict) else []
+        selected = payload.get("selected_agent_id") if isinstance(payload, dict) else None
+
+        self.agent_configs = [
+            AgentConfig(
+                id=str(a.get("id", "")).strip(),
+                name=str(a.get("name", "")).strip(),
+                url=str(a.get("url", "")).strip().rstrip('/'),
+            )
+            for a in (agents or [])
+            if isinstance(a, dict) and str(a.get("id", "")).strip() and str(a.get("name", "")).strip() and str(a.get("url", "")).strip()
+        ]
+
+        selected_id = str(selected).strip() if selected is not None else None
+        valid_ids = {a.id for a in self.agent_configs}
+        self.selected_agent_id = selected_id if selected_id in valid_ids else (self.agent_configs[0].id if self.agent_configs else None)
+
+    async def _persist_agent_settings(self):
+        if not self._db:
+            return
+
+        payload = {
+            "agents": [a.model_dump(mode='json') for a in self.agent_configs],
+            "selected_agent_id": self.selected_agent_id,
+        }
+
+        async with self._db.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO app_settings (key, value)
+                VALUES ('agent_settings', $1::jsonb)
+                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+                """,
+                json.dumps(payload),
+            )
+
+    async def refresh_agent_settings_from_storage(self):
+        await self._load_agent_settings()
+
+    def get_agent_settings(self) -> dict:
+        return {
+            "agents": [a.model_dump(mode='json') for a in self.agent_configs],
+            "selected_agent_id": self.selected_agent_id,
+        }
+
+    def set_agent_settings(self, agents: List[AgentConfig], selected_agent_id: Optional[str] = None):
+        self.agent_configs = agents
+        valid_ids = {a.id for a in agents}
+        selected = (selected_agent_id or '').strip() or None
+        self.selected_agent_id = selected if selected in valid_ids else (agents[0].id if agents else None)
+        self._schedule(self._persist_agent_settings())
+        self._notify()
+
     def subscribe(self, callback):
         self._subscribers.append(callback)
     

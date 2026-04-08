@@ -77,6 +77,17 @@ class ActivityEvent(BaseModel):
     status: str = "ok"  # "ok", "error", "info"
 
 
+class AgentConfig(BaseModel):
+    id: str
+    name: str
+    url: str
+
+
+class AgentSettingsResponse(BaseModel):
+    agents: List[AgentConfig]
+    selected_agent_id: Optional[str] = None
+
+
 class DashboardStateResponse(BaseModel):
     todos: List[TodoItem]
     cron_jobs: List[CronJob]

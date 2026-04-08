@@ -54,7 +54,13 @@ export function Header({ connected, lastUpdate, now }) {
             />
             <select
               value={selectedAgentId || ''}
-              onChange={(e) => setSelectedAgentId(e.target.value)}
+              onChange={async (e) => {
+                try {
+                  await setSelectedAgentId(e.target.value)
+                } catch (error) {
+                  console.error('Failed to persist selected agent:', error)
+                }
+              }}
               disabled={agents.length === 0}
               className="flex-1 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 disabled:opacity-60"
             >
