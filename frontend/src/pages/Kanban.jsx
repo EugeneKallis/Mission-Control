@@ -104,7 +104,7 @@ export default function Kanban() {
 
   const loadBoard = React.useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/state`)
+      const res = await fetch(`${API_BASE}/state?t=${Date.now()}`, { cache: 'no-store' })
       if (!res.ok) throw new Error(`state ${res.status}`)
       const data = await res.json()
       setBoard({
@@ -207,10 +207,18 @@ export default function Kanban() {
         throw new Error(text || `Failed with ${res.status}`)
       }
 
+      const created = await res.json().catch(() => null)
+      if (created?.id) {
+        setBoard((prev) => ({
+          todos: [created, ...(prev?.todos || [])],
+          updated_at: new Date().toISOString(),
+        }))
+      }
+
       setNewContent('')
       if (!lockAgent) setNewAgent('')
       setNewStatus('pending')
-      await loadBoard()
+      loadBoard()
     } catch (error) {
       console.error('Failed to create todo:', error)
     } finally {
