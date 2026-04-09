@@ -419,7 +419,22 @@ class DashboardState:
             return todo
 
         return None
-    
+
+    def delete_todo(self, todo_id: str) -> bool:
+        for i, todo in enumerate(self.todos):
+            if todo.id == todo_id:
+                self.todos.pop(i)
+                self._schedule(self._persist_delete_todo(todo_id))
+                self._notify()
+                return True
+        return False
+
+    async def _persist_delete_todo(self, todo_id: str):
+        if not self._db:
+            return
+        async with self._db.acquire() as conn:
+            await conn.execute("DELETE FROM todos WHERE id = $1", todo_id)
+
     # ── Cron Jobs ─────────────────────────────────────────────────────────────
     
     def set_cron_jobs(self, jobs: List[CronJob]):

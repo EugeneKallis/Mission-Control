@@ -77,6 +77,18 @@ async def update_todo(todo_id: str, payload: TodoUpdateInput):
     return updated
 
 
+@router.delete("/{todo_id}")
+async def delete_todo(todo_id: str):
+    """Delete a single task."""
+    await state.refresh_todos_from_storage()
+    deleted = state.delete_todo(todo_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Todo '{todo_id}' not found")
+
+    await manager.broadcast_state_change("state_update", state.get_full_state())
+    return {"status": "ok", "id": todo_id}
+
+
 @router.get("/agents")
 async def list_agents():
     """List available Hermes profile names for task assignment."""
