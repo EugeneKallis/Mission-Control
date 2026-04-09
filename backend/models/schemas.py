@@ -19,6 +19,7 @@ class TodoItem(BaseModel):
     completed_at: Optional[datetime] = None
     assigned_agent: Optional[str] = None
     pr_required: bool = False
+    pr_link: Optional[str] = None
 
 
 class CronJob(BaseModel):
