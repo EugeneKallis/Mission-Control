@@ -44,7 +44,7 @@ function AgentBadge({ agent }) {
   )
 }
 
-function Card({ todo, agents, onAssign, onDragStart, onPrRequiredToggle }) {
+function Card({ todo, agents, onAssign, onDragStart, onPrRequiredToggle, onDelete }) {
   const normalizedPrLink = normalizePrLink(todo.pr_link)
 
   return (
@@ -55,7 +55,16 @@ function Card({ todo, agents, onAssign, onDragStart, onPrRequiredToggle }) {
     >
       <div className="flex items-center justify-between gap-2 mb-2">
         <AgentBadge agent={todo.assigned_agent} />
-        <span className="text-[10px] text-slate-500">{new Date(todo.created_at).toLocaleDateString()}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-slate-500">{new Date(todo.created_at).toLocaleDateString()}</span>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(todo.id) }}
+            className="text-rose-400 hover:text-rose-300 text-xs px-1.5 py-0.5 rounded hover:bg-rose-500/20 transition-colors"
+            title="Delete task"
+          >
+            ✕
+          </button>
+        </div>
       </div>
 
       <div className="text-sm text-slate-100 mb-2">{todo.content}</div>
@@ -248,6 +257,23 @@ export default function Kanban() {
   const handleMove = (todoId, status) => patchTodo(todoId, { status })
   const handlePrRequiredToggle = (todoId, prRequired) => patchTodo(todoId, { pr_required: prRequired })
 
+  async function deleteTodo(todoId) {
+    if (!window.confirm('Delete this task?')) return
+    setSavingId(todoId)
+    try {
+      const res = await fetch(`${API_BASE}/todos/${todoId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error(`Failed with ${res.status}`)
+      setBoard((prev) => ({
+        ...prev,
+        todos: prev.todos.filter((t) => t.id !== todoId),
+      }))
+    } catch (error) {
+      console.error('Failed to delete todo:', error)
+    } finally {
+      setSavingId(null)
+    }
+  }
+
   const handleDrop = (e, status) => {
     e.preventDefault()
     if (!draggedId) return
@@ -272,7 +298,7 @@ export default function Kanban() {
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-white">Kanban Board</h1>
           <div className="text-xs text-slate-500">
-            {savingId ? `Saving ${savingId}...` : 'Always move card to In Progress before starting work'}
+            {savingId ? `Saving ${savingId}...` : 'Branch from develop (or main if no develop). Set PR Required = false to auto-merge, true to send PR.'}
           </div>
         </div>
 
@@ -358,6 +384,7 @@ export default function Kanban() {
                     onAssign={handleAssign}
                     onPrRequiredToggle={handlePrRequiredToggle}
                     onDragStart={(_, id) => setDraggedId(id)}
+                    onDelete={deleteTodo}
                   />
                 ))
               )}

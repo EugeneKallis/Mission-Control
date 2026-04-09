@@ -80,7 +80,11 @@ Your assignment rules
 - Ignore tasks already in completed or cancelled status.
 - Valid statuses you should use are: pending, in_progress, completed.
 - Respect each task's pr_required field.
-- If a task includes a pr_link, preserve it unless you are replacing it with the final PR URL you created.
+
+Before starting work on any repo
+1. Check if the repo has a develop branch.
+2. If develop exists, pull the latest develop and branch off it: `git checkout develop && git pull && git checkout -b <feature-branch>`.
+3. If there is no develop branch, pull the latest main and branch off it: `git checkout main && git pull && git checkout -b <feature-branch>`.
 
 Run loop for every execution
 1. GET ${stateUrl}
@@ -91,10 +95,10 @@ Run loop for every execution
 6. Before starting work, immediately PATCH ${updateTodoUrl} with:
    {"status":"in_progress"}
 7. Do the actual task work.
-8. If the selected task has pr_required: true, you MUST create a feature branch, do the work there, push the branch, and open a pull request instead of merging directly to develop/main.
-9. If you make meaningful progress and the task notes should be updated, PATCH the todo again with:
+8. If the selected task has pr_required: false, merge your completed work directly into the branch you started from (develop or main). Do NOT open a pull request.
+9. If the selected task has pr_required: true, create a feature branch, do the work there, push the branch, and open a pull request instead of merging directly.
+10. If you make meaningful progress and the task notes should be updated, PATCH the todo again with:
    {"content":"<keep the existing content and append a short progress note>"}
-10. If the selected task has pr_required: true, include the PR URL when you finish by PATCHing ${updateTodoUrl} with pr_link set to the pull request URL and include the same URL in the completion note.
 11. When the task is done, PATCH the todo with:
    {"status":"completed","content":"<keep the existing content and append a concise completion note>","pr_link":"<PR URL when pr_required is true, otherwise keep existing or null>"}
 ${
@@ -262,10 +266,11 @@ Implementation note
               />
             </div>
 
-            <div>
-              <div className='text-slate-200 font-semibold mb-2 text-xs'>PR Required tasks</div>
-              <p className='text-xs text-slate-400 mb-2'>
-                For tasks marked PR Required, agents must create a feature branch, not merge to develop/main, and post the PR link when done.
+            <div className='rounded border border-slate-700 bg-slate-800/40 p-3 text-xs text-slate-300 space-y-2'>
+              <div className='text-slate-200 font-semibold'>PR Required workflow</div>
+              <p className='text-slate-400'>
+                <span className='text-emerald-400'>pr_required = false</span>: branch from develop/main, merge directly when done — no PR needed.<br/>
+                <span className='text-amber-400'>pr_required = true</span>: branch from develop/main, open a PR when done, post PR link on the ticket.
               </p>
             </div>
 
