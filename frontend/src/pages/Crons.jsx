@@ -30,7 +30,6 @@ export default function Crons() {
   const [now, setNow] = useState(new Date())
   const [selectedCron, setSelectedCron] = useState(null)
   const [triggering, setTriggering] = useState(null)
-  const [selectedSkill, setSelectedSkill] = useState(null)
   const [editingPrompt, setEditingPrompt] = useState(null)
   const [promptValue, setPromptValue] = useState('')
   const [savingPrompt, setSavingPrompt] = useState(false)
@@ -43,14 +42,7 @@ export default function Crons() {
   React.useEffect(() => {
     setSelectedCron(null)
     setEditingPrompt(null)
-    setSelectedSkill(null)
   }, [agentScope])
-
-  const handleSkillClick = (skill, e) => {
-    e.stopPropagation()
-    setSelectedSkill(selectedSkill === skill ? null : skill)
-    setEditingPrompt(null)
-  }
 
   const handleEditPrompt = (e) => {
     e.stopPropagation()
@@ -226,47 +218,6 @@ export default function Crons() {
                     <div className="text-slate-500 text-xs uppercase tracking-wider mb-1">Base URL</div>
                     <div className="text-slate-200 text-xs break-all">{selected.base_url || '—'}</div>
                   </div>
-                  <div>
-                    <div className="text-slate-500 text-xs uppercase tracking-wider mb-1">Skills</div>
-                    <div className="text-slate-200">
-                      {selected.skills && selected.skills.length > 0
-                        ? selected.skills.map(s => (
-                          <button
-                            key={s}
-                            onClick={(e) => handleSkillClick(s, e)}
-                            className={`inline-block rounded px-1.5 py-0.5 text-xs mr-1 mb-1 transition-colors ${
-                              selectedSkill === s
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                            }`}
-                          >
-                            {s}
-                          </button>
-                        ))
-                        : '—'
-                      }
-                    </div>
-                  </div>
-
-                  {/* Expanded skill view */}
-                  {selectedSkill && (
-                    <div className="mt-2 p-3 bg-slate-800/50 rounded border border-slate-700">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="text-blue-400 text-xs font-medium">Skill: {selectedSkill}</div>
-                        <button
-                          onClick={() => setSelectedSkill(null)}
-                          className="text-slate-500 hover:text-slate-300 text-xs"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                      <div className="text-slate-400 text-xs mb-2">
-                        This cron uses the <span className="text-blue-400">{selectedSkill}</span> skill.
-                        The full prompt is shown below.
-                      </div>
-                    </div>
-                  )}
-
                   {/* Prompt section */}
                   <div>
                     <div className="flex items-center justify-between">

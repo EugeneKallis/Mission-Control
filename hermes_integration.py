@@ -61,7 +61,6 @@ def push_cron(cronjobs: List[Dict]):
             "state": job.get("state", "unknown"),
             "prompt_preview": job.get("prompt_preview"),
             "model": job.get("model"),
-            "skills": job.get("skills", []),
             "provider": job.get("provider"),
             "base_url": job.get("base_url"),
             "repeat": job.get("repeat"),

@@ -109,7 +109,6 @@ def format_crons(crons: list) -> list:
                 "state": c.get("state", "unknown"),
                 "prompt_preview": c.get("prompt_preview"),
                 "model": c.get("model"),
-                "skills": c.get("skills", []),
                 "provider": c.get("provider"),
                 "base_url": c.get("base_url"),
                 "repeat": c.get("repeat"),
