@@ -298,7 +298,7 @@ export default function Kanban() {
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-white">Kanban Board</h1>
           <div className="text-xs text-slate-500">
-            {savingId ? `Saving ${savingId}...` : 'Always move card to In Progress before starting work'}
+            {savingId ? `Saving ${savingId}...` : 'Branch from develop (or main if no develop). Set PR Required = false to auto-merge, true to send PR.'}
           </div>
         </div>
 
