@@ -83,8 +83,8 @@ Your assignment rules
 
 Before starting work on any repo
 1. Check if the repo has a develop branch.
-2. If develop exists, pull the latest develop and branch off it: `git checkout develop && git pull && git checkout -b <feature-branch>`.
-3. If there is no develop branch, pull the latest main and branch off it: `git checkout main && git pull && git checkout -b <feature-branch>`.
+2. If develop exists, pull the latest develop and branch off it: \`git checkout develop && git pull && git checkout -b <feature-branch>\`.
+3. If there is no develop branch, pull the latest main and branch off it: \`git checkout main && git pull && git checkout -b <feature-branch>\`.
 
 Run loop for every execution
 1. GET ${stateUrl}
