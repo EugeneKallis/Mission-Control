@@ -119,6 +119,7 @@ export default function Kanban() {
 
   const [newContent, setNewContent] = useState('')
   const [newAgent, setNewAgent] = useState('')
+  const [newPrRequired, setNewPrRequired] = useState(false)
 
   React.useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000)
@@ -212,6 +213,7 @@ export default function Kanban() {
         content: newContent.trim(),
         assigned_agent: (newAgent || scopedAgentName || '').trim() || null,
         status: 'pending',
+        pr_required: newPrRequired,
       }
       const res = await fetch(`${API_BASE}/todos/`, {
         method: 'POST',
@@ -233,6 +235,7 @@ export default function Kanban() {
 
       setNewContent('')
       setNewAgent('')
+      setNewPrRequired(false)
       loadBoard({ silent: true })
     } catch (error) {
       console.error('Failed to create todo:', error)
@@ -293,6 +296,15 @@ export default function Kanban() {
                   <option key={agent} value={agent}>{agent}</option>
                 ))}
               </select>
+              <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={newPrRequired}
+                  onChange={(e) => setNewPrRequired(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-slate-600 bg-slate-900 accent-blue-500"
+                />
+                PR Required
+              </label>
             </div>
           </div>
           <div className="mt-2">
