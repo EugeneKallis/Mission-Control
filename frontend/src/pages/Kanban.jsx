@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useAgentContext } from '../context/AgentContext'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { Nav } from '../components/Nav'
