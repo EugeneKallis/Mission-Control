@@ -79,6 +79,8 @@ Your assignment rules
 - Ignore tasks assigned to any other agent.
 - Ignore tasks already in completed or cancelled status.
 - Valid statuses you should use are: pending, in_progress, completed.
+- Respect each task's pr_required field.
+- If a task includes a pr_link, preserve it unless you are replacing it with the final PR URL you created.
 
 Run loop for every execution
 1. GET ${stateUrl}
@@ -89,20 +91,22 @@ Run loop for every execution
 6. Before starting work, immediately PATCH ${updateTodoUrl} with:
    {"status":"in_progress"}
 7. Do the actual task work.
-8. If you make meaningful progress and the task notes should be updated, PATCH the todo again with:
+8. If the selected task has pr_required: true, you MUST create a feature branch, do the work there, push the branch, and open a pull request instead of merging directly to develop/main.
+9. If you make meaningful progress and the task notes should be updated, PATCH the todo again with:
    {"content":"<keep the existing content and append a short progress note>"}
-9. When the task is done, PATCH the todo with:
-   {"status":"completed","content":"<keep the existing content and append a concise completion note>"}
+10. If the selected task has pr_required: true, include the PR URL when you finish by PATCHing ${updateTodoUrl} with pr_link set to the pull request URL and include the same URL in the completion note.
+11. When the task is done, PATCH the todo with:
+   {"status":"completed","content":"<keep the existing content and append a concise completion note>","pr_link":"<PR URL when pr_required is true, otherwise keep existing or null>"}
 ${
   discordNotifyUrl
-    ? `10. Send a Discord notification — POST to ${discordNotifyUrl} with this exact JSON body:
+    ? `12. Send a Discord notification — POST to ${discordNotifyUrl} with this exact JSON body:
    {"content": "✅ Task completed by ${targetAgent.name}: <brief summary of what was done>"}
-11. If you are blocked or cannot complete the task safely, PATCH the todo with:
+13. If you are blocked or cannot complete the task safely, PATCH the todo with:
    {"status":"pending","content":"<keep the existing content and append a concise blocker note with what is needed>"}
-12. Re-fetch ${stateUrl} and continue until you have processed ${Math.max(1, Number(maxTasksPerRun) || 1)} task(s) this run or there is no more work assigned to you.`
-    : `10. If you are blocked or cannot complete the task safely, PATCH the todo with:
+14. Re-fetch ${stateUrl} and continue until you have processed ${Math.max(1, Number(maxTasksPerRun) || 1)} task(s) this run or there is no more work assigned to you.`
+    : `12. If you are blocked or cannot complete the task safely, PATCH the todo with:
    {"status":"pending","content":"<keep the existing content and append a concise blocker note with what is needed>"}
-11. Re-fetch ${stateUrl} and continue until you have processed ${Math.max(1, Number(maxTasksPerRun) || 1)} task(s) this run or there is no more work assigned to you.`
+13. Re-fetch ${stateUrl} and continue until you have processed ${Math.max(1, Number(maxTasksPerRun) || 1)} task(s) this run or there is no more work assigned to you.`
 }
 
 Behavior expectations
