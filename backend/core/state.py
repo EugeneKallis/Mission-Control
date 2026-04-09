@@ -100,6 +100,8 @@ class DashboardState:
                         assigned_agent TEXT NULL
                     )
                 """)
+                await conn.execute("ALTER TABLE todos ADD COLUMN IF NOT EXISTS pr_required BOOLEAN DEFAULT FALSE")
+                await conn.execute("ALTER TABLE todos ADD COLUMN IF NOT EXISTS pr_url TEXT NULL")
                 await conn.execute("""
                     CREATE TABLE IF NOT EXISTS job_history (
                         date TEXT PRIMARY KEY,
@@ -141,7 +143,7 @@ class DashboardState:
 
         async with self._db.acquire() as conn:
             rows = await conn.fetch(
-                "SELECT id, content, status, created_at, completed_at, assigned_agent FROM todos ORDER BY created_at DESC"
+                "SELECT id, content, status, created_at, completed_at, assigned_agent, pr_required, pr_url FROM todos ORDER BY created_at DESC"
             )
 
         self.todos = [
@@ -152,6 +154,8 @@ class DashboardState:
                 created_at=r["created_at"],
                 completed_at=r["completed_at"],
                 assigned_agent=r["assigned_agent"],
+                pr_required=r["pr_required"] if "pr_required" in r else False,
+                pr_url=r["pr_url"] if "pr_url" in r else None,
             )
             for r in rows
         ]
@@ -298,14 +302,16 @@ class DashboardState:
         async with self._db.acquire() as conn:
             await conn.execute(
                 """
-                INSERT INTO todos (id, content, status, created_at, completed_at, assigned_agent)
-                VALUES ($1, $2, $3, $4, $5, $6)
+                INSERT INTO todos (id, content, status, created_at, completed_at, assigned_agent, pr_required, pr_url)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 ON CONFLICT (id) DO UPDATE SET
                     content = EXCLUDED.content,
                     status = EXCLUDED.status,
                     created_at = EXCLUDED.created_at,
                     completed_at = EXCLUDED.completed_at,
-                    assigned_agent = EXCLUDED.assigned_agent
+                    assigned_agent = EXCLUDED.assigned_agent,
+                    pr_required = EXCLUDED.pr_required,
+                    pr_url = EXCLUDED.pr_url
                 """,
                 todo.id,
                 todo.content,
@@ -313,6 +319,8 @@ class DashboardState:
                 todo.created_at,
                 todo.completed_at,
                 todo.assigned_agent,
+                todo.pr_required,
+                todo.pr_url,
             )
 
     async def _persist_all_todos(self):
@@ -324,8 +332,8 @@ class DashboardState:
                 for todo in self.todos:
                     await conn.execute(
                         """
-                        INSERT INTO todos (id, content, status, created_at, completed_at, assigned_agent)
-                        VALUES ($1, $2, $3, $4, $5, $6)
+                        INSERT INTO todos (id, content, status, created_at, completed_at, assigned_agent, pr_required, pr_url)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                         """,
                         todo.id,
                         todo.content,
@@ -333,6 +341,8 @@ class DashboardState:
                         todo.created_at,
                         todo.completed_at,
                         todo.assigned_agent,
+                        todo.pr_required,
+                        todo.pr_url,
                     )
 
     # ── Todos ─────────────────────────────────────────────────────────────────
@@ -355,7 +365,7 @@ class DashboardState:
     def get_todos(self) -> List[TodoItem]:
         return self.todos
 
-    def create_todo(self, content: str, *, status: TaskStatus = TaskStatus.PENDING, assigned_agent: Optional[str] = None, pr_required: bool = False) -> TodoItem:
+    def create_todo(self, content: str, *, status: TaskStatus = TaskStatus.PENDING, assigned_agent: Optional[str] = None, pr_required: bool = False, pr_url: Optional[str] = None) -> TodoItem:
         import uuid
 
         todo = TodoItem(
@@ -366,13 +376,14 @@ class DashboardState:
             completed_at=datetime.now() if status == TaskStatus.COMPLETED else None,
             assigned_agent=(assigned_agent or '').strip() or None,
             pr_required=pr_required,
+            pr_url=pr_url,
         )
         self.todos.append(todo)
         self._schedule(self._persist_todo(todo))
         self._notify()
         return todo
 
-    def update_todo(self, todo_id: str, *, status: Optional[TaskStatus] = None, assigned_agent: Optional[str] = None, content: Optional[str] = None, pr_required: Optional[bool] = None) -> Optional[TodoItem]:
+    def update_todo(self, todo_id: str, *, status: Optional[TaskStatus] = None, assigned_agent: Optional[str] = None, content: Optional[str] = None, pr_required: Optional[bool] = None, pr_url: Optional[str] = None) -> Optional[TodoItem]:
         for todo in self.todos:
             if todo.id != todo_id:
                 continue
@@ -392,6 +403,9 @@ class DashboardState:
 
             if pr_required is not None:
                 todo.pr_required = pr_required
+
+            if pr_url is not None:
+                todo.pr_url = pr_url
 
             self._schedule(self._persist_todo(todo))
             self._notify()

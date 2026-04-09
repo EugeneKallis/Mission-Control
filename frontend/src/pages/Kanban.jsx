@@ -37,7 +37,7 @@ function AgentBadge({ agent }) {
   )
 }
 
-function Card({ todo, agents, onAssign, onMove, onDragStart }) {
+function Card({ todo, agents, onAssign, onMove, onDragStart, onPrRequired }) {
   return (
     <div
       draggable
@@ -53,6 +53,17 @@ function Card({ todo, agents, onAssign, onMove, onDragStart }) {
 
       <div className="flex items-center justify-between gap-2 mb-2">
         <span className="text-[10px] uppercase tracking-wide text-slate-500">{STATUS_LABEL[todo.status] || todo.status}</span>
+        {todo.pr_url && (
+          <a
+            href={todo.pr_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] text-blue-400 hover:text-blue-300 underline decoration-blue-400/40"
+            onClick={(e) => e.stopPropagation()}
+          >
+            View PR
+          </a>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-2">
@@ -77,6 +88,20 @@ function Card({ todo, agents, onAssign, onMove, onDragStart }) {
           ))}
         </select>
       </div>
+
+      {todo.status === 'pending' && (
+        <div className="mt-2 pt-2 border-t border-slate-700">
+          <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={todo.pr_required || false}
+              onChange={(e) => onPrRequired(todo.id, e.target.checked)}
+              className="w-3.5 h-3.5 rounded border-slate-600 bg-slate-900 accent-blue-500"
+            />
+            PR Required
+          </label>
+        </div>
+      )}
     </div>
   )
 }
@@ -98,7 +123,6 @@ export default function Kanban() {
   const [newContent, setNewContent] = useState('')
   const [newAgent, setNewAgent] = useState('')
   const [newStatus, setNewStatus] = useState('pending')
-  const [newPrRequired, setNewPrRequired] = useState(false)
 
   React.useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000)
@@ -192,7 +216,6 @@ export default function Kanban() {
         content: newContent.trim(),
         assigned_agent: (newAgent || scopedAgentName || '').trim() || null,
         status: newStatus,
-        pr_required: newPrRequired,
       }
       const res = await fetch(`${API_BASE}/todos/`, {
         method: 'POST',
@@ -224,6 +247,7 @@ export default function Kanban() {
 
   const handleAssign = (todoId, agent) => patchTodo(todoId, { assigned_agent: agent })
   const handleMove = (todoId, status) => patchTodo(todoId, { status })
+  const handlePrRequired = (todoId, pr_required) => patchTodo(todoId, { pr_required })
 
   const handleDrop = (e, status) => {
     e.preventDefault()
@@ -273,16 +297,6 @@ export default function Kanban() {
                   <option key={agent} value={agent}>{agent}</option>
                 ))}
               </select>
-              <div className="text-xs text-slate-500 px-1">Status: To Do</div>
-              <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={newPrRequired}
-                  onChange={(e) => setNewPrRequired(e.target.checked)}
-                  className="w-3.5 h-3.5 rounded border-slate-600 bg-slate-900 accent-blue-500"
-                />
-                PR Required
-              </label>
             </div>
           </div>
           <div className="mt-2">
@@ -336,6 +350,7 @@ export default function Kanban() {
                     onAssign={handleAssign}
                     onMove={handleMove}
                     onDragStart={(_, id) => setDraggedId(id)}
+                    onPrRequired={handlePrRequired}
                   />
                 ))
               )}
