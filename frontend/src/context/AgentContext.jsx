@@ -18,6 +18,7 @@ function makeId(name) {
 export function AgentProvider({ children }) {
   const [customAgents, setCustomAgents] = useState([])
   const [selectedAgentId, setSelectedAgentIdState] = useState('')
+  const [selectedScopeId, setSelectedScopeIdState] = useState('all')
   const [loading, setLoading] = useState(true)
 
   const loadSettings = useCallback(async () => {
@@ -40,10 +41,16 @@ export function AgentProvider({ children }) {
       } else {
         setSelectedAgentIdState(agents[0]?.id || '')
       }
+
+      setSelectedScopeIdState((prev) => {
+        if (prev === 'all') return 'all'
+        return agents.some((a) => a.id === prev) ? prev : 'all'
+      })
     } catch (error) {
       console.error('Failed to load agent settings from backend:', error)
       setCustomAgents([])
       setSelectedAgentIdState('')
+      setSelectedScopeIdState('all')
     } finally {
       setLoading(false)
     }
@@ -74,6 +81,10 @@ export function AgentProvider({ children }) {
       : []
     setCustomAgents(normalizedAgents)
     setSelectedAgentIdState(data?.selected_agent_id || normalizedAgents[0]?.id || '')
+    setSelectedScopeIdState((prev) => {
+      if (prev === 'all') return 'all'
+      return normalizedAgents.some((a) => a.id === prev) ? prev : 'all'
+    })
   }, [])
 
   const agents = useMemo(() => {
@@ -125,12 +136,24 @@ export function AgentProvider({ children }) {
     await persistSettings(agents, nextSelected)
   }
 
+  function setSelectedScopeId(id) {
+    const nextScope = (id || 'all').trim()
+    if (nextScope === 'all') {
+      setSelectedScopeIdState('all')
+      return
+    }
+
+    setSelectedScopeIdState(agents.some((a) => a.id === nextScope) ? nextScope : 'all')
+  }
+
   const value = {
     agents,
     customAgents: agents,
     selectedAgent,
     selectedAgentId,
+    selectedScopeId,
     setSelectedAgentId,
+    setSelectedScopeId,
     upsertAgent,
     removeAgent,
     refreshAgentSettings: loadSettings,

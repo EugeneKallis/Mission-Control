@@ -1,4 +1,5 @@
 import React from 'react'
+import { AgentTag } from './AgentTag'
 
 export function ProcessWidget({ processes }) {
   if (!processes) return <div className="card h-64">Loading processes...</div>
@@ -27,8 +28,9 @@ export function ProcessWidget({ processes }) {
                   <div className="text-sm font-medium text-slate-200 truncate" title={proc.command}>
                     {proc.command.split(' ')[0]}
                   </div>
-                  <div className="text-xs text-slate-500">
+                  <div className="text-xs text-slate-500 flex items-center gap-2 flex-wrap">
                     PID {proc.pid || '-'} · {proc.status}
+                    <AgentTag name={proc._agent_name} />
                   </div>
                 </div>
               </div>

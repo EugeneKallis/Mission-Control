@@ -82,16 +82,18 @@ function Card({ todo, agents, onAssign, onMove, onDragStart }) {
 }
 
 export default function Kanban() {
-  const { agents: configuredAgents } = useAgentContext()
-  const { connected, loading: wsLoading, state: wsState } = useWebSocket({ agentScope: 'all' })
+  const {
+    agents: configuredAgents,
+    selectedScopeId: agentScope,
+    setSelectedScopeId: setAgentScope,
+  } = useAgentContext()
+  const { connected, connection, loading: wsLoading, state: wsState } = useWebSocket({ agentScope })
 
   const [now, setNow] = React.useState(new Date())
   const [draggedId, setDraggedId] = React.useState(null)
-  const [agents, setAgents] = React.useState([])
   const [savingId, setSavingId] = React.useState(null)
   const [boardLoading, setBoardLoading] = React.useState(false)
   const [board, setBoard] = React.useState({ todos: [], updated_at: null })
-  const [agentScope, setAgentScope] = React.useState('all')
 
   const [newContent, setNewContent] = useState('')
   const [newAgent, setNewAgent] = useState('')
@@ -126,22 +128,6 @@ export default function Kanban() {
     return () => clearInterval(t)
   }, [loadBoard])
 
-  React.useEffect(() => {
-    async function loadAgents() {
-      try {
-        const res = await fetch(`${API_BASE}/todos/agents`)
-        const data = await res.json()
-        if (Array.isArray(data?.agents)) {
-          setAgents(data.agents)
-        }
-      } catch (error) {
-        console.error('Failed to load agent profiles:', error)
-      }
-    }
-
-    loadAgents()
-  }, [])
-
   const todos = board.todos || []
   const scopedAgentName = agentScope === 'all'
     ? ''
@@ -158,7 +144,7 @@ export default function Kanban() {
   }, [scopedAgentName])
 
   const dedupedAgents = Array.from(new Set([
-    ...agents,
+    ...configuredAgents.map((agent) => agent.name).filter(Boolean),
     ...todos.map((t) => t.assigned_agent).filter(Boolean),
   ]))
 
@@ -252,7 +238,7 @@ export default function Kanban() {
 
   return (
     <div className="min-h-screen bg-slate-950 relative">
-      <Header connected={connected} lastUpdate={board.updated_at || wsState?.updated_at} now={now} subtitle={subtitle} />
+      <Header connected={connected} connection={connection} lastUpdate={board.updated_at || wsState?.updated_at} now={now} subtitle={subtitle} />
       <LoadingOverlay show={boardLoading || wsLoading} label="Loading board data..." />
 
       <main className="max-w-7xl mx-auto px-4 py-6">

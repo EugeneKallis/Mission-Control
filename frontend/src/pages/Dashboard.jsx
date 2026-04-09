@@ -23,9 +23,8 @@ function StatCard({ label, value, color = 'text-slate-100', sublabel }) {
 }
 
 export default function Dashboard() {
-  const { agents } = useAgentContext()
-  const [agentScope, setAgentScope] = React.useState('all')
-  const { connected, loading, state, send, refresh } = useWebSocket({ agentScope })
+  const { agents, selectedScopeId: agentScope, setSelectedScopeId: setAgentScope } = useAgentContext()
+  const { connected, connection, loading, state, send, refresh } = useWebSocket({ agentScope })
   const [now, setNow] = React.useState(new Date())
   const [directTodos, setDirectTodos] = React.useState([])
 
@@ -71,7 +70,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-slate-950 relative">
-      <Header connected={connected} lastUpdate={s?.updated_at} now={now} subtitle={subtitle} />
+      <Header connected={connected} connection={connection} lastUpdate={s?.updated_at} now={now} subtitle={subtitle} />
       <LoadingOverlay show={loading} label="Loading agent data..." />
 
       <main className="max-w-7xl mx-auto px-4 py-6">

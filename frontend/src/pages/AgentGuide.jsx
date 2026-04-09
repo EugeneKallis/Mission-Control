@@ -236,13 +236,13 @@ Implementation note
 
             <div>
               <label className="text-xs text-slate-500 block mb-1">
-                Discord bot API{" "}
-                <span className="text-slate-600">(auto-configured from agent .env — token & channel from DISCORD_BOT_TOKEN + DISCORD_HOME_CHANNEL)</span>
+                Discord webhook{" "}
+                <span className="text-slate-600">(optional — notifies on task done)</span>
               </label>
               <input
                 value={discordWebhook}
                 onChange={(e) => setDiscordWebhook(e.target.value)}
-                placeholder="https://discord.com/api/webhooks/... (legacy)"
+                placeholder="https://discord.com/api/webhooks/..."
                 className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-slate-100 font-mono"
               />
             </div>
@@ -250,7 +250,7 @@ Implementation note
             <div>
               <div className="text-slate-200 font-semibold mb-2 text-xs">PR Required tasks</div>
               <p className="text-xs text-slate-400 mb-2">
-                For tasks marked PR Required, agents must create a feature branch, not merge to develop/main, and post the PR link to Discord when done.
+                For tasks marked PR Required, agents must create a feature branch, not merge to develop/main, and post the PR link when done.
               </p>
             </div>
 
