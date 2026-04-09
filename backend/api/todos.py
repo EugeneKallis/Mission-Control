@@ -13,12 +13,14 @@ class TodoUpdateInput(BaseModel):
     status: Optional[TaskStatus] = None
     assigned_agent: Optional[str] = None
     content: Optional[str] = None
+    pr_required: Optional[bool] = None
 
 
 class TodoCreateInput(BaseModel):
     content: str
     assigned_agent: Optional[str] = None
     status: TaskStatus = TaskStatus.PENDING
+    pr_required: bool = False
 
 
 @router.get("/", response_model=List[TodoItem])
@@ -47,6 +49,7 @@ async def create_todo(payload: TodoCreateInput):
         content,
         status=payload.status,
         assigned_agent=payload.assigned_agent,
+        pr_required=payload.pr_required,
     )
     await manager.broadcast_state_change("state_update", state.get_full_state())
     return todo
@@ -61,6 +64,7 @@ async def update_todo(todo_id: str, payload: TodoUpdateInput):
         status=payload.status,
         assigned_agent=payload.assigned_agent,
         content=payload.content,
+        pr_required=payload.pr_required,
     )
     if not updated:
         raise HTTPException(status_code=404, detail=f"Todo '{todo_id}' not found")

@@ -355,7 +355,7 @@ class DashboardState:
     def get_todos(self) -> List[TodoItem]:
         return self.todos
 
-    def create_todo(self, content: str, *, status: TaskStatus = TaskStatus.PENDING, assigned_agent: Optional[str] = None) -> TodoItem:
+    def create_todo(self, content: str, *, status: TaskStatus = TaskStatus.PENDING, assigned_agent: Optional[str] = None, pr_required: bool = False) -> TodoItem:
         import uuid
 
         todo = TodoItem(
@@ -365,13 +365,14 @@ class DashboardState:
             created_at=datetime.now(),
             completed_at=datetime.now() if status == TaskStatus.COMPLETED else None,
             assigned_agent=(assigned_agent or '').strip() or None,
+            pr_required=pr_required,
         )
         self.todos.append(todo)
         self._schedule(self._persist_todo(todo))
         self._notify()
         return todo
 
-    def update_todo(self, todo_id: str, *, status: Optional[TaskStatus] = None, assigned_agent: Optional[str] = None, content: Optional[str] = None) -> Optional[TodoItem]:
+    def update_todo(self, todo_id: str, *, status: Optional[TaskStatus] = None, assigned_agent: Optional[str] = None, content: Optional[str] = None, pr_required: Optional[bool] = None) -> Optional[TodoItem]:
         for todo in self.todos:
             if todo.id != todo_id:
                 continue
@@ -388,6 +389,9 @@ class DashboardState:
 
             if content is not None:
                 todo.content = content
+
+            if pr_required is not None:
+                todo.pr_required = pr_required
 
             self._schedule(self._persist_todo(todo))
             self._notify()

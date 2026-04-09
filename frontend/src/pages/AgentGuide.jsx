@@ -71,6 +71,34 @@ export default function AgentGuide() {
           </div>
 
           <div>
+            <div className="text-slate-200 font-semibold mb-2">PR Required tasks</div>
+            <p className="text-sm text-slate-300 mb-2">
+              Some tasks are marked <span className="font-semibold">PR Required</span>. For these:
+            </p>
+            <ol className="list-decimal list-inside text-sm text-slate-300 space-y-1">
+              <li>Do <span className="font-semibold">NOT</span> merge code directly to <code className="text-xs text-violet-300">develop</code> or <code className="text-xs text-violet-300">main</code>.</li>
+              <li>Create a <span className="font-semibold">feature branch</span> and implement the changes there.</li>
+              <li>Open a Pull Request when the work is complete.</li>
+              <li>Post the PR link to Discord when the task is marked done.</li>
+            </ol>
+          </div>
+
+          <div>
+            <div className="text-slate-200 font-semibold mb-2">Discord notifications</div>
+            <p className="text-sm text-slate-300 mb-2">
+              When a task is completed, the worker sends a notification to the configured Discord channel via the bot API.
+            </p>
+            <p className="text-sm text-slate-300 mb-2">
+              Discord configuration is stored in <code className="text-xs text-violet-300">~/.hermes/profiles/&lt;agent&gt;/.env</code>:
+            </p>
+            <ul className="list-disc list-inside text-sm text-slate-300 space-y-1">
+              <li><code className="text-xs text-slate-400">DISCORD_BOT_TOKEN</code> — the bot token for posting to channels.</li>
+              <li><code className="text-xs text-slate-400">DISCORD_HOME_CHANNEL</code> — the channel ID where notifications are posted.</li>
+              <li><code className="text-xs text-slate-400">DISCORD_FREE_RESPONSE_CHANNELS</code> — comma-separated channel IDs the bot can post to freely.</li>
+            </ul>
+          </div>
+
+          <div>
             <div className="text-slate-200 font-semibold mb-2">Agent-specific links</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {agents.map((a) => {

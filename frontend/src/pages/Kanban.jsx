@@ -68,7 +68,7 @@ function Card({ todo, agents, onAssign, onMove, onDragStart }) {
         </select>
 
         <select
-          value={todo.status === 'cancelled' ? 'completed' : todo.status}
+          value={todo.status}
           onChange={(e) => onMove(todo.id, e.target.value)}
           className="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded px-2 py-1"
         >
@@ -93,9 +93,10 @@ export default function Kanban() {
   const [board, setBoard] = React.useState({ todos: [], updated_at: null })
   const [agentScope, setAgentScope] = React.useState('all')
 
-  const [newContent, setNewContent] = React.useState('')
-  const [newAgent, setNewAgent] = React.useState('')
-  const [newStatus, setNewStatus] = React.useState('pending')
+  const [newContent, setNewContent] = useState('')
+  const [newAgent, setNewAgent] = useState('')
+  const [newStatus, setNewStatus] = useState('pending')
+  const [newPrRequired, setNewPrRequired] = useState(false)
 
   React.useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000)
@@ -205,6 +206,7 @@ export default function Kanban() {
         content: newContent.trim(),
         assigned_agent: (newAgent || scopedAgentName || '').trim() || null,
         status: newStatus,
+        pr_required: newPrRequired,
       }
       const res = await fetch(`${API_BASE}/todos/`, {
         method: 'POST',
@@ -226,7 +228,6 @@ export default function Kanban() {
 
       setNewContent('')
       setNewAgent('')
-      setNewStatus('pending')
       loadBoard({ silent: true })
     } catch (error) {
       console.error('Failed to create todo:', error)
@@ -267,32 +268,36 @@ export default function Kanban() {
         </div>
 
         <form onSubmit={createTodo} className="bg-slate-900/50 border border-slate-800 rounded-lg p-3 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-            <input
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <textarea
               value={newContent}
               onChange={(e) => setNewContent(e.target.value)}
               placeholder="Add a new task..."
-              className="md:col-span-2 bg-slate-900 border border-slate-700 text-slate-100 text-sm rounded px-3 py-2"
+              rows={2}
+              className="md:col-span-2 bg-slate-900 border border-slate-700 text-slate-100 text-sm rounded px-3 py-2 resize-y min-h-[60px]"
             />
-            <select
-              value={newAgent}
-              onChange={(e) => setNewAgent(e.target.value)}
-              className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded px-2 py-2"
-            >
-              <option value="">Unassigned</option>
-              {dedupedAgents.map((agent) => (
-                <option key={agent} value={agent}>{agent}</option>
-              ))}
-            </select>
-            <select
-              value={newStatus}
-              onChange={(e) => setNewStatus(e.target.value)}
-              className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded px-2 py-2"
-            >
-              {COLUMNS.map((column) => (
-                <option key={column.id} value={column.id}>{column.label}</option>
-              ))}
-            </select>
+            <div className="flex flex-col gap-2">
+              <select
+                value={newAgent}
+                onChange={(e) => setNewAgent(e.target.value)}
+                className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded px-2 py-2"
+              >
+                <option value="">Unassigned</option>
+                {dedupedAgents.map((agent) => (
+                  <option key={agent} value={agent}>{agent}</option>
+                ))}
+              </select>
+              <div className="text-xs text-slate-500 px-1">Status: To Do</div>
+              <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={newPrRequired}
+                  onChange={(e) => setNewPrRequired(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-slate-600 bg-slate-900 accent-blue-500"
+                />
+                PR Required
+              </label>
+            </div>
           </div>
           <div className="mt-2">
             <button

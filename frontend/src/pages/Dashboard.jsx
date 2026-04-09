@@ -27,16 +27,36 @@ export default function Dashboard() {
   const [agentScope, setAgentScope] = React.useState('all')
   const { connected, loading, state, send, refresh } = useWebSocket({ agentScope })
   const [now, setNow] = React.useState(new Date())
+  const [directTodos, setDirectTodos] = React.useState([])
 
   React.useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(t)
   }, [])
 
+  // Fetch todos directly from API to ensure accurate counts regardless of agent scope
+  React.useEffect(() => {
+    const apiBase = getApiBase()
+    async function loadDirectTodos() {
+      try {
+        const res = await fetch(`${apiBase}/state?t=${Date.now()}`, { cache: 'no-store' })
+        if (!res.ok) return
+        const data = await res.json()
+        setDirectTodos(Array.isArray(data?.todos) ? data.todos : [])
+      } catch (error) {
+        // silently ignore
+      }
+    }
+    loadDirectTodos()
+    const interval = setInterval(loadDirectTodos, 15000)
+    return () => clearInterval(interval)
+  }, [])
+
   const s = state
   const cronJobs = s?.cron_jobs || []
   const processes = s?.active_processes || []
-  const todos = s?.todos || []
+  // Use direct todos for accurate counts; fall back to ws state if still loading
+  const todos = directTodos.length > 0 ? directTodos : (s?.todos || [])
   const jobStats = s?.job_search_today
   const activity = s?.recent_activity || []
 
