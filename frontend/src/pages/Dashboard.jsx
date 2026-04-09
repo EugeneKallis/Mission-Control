@@ -11,6 +11,7 @@ import { QuickActions } from '../components/QuickActions'
 import { JobFunnelWidget } from '../components/JobFunnelWidget'
 import { AgentScopePicker } from '../components/AgentScopePicker'
 import { LoadingOverlay } from '../components/LoadingOverlay'
+import { getApiBase } from '../lib/apiBase'
 
 function StatCard({ label, value, color = 'text-slate-100', sublabel }) {
   return (
