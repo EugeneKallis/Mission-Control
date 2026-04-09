@@ -36,7 +36,6 @@ def _map_hermes_jobs_to_state(jobs: List[Dict[str, Any]]) -> Dict[str, Any]:
             "state": j.get("state") or "unknown",
             "prompt_preview": j.get("prompt"),
             "model": j.get("model"),
-            "skills": j.get("skills") or ([j.get("skill")] if j.get("skill") else []),
             "provider": j.get("provider"),
             "base_url": j.get("base_url"),
             "repeat": (j.get("repeat") or {}).get("display") if isinstance(j.get("repeat"), dict) else None,
@@ -82,75 +81,6 @@ async def remote_state(target: str = Query(..., description="Remote gateway base
             if state_res.status_code != 200:
                 raise HTTPException(status_code=502, detail=f"Remote /state returned {state_res.status_code}")
             return state_res.json()
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Remote fetch failed: {e}")
-
-
-@router.get("/skills")
-async def remote_skills(target: str = Query(..., description="Remote gateway base URL")):
-    base = _normalize_target(target)
-
-    try:
-        async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True) as client:
-            health = await client.get(f"{base}/health")
-            if health.status_code != 200:
-                raise HTTPException(status_code=502, detail=f"Remote /health returned {health.status_code}")
-
-            platform = ""
-            try:
-                platform = str((health.json() or {}).get("platform", "")).lower()
-            except Exception:
-                platform = ""
-
-            if platform == "hermes-agent":
-                # Hermes API server does not expose installed skills yet.
-                return {
-                    "skills": [],
-                    "available": False,
-                    "message": "Hermes API gateways do not expose installed skills yet. Only cron-referenced skills can be shown right now.",
-                }
-
-            skills_res = await client.get(f"{base}/skills")
-            if skills_res.status_code != 200:
-                raise HTTPException(status_code=502, detail=f"Remote /skills returned {skills_res.status_code}")
-            return skills_res.json() or {"skills": []}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Remote fetch failed: {e}")
-
-
-@router.get("/skills/content")
-async def remote_skill_content(
-    target: str = Query(..., description="Remote gateway base URL"),
-    name: str = Query(..., description="Skill name"),
-):
-    base = _normalize_target(target)
-    skill_name = (name or '').strip()
-    if not skill_name:
-        raise HTTPException(status_code=400, detail="Missing skill name")
-
-    try:
-        async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True) as client:
-            health = await client.get(f"{base}/health")
-            if health.status_code != 200:
-                raise HTTPException(status_code=502, detail=f"Remote /health returned {health.status_code}")
-
-            platform = ""
-            try:
-                platform = str((health.json() or {}).get("platform", "")).lower()
-            except Exception:
-                platform = ""
-
-            if platform == "hermes-agent":
-                return {"content": "Skill content is unavailable for Hermes API gateways."}
-
-            content_res = await client.get(f"{base}/skills/{skill_name}/content")
-            if content_res.status_code != 200:
-                raise HTTPException(status_code=502, detail=f"Remote /skills/{{name}}/content returned {content_res.status_code}")
-            return content_res.json() or {"content": ""}
     except HTTPException:
         raise
     except Exception as e:

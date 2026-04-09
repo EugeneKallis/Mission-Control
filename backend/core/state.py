@@ -437,7 +437,6 @@ class DashboardState:
                     state=j.get("state", "unknown"),
                     prompt_preview=j.get("prompt", ""),  # FULL prompt, not truncated
                     model=j.get("model"),
-                    skills=j.get("skills", []),
                     provider=j.get("provider"),
                     base_url=j.get("base_url"),
                     repeat=f"{repeat_times} runs" if repeat_times else "forever",

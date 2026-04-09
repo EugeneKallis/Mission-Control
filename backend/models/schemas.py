@@ -33,7 +33,6 @@ class CronJob(BaseModel):
     state: str = "unknown"
     prompt_preview: Optional[str] = None
     model: Optional[str] = None
-    skills: Optional[List[str]] = []
     provider: Optional[str] = None
     base_url: Optional[str] = None
     repeat: Optional[str] = None

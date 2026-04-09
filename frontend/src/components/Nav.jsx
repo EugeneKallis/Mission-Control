@@ -23,9 +23,6 @@ export function Nav({ rightContent = null }) {
         <Link to="/crons" className={navClasses(location.pathname === '/crons')}>
           Crons
         </Link>
-        <Link to="/skills" className={navClasses(location.pathname === '/skills')}>
-          Skills
-        </Link>
         <Link to="/settings" className={navClasses(location.pathname === '/settings')}>
           Settings
         </Link>
