@@ -97,11 +97,13 @@ class DashboardState:
                         status TEXT NOT NULL,
                         created_at TIMESTAMPTZ NOT NULL,
                         completed_at TIMESTAMPTZ NULL,
-                        assigned_agent TEXT NULL
+                        assigned_agent TEXT NULL,
+                        pr_required BOOLEAN NOT NULL DEFAULT FALSE,
+                        pr_link TEXT NULL
                     )
                 """)
-                await conn.execute("ALTER TABLE todos ADD COLUMN IF NOT EXISTS pr_required BOOLEAN DEFAULT FALSE")
-                await conn.execute("ALTER TABLE todos ADD COLUMN IF NOT EXISTS pr_url TEXT NULL")
+                await conn.execute("ALTER TABLE todos ADD COLUMN IF NOT EXISTS pr_required BOOLEAN NOT NULL DEFAULT FALSE")
+                await conn.execute("ALTER TABLE todos ADD COLUMN IF NOT EXISTS pr_link TEXT NULL")
                 await conn.execute("""
                     CREATE TABLE IF NOT EXISTS job_history (
                         date TEXT PRIMARY KEY,
@@ -143,7 +145,7 @@ class DashboardState:
 
         async with self._db.acquire() as conn:
             rows = await conn.fetch(
-                "SELECT id, content, status, created_at, completed_at, assigned_agent, pr_required, pr_url FROM todos ORDER BY created_at DESC"
+                "SELECT id, content, status, created_at, completed_at, assigned_agent, pr_required, pr_link FROM todos ORDER BY created_at DESC"
             )
 
         self.todos = [
@@ -154,8 +156,8 @@ class DashboardState:
                 created_at=r["created_at"],
                 completed_at=r["completed_at"],
                 assigned_agent=r["assigned_agent"],
-                pr_required=r["pr_required"] if "pr_required" in r else False,
-                pr_url=r["pr_url"] if "pr_url" in r else None,
+                pr_required=bool(r["pr_required"]),
+                pr_link=r["pr_link"],
             )
             for r in rows
         ]
@@ -302,7 +304,7 @@ class DashboardState:
         async with self._db.acquire() as conn:
             await conn.execute(
                 """
-                INSERT INTO todos (id, content, status, created_at, completed_at, assigned_agent, pr_required, pr_url)
+                INSERT INTO todos (id, content, status, created_at, completed_at, assigned_agent, pr_required, pr_link)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 ON CONFLICT (id) DO UPDATE SET
                     content = EXCLUDED.content,
@@ -311,7 +313,7 @@ class DashboardState:
                     completed_at = EXCLUDED.completed_at,
                     assigned_agent = EXCLUDED.assigned_agent,
                     pr_required = EXCLUDED.pr_required,
-                    pr_url = EXCLUDED.pr_url
+                    pr_link = EXCLUDED.pr_link
                 """,
                 todo.id,
                 todo.content,
@@ -320,7 +322,7 @@ class DashboardState:
                 todo.completed_at,
                 todo.assigned_agent,
                 todo.pr_required,
-                todo.pr_url,
+                todo.pr_link,
             )
 
     async def _persist_all_todos(self):
@@ -332,7 +334,7 @@ class DashboardState:
                 for todo in self.todos:
                     await conn.execute(
                         """
-                        INSERT INTO todos (id, content, status, created_at, completed_at, assigned_agent, pr_required, pr_url)
+                        INSERT INTO todos (id, content, status, created_at, completed_at, assigned_agent, pr_required, pr_link)
                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                         """,
                         todo.id,
@@ -342,7 +344,7 @@ class DashboardState:
                         todo.completed_at,
                         todo.assigned_agent,
                         todo.pr_required,
-                        todo.pr_url,
+                        todo.pr_link,
                     )
 
     # ── Todos ─────────────────────────────────────────────────────────────────
@@ -354,8 +356,13 @@ class DashboardState:
 
         for todo in todos:
             current = existing_by_id.get(todo.id)
-            if current and not todo.assigned_agent:
-                todo.assigned_agent = current.assigned_agent
+            if current:
+                if not todo.assigned_agent:
+                    todo.assigned_agent = current.assigned_agent
+                if not todo.pr_link:
+                    todo.pr_link = current.pr_link
+                if not todo.pr_required:
+                    todo.pr_required = current.pr_required
             merged.append(todo)
 
         self.todos = merged
@@ -365,7 +372,7 @@ class DashboardState:
     def get_todos(self) -> List[TodoItem]:
         return self.todos
 
-    def create_todo(self, content: str, *, status: TaskStatus = TaskStatus.PENDING, assigned_agent: Optional[str] = None, pr_required: bool = False, pr_url: Optional[str] = None) -> TodoItem:
+    def create_todo(self, content: str, *, status: TaskStatus = TaskStatus.PENDING, assigned_agent: Optional[str] = None, pr_required: bool = False, pr_link: Optional[str] = None) -> TodoItem:
         import uuid
 
         todo = TodoItem(
@@ -376,14 +383,14 @@ class DashboardState:
             completed_at=datetime.now() if status == TaskStatus.COMPLETED else None,
             assigned_agent=(assigned_agent or '').strip() or None,
             pr_required=pr_required,
-            pr_url=pr_url,
+            pr_link=(pr_link or '').strip() or None,
         )
         self.todos.append(todo)
         self._schedule(self._persist_todo(todo))
         self._notify()
         return todo
 
-    def update_todo(self, todo_id: str, *, status: Optional[TaskStatus] = None, assigned_agent: Optional[str] = None, content: Optional[str] = None, pr_required: Optional[bool] = None, pr_url: Optional[str] = None) -> Optional[TodoItem]:
+    def update_todo(self, todo_id: str, *, status: Optional[TaskStatus] = None, assigned_agent: Optional[str] = None, content: Optional[str] = None, pr_required: Optional[bool] = None, pr_link: Optional[str] = None) -> Optional[TodoItem]:
         for todo in self.todos:
             if todo.id != todo_id:
                 continue
@@ -404,8 +411,8 @@ class DashboardState:
             if pr_required is not None:
                 todo.pr_required = pr_required
 
-            if pr_url is not None:
-                todo.pr_url = pr_url
+            if pr_link is not None:
+                todo.pr_link = pr_link.strip() or None
 
             self._schedule(self._persist_todo(todo))
             self._notify()
@@ -451,7 +458,6 @@ class DashboardState:
                     state=j.get("state", "unknown"),
                     prompt_preview=j.get("prompt", ""),  # FULL prompt, not truncated
                     model=j.get("model"),
-                    skills=j.get("skills", []),
                     provider=j.get("provider"),
                     base_url=j.get("base_url"),
                     repeat=f"{repeat_times} runs" if repeat_times else "forever",

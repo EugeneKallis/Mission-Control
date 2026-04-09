@@ -91,7 +91,7 @@ export default function Dashboard() {
           <StatCard label="Agents" value={agentScope === 'all' ? agents.length : 1} color="text-violet-400" />
         </div>
 
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-2 gap-4 mb-6">
           <Link to="/kanban" className="p-4 rounded bg-slate-800/50 hover:bg-slate-800 transition-colors text-center">
             <div className="text-lg font-bold text-blue-400">Board</div>
             <div className="text-xs text-slate-500">Kanban</div>
@@ -99,10 +99,6 @@ export default function Dashboard() {
           <Link to="/crons" className="p-4 rounded bg-slate-800/50 hover:bg-slate-800 transition-colors text-center">
             <div className="text-lg font-bold text-amber-400">{cronJobs.length}</div>
             <div className="text-xs text-slate-500">Cron Jobs</div>
-          </Link>
-          <Link to="/skills" className="p-4 rounded bg-slate-800/50 hover:bg-slate-800 transition-colors text-center">
-            <div className="text-lg font-bold text-blue-400">Skills</div>
-            <div className="text-xs text-slate-500">View all</div>
           </Link>
         </div>
 

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useAgentContext } from '../context/AgentContext'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { Nav } from '../components/Nav'
@@ -22,6 +22,13 @@ const STATUS_LABEL = {
   cancelled: 'Cancelled',
 }
 
+function normalizePrLink(value) {
+  const trimmed = (value || '').trim()
+  if (!trimmed) return ''
+  if (/^https?:\/\//i.test(trimmed)) return trimmed
+  return `https://${trimmed}`
+}
+
 function AgentBadge({ agent }) {
   const assigned = Boolean(agent)
   return (
@@ -37,7 +44,15 @@ function AgentBadge({ agent }) {
   )
 }
 
-function Card({ todo, agents, onAssign, onMove, onDragStart, onPrRequired }) {
+function Card({ todo, agents, onAssign, onDragStart, onPrLinkSave, onPrRequiredToggle }) {
+  const [prLinkDraft, setPrLinkDraft] = React.useState(todo.pr_link || '')
+
+  React.useEffect(() => {
+    setPrLinkDraft(todo.pr_link || '')
+  }, [todo.pr_link])
+
+  const normalizedPrLink = normalizePrLink(todo.pr_link)
+
   return (
     <div
       draggable
@@ -51,25 +66,46 @@ function Card({ todo, agents, onAssign, onMove, onDragStart, onPrRequired }) {
 
       <div className="text-sm text-slate-100 mb-2">{todo.content}</div>
 
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <span className="text-[10px] uppercase tracking-wide text-slate-500">{STATUS_LABEL[todo.status] || todo.status}</span>
-        {todo.pr_url && (
-          <a
-            href={todo.pr_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[10px] text-blue-400 hover:text-blue-300 underline decoration-blue-400/40"
-            onClick={(e) => e.stopPropagation()}
+      <div className="mb-3 rounded border border-slate-700 bg-slate-900/70 p-2">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="text-[10px] uppercase tracking-wide text-slate-500">GitHub PR</span>
+          {normalizedPrLink ? (
+            <a
+              href={normalizedPrLink}
+              target="_blank"
+              rel="noreferrer"
+              className="text-[10px] font-semibold text-blue-400 hover:text-blue-300"
+            >
+              Open PR ↗
+            </a>
+          ) : (
+            <span className="text-[10px] text-slate-600">No PR linked</span>
+          )}
+        </div>
+
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={prLinkDraft}
+            onChange={(e) => setPrLinkDraft(e.target.value)}
+            placeholder="github.com/org/repo/pull/123"
+            className="flex-1 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
+          />
+          <button
+            type="button"
+            onClick={() => onPrLinkSave(todo.id, prLinkDraft)}
+            className="rounded bg-blue-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-blue-500"
           >
-            View PR
-          </a>
-        )}
+            Save
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 gap-2">
         <select
           value={todo.assigned_agent || ''}
           onChange={(e) => onAssign(todo.id, e.target.value)}
+          aria-label="Assigned agent"
           className="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded px-2 py-1"
         >
           <option value="">Unassigned</option>
@@ -78,30 +114,18 @@ function Card({ todo, agents, onAssign, onMove, onDragStart, onPrRequired }) {
           ))}
         </select>
 
-        <select
-          value={todo.status}
-          onChange={(e) => onMove(todo.id, e.target.value)}
-          className="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded px-2 py-1"
-        >
-          {COLUMNS.map((column) => (
-            <option key={column.id} value={column.id}>{column.label}</option>
-          ))}
-        </select>
-      </div>
-
-      {todo.status === 'pending' && (
-        <div className="mt-2 pt-2 border-t border-slate-700">
-          <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+        {todo.status === 'pending' && (
+          <label className="flex items-center gap-2 rounded border border-slate-700 bg-slate-900/70 px-2 py-1.5 text-xs text-slate-300 cursor-pointer">
             <input
               type="checkbox"
-              checked={todo.pr_required || false}
-              onChange={(e) => onPrRequired(todo.id, e.target.checked)}
-              className="w-3.5 h-3.5 rounded border-slate-600 bg-slate-900 accent-blue-500"
+              checked={Boolean(todo.pr_required)}
+              onChange={(e) => onPrRequiredToggle(todo.id, e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-slate-600 bg-slate-900 accent-blue-500"
             />
             PR Required
           </label>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
@@ -122,7 +146,6 @@ export default function Kanban() {
 
   const [newContent, setNewContent] = useState('')
   const [newAgent, setNewAgent] = useState('')
-  const [newStatus, setNewStatus] = useState('pending')
 
   React.useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000)
@@ -215,7 +238,7 @@ export default function Kanban() {
       const payload = {
         content: newContent.trim(),
         assigned_agent: (newAgent || scopedAgentName || '').trim() || null,
-        status: newStatus,
+        status: 'pending',
       }
       const res = await fetch(`${API_BASE}/todos/`, {
         method: 'POST',
@@ -247,7 +270,8 @@ export default function Kanban() {
 
   const handleAssign = (todoId, agent) => patchTodo(todoId, { assigned_agent: agent })
   const handleMove = (todoId, status) => patchTodo(todoId, { status })
-  const handlePrRequired = (todoId, pr_required) => patchTodo(todoId, { pr_required })
+  const handlePrLinkSave = (todoId, prLink) => patchTodo(todoId, { pr_link: prLink.trim() || null })
+  const handlePrRequiredToggle = (todoId, prRequired) => patchTodo(todoId, { pr_required: prRequired })
 
   const handleDrop = (e, status) => {
     e.preventDefault()
@@ -348,9 +372,9 @@ export default function Kanban() {
                     todo={todo}
                     agents={dedupedAgents}
                     onAssign={handleAssign}
-                    onMove={handleMove}
+                    onPrLinkSave={handlePrLinkSave}
+                    onPrRequiredToggle={handlePrRequiredToggle}
                     onDragStart={(_, id) => setDraggedId(id)}
-                    onPrRequired={handlePrRequired}
                   />
                 ))
               )}

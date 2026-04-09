@@ -72,7 +72,10 @@ async def sync_hermes(data: HermesSyncInput):
                 content=t.content,
                 status=ts,
                 created_at=datetime.fromisoformat(t.created_at.replace('Z', '+00:00')),
-                completed_at=datetime.fromisoformat(t.completed_at.replace('Z', '+00:00')) if t.completed_at else None
+                completed_at=datetime.fromisoformat(t.completed_at.replace('Z', '+00:00')) if t.completed_at else None,
+                assigned_agent=getattr(t, 'assigned_agent', None),
+                pr_required=bool(getattr(t, 'pr_required', False)),
+                pr_link=getattr(t, 'pr_link', None),
             ))
         state.set_todos(formatted)
         results["synced"]["todos"] = len(formatted)
