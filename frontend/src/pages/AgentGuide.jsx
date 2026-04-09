@@ -247,6 +247,13 @@ Implementation note
               />
             </div>
 
+            <div>
+              <div className="text-slate-200 font-semibold mb-2 text-xs">PR Required tasks</div>
+              <p className="text-xs text-slate-400 mb-2">
+                For tasks marked PR Required, agents must create a feature branch, not merge to develop/main, and post the PR link when done.
+              </p>
+            </div>
+
             <div className="rounded border border-slate-700 bg-slate-800/40 p-3 text-xs text-slate-300 space-y-2">
               <div><span className="text-slate-500">Schedule:</span> <span className="font-mono text-blue-300">{scheduleLabel}</span></div>
               <div><span className="text-slate-500">Job name:</span> <span className="font-mono text-violet-300">{jobName}</span></div>
