@@ -22,11 +22,21 @@ const STATUS_LABEL = {
   cancelled: 'Cancelled',
 }
 
+const CONTENT_PREVIEW_MAX_CHARS = 180
+const CONTENT_PREVIEW_MAX_LINES = 4
+
 function normalizePrLink(value) {
   const trimmed = (value || '').trim()
   if (!trimmed) return ''
   if (/^https?:\/\//i.test(trimmed)) return trimmed
   return `https://${trimmed}`
+}
+
+function contentExceedsPreviewLimit(content) {
+  const text = (content || '').trim()
+  if (!text) return false
+  if (text.length > CONTENT_PREVIEW_MAX_CHARS) return true
+  return text.split(/\r?\n/).length > CONTENT_PREVIEW_MAX_LINES
 }
 
 function AgentBadge({ agent }) {
@@ -44,8 +54,54 @@ function AgentBadge({ agent }) {
   )
 }
 
-function Card({ todo, agents, onAssign, onDragStart, onPrRequiredToggle, onDelete }) {
+function TaskDetailsModal({ todo, onClose }) {
+  if (!todo) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4" role="dialog" aria-modal="true" aria-labelledby="task-details-title">
+      <div className="w-full max-w-2xl rounded-xl border border-slate-700 bg-slate-900 shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-800 px-5 py-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Task details</p>
+            <h2 id="task-details-title" className="mt-1 text-lg font-semibold text-white">Full task details</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded border border-slate-700 px-2 py-1 text-xs font-medium text-slate-300 transition hover:border-slate-600 hover:text-white"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="space-y-4 px-5 py-4">
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+            <AgentBadge agent={todo.assigned_agent} />
+            <span className="rounded border border-slate-700 px-2 py-0.5 uppercase tracking-wide text-slate-300">
+              {STATUS_LABEL[todo.status] || todo.status || 'Unknown'}
+            </span>
+            {todo.pr_required ? (
+              <span className="rounded border border-blue-500/40 bg-blue-500/10 px-2 py-0.5 uppercase tracking-wide text-blue-300">
+                PR Required
+              </span>
+            ) : null}
+          </div>
+
+          <div>
+            <p className="mb-2 text-xs uppercase tracking-[0.2em] text-slate-500">Description</p>
+            <div className="max-h-[60vh] overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/70 p-4 text-sm leading-6 text-slate-100 whitespace-pre-wrap break-words">
+              {todo.content}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Card({ todo, agents, onAssign, onDragStart, onPrRequiredToggle, onDelete, onShowMore }) {
   const normalizedPrLink = normalizePrLink(todo.pr_link)
+  const shouldClampContent = contentExceedsPreviewLimit(todo.content)
 
   return (
     <div
@@ -67,7 +123,30 @@ function Card({ todo, agents, onAssign, onDragStart, onPrRequiredToggle, onDelet
         </div>
       </div>
 
-      <div className="text-sm text-slate-100 mb-2">{todo.content}</div>
+      <div className="mb-2">
+        <div
+          className="text-sm text-slate-100 whitespace-pre-wrap break-words overflow-hidden"
+          style={shouldClampContent ? {
+            display: '-webkit-box',
+            WebkitBoxOrient: 'vertical',
+            WebkitLineClamp: CONTENT_PREVIEW_MAX_LINES,
+          } : undefined}
+        >
+          {todo.content}
+        </div>
+        {shouldClampContent ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onShowMore(todo)
+            }}
+            className="mt-2 text-xs font-medium text-blue-400 hover:text-blue-300"
+          >
+            Show more
+          </button>
+        ) : null}
+      </div>
 
       {normalizedPrLink && (
         <div className="mb-3 flex items-center gap-2">
@@ -125,6 +204,7 @@ export default function Kanban() {
   const [savingId, setSavingId] = React.useState(null)
   const [boardLoading, setBoardLoading] = React.useState(false)
   const [board, setBoard] = React.useState({ todos: [], updated_at: null })
+  const [expandedTodo, setExpandedTodo] = React.useState(null)
 
   const [newContent, setNewContent] = useState('')
   const [newAgent, setNewAgent] = useState('')
@@ -290,6 +370,8 @@ export default function Kanban() {
       <Header connected={connected} connection={connection} lastUpdate={board.updated_at || wsState?.updated_at} now={now} subtitle={subtitle} />
       <LoadingOverlay show={boardLoading || wsLoading} label="Loading board data..." />
 
+      <TaskDetailsModal todo={expandedTodo} onClose={() => setExpandedTodo(null)} />
+
       <main className="max-w-7xl mx-auto px-4 py-6">
         <div className="mb-6">
           <Nav rightContent={<AgentScopePicker agents={configuredAgents} value={agentScope} onChange={setAgentScope} />} />
@@ -385,6 +467,7 @@ export default function Kanban() {
                     onPrRequiredToggle={handlePrRequiredToggle}
                     onDragStart={(_, id) => setDraggedId(id)}
                     onDelete={deleteTodo}
+                    onShowMore={setExpandedTodo}
                   />
                 ))
               )}
