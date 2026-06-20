@@ -1,0 +1,17 @@
+[Unit]
+Description=Mission Control — scraper task (runs once per timer trigger)
+After=network.target
+
+[Service]
+Type=exec
+User=node
+Group=node
+WorkingDirectory=/opt/mission-control
+ExecStart=/usr/bin/npx tsx /opt/mission-control/src/workers/scraper-worker.ts
+Environment=NODE_ENV=production
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true

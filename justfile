@@ -26,19 +26,31 @@ dev:
 build:
     npx next build
 
-# ── Production ───────────────────────────────────────────────────────────────
+# ── Production (systemd) ─────────────────────────────────────────────────────
 
-# Start the production server (build first)
+# Start the production server (build first, foreground — for testing)
 start:
     npx next start
 
-# Stop the production server (if running via systemd/PM2)
-stop:
-    @echo "Use: sudo systemctl stop mission-control"
+# Install as a systemd service on the server (run once)
+install-service:
+    sudo ./deploy/install.sh
 
-# Restart the production server
+# Full deploy: pull, build, restart (called by N8N on push)
+deploy:
+    sudo ./deploy/deploy.sh
+
+# Stop the service
+stop:
+    sudo systemctl stop mission-control
+
+# Restart the service
 restart:
-    @echo "Use: sudo systemctl restart mission-control"
+    sudo systemctl restart mission-control
+
+# Tail the service logs
+logs:
+    sudo journalctl -u mission-control.service -f
 
 # ── One-off Scripts ──────────────────────────────────────────────────────────
 
@@ -47,11 +59,10 @@ restart:
 script name:
     @npx tsx {{name}}
 
-# ── External Cron Tasks (run once, scheduler handles timing) ──────────────────
+# ── Scraper / Cron Tasks (run once — systemd timer handles scheduling) ────────
 
-# Run the scraper task (default). Runs once and exits.
-# Called by systemd timer or crontab:  just run-worker
-# Other tasks:                         just run-worker src/workers/other.ts
+# Run the scraper task once (default). Call via systemd timer or crontab.
+# Other tasks:  just run-worker src/workers/other.ts
 run-worker path="src/workers/scraper-worker.ts":
     npx tsx {{path}}
 

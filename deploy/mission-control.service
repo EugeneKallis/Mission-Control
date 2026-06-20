@@ -1,0 +1,24 @@
+[Unit]
+Description=Mission Control — Next.js app (frontend + API)
+After=network.target
+
+[Service]
+Type=exec
+User=node
+Group=node
+WorkingDirectory=/opt/mission-control
+ExecStart=/usr/bin/node /opt/mission-control/node_modules/.bin/next start
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOSTNAME=0.0.0.0
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

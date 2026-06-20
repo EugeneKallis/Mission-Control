@@ -44,8 +44,37 @@ Run via `just <command>`:
 | `just start`   | Start production server                  |
 | `just script`  | Run a one-off script                     |
 | `just lint`      | Lint code                                |
-| `just typecheck` | Type-check app + scripts              |
-| `just run-worker path` | Run a cron task once (default: scraper)  |
+| `just typecheck`      | Type-check app + scripts                        |
+| `just run-worker path` | Run a cron task once (default: scraper)       |
+| `just install-service` | One-time: install systemd service on server   |
+| `just deploy`          | Full deploy: pull → build → restart (N8N)     |
+| `just stop`            | Stop systemd service                           |
+| `just restart`         | Restart systemd service                        |
+| `just logs`            | Tail service logs                              |
+
+## Deployment
+
+The project runs as a **systemd service** at `/opt/mission-control`.
+
+### Initial install (fresh server)
+```bash
+# Clone the repo once
+git clone <repo-url> /opt/mission-control
+
+# Run the installer
+cd /opt/mission-control && sudo just install-service
+```
+
+This sets up:
+- `mission-control.service` — the Next.js app (React frontend + API routes)
+- `mission-control-scraper.timer` — runs the scraper task every 30 minutes
+- `mission-control-scraper.service` — the scraper task (called by the timer)
+
+### Deploy on push (N8N workflow)
+
+1. N8N detects a push to the repo
+2. Runs: `ssh user@server "cd /opt/mission-control && sudo just deploy"`
+3. The deploy script: pulls latest → builds → restarts the service
 
 ## Cron Tasks (External Scheduling)
 
