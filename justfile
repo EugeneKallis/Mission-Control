@@ -43,9 +43,20 @@ restart:
 # ── One-off Scripts ──────────────────────────────────────────────────────────
 
 # Run a one-off TypeScript script: just script scripts/foo.ts
-# Or: just script-name foo
+# Or: just run-script foo
 script name="":
     npx tsx {{name}}
+
+# ── Workers (Long-running processes) ─────────────────────────────────────────
+
+# Start a worker:      just run-worker src/workers/foo.ts
+# Run in background:   just run-worker src/workers/foo.ts &
+run-worker path="":
+    npx tsx {{path}}
+
+# Quick-start the scraper worker in the foreground
+scrape:
+    npx tsx src/workers/scraper-worker.ts
 
 # ── Quality ──────────────────────────────────────────────────────────────────
 

@@ -23,7 +23,8 @@ Supports one-off TypeScript scripts for admin tasks and automation.
 │   ├── app/              # Next.js App Router (pages + API routes)
 │   │   ├── page.tsx      # Frontend pages
 │   │   └── api/          # Backend API routes
-│   └── lib/              # Shared utilities, db clients, config
+│   ├── lib/              # Shared utilities, db clients, config
+│   └── workers/          # Long-running background processes
 ├── scripts/              # One-off TypeScript scripts (run via `just script`)
 ├── public/               # Static assets
 ├── justfile              # Project commands
@@ -42,8 +43,22 @@ Run via `just <command>`:
 | `just build`   | Production build                         |
 | `just start`   | Start production server                  |
 | `just script`  | Run a one-off script                     |
-| `just lint`    | Lint code                                |
+| `just lint`      | Lint code                                |
 | `just typecheck` | Type-check app + scripts              |
+| `just run-worker path` | Start a worker process (long-running) |
+| `just scrape`   | Quick-start the scraper worker           |
+
+## Workers (Long-running Processes)
+
+Workers live in `src/workers/` and are standalone TypeScript files that run indefinitely.
+They can import from `@/lib/` to share code with the rest of the app.
+
+```bash
+just run-worker src/workers/scraper-worker.ts   # foreground
+just run-worker src/workers/scraper-worker.ts &  # background
+```
+
+**Production:** manage with systemd or PM2 for auto-restart on crash.
 
 ## Key Conventions
 
