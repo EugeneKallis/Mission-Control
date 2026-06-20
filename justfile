@@ -35,23 +35,23 @@ start:
 
 # Install as a systemd service on the server (run once)
 install-service:
-    sudo ./deploy/install.sh
+    ./deploy/install.sh
 
 # Full deploy: pull, build, restart (called by N8N on push)
 deploy:
-    sudo ./deploy/deploy.sh
+    ./deploy/deploy.sh
 
 # Stop the service
 stop:
-    sudo systemctl stop mission-control
+    systemctl stop mission-control
 
 # Restart the service
 restart:
-    sudo systemctl restart mission-control
+    systemctl restart mission-control
 
 # Tail the service logs
 logs:
-    sudo journalctl -u mission-control.service -f
+    journalctl -u mission-control.service -f
 
 # ── One-off Scripts ──────────────────────────────────────────────────────────
 
