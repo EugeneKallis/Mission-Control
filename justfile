@@ -1,5 +1,6 @@
 # ── Mission Control ──────────────────────────────────────────────────────────
 # see https://just.systems/man/en/ for just docs
+# Using Bun as the runtime and package manager.
 
 export NODE_ENV := ""
 default := "dev"
@@ -8,9 +9,9 @@ default := "dev"
 
 # Install all dependencies
 setup:
-    npm install
+    bun install
 
-# Initialize the project (install + build typecheck)
+# Initialize the project (install + build + typecheck)
 init: setup typecheck
     @echo "✔ Project ready."
 
@@ -18,19 +19,19 @@ init: setup typecheck
 
 # Start the dev server (default target)
 dev:
-    npx next dev
+    bun next dev
 
 # ── Build ────────────────────────────────────────────────────────────────────
 
 # Build for production
 build:
-    npx next build
+    bun next build
 
 # ── Production (systemd) ─────────────────────────────────────────────────────
 
 # Start the production server (build first, foreground — for testing)
 start:
-    npx next start
+    bun next start
 
 # Install as a systemd service on the server (run once)
 install-service:
@@ -57,25 +58,25 @@ logs:
 # Run a one-off TypeScript script:  just script scripts/foo.ts
 # List available scripts:           ls scripts/
 script name:
-    @npx tsx {{name}}
+    bun run {{name}}
 
 # ── Scraper / Cron Tasks (run once — systemd timer handles scheduling) ────────
 
 # Run the scraper task once (default). Call via systemd timer or crontab.
 # Other tasks:  just run-worker src/workers/other.ts
 run-worker path="src/workers/scraper-worker.ts":
-    npx tsx {{path}}
+    bun run {{path}}
 
 # ── Quality ──────────────────────────────────────────────────────────────────
 
 # Type-check all code (both app and scripts)
 typecheck:
-    npx tsc --noEmit --project tsconfig.json
-    npx tsc --noEmit --project tsconfig.scripts.json
+    bun tsc --noEmit --project tsconfig.json
+    bun tsc --noEmit --project tsconfig.scripts.json
 
 # Lint
 lint:
-    next lint
+    bun next lint
 
 # Format (stub — add prettier or biome when you like)
 fmt:

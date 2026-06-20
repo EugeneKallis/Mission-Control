@@ -7,7 +7,7 @@ Type=exec
 User=node
 Group=node
 WorkingDirectory=/opt/mission-control
-ExecStart=/usr/bin/npx tsx /opt/mission-control/src/workers/scraper-worker.ts
+ExecStart=/usr/local/bin/bun run src/workers/scraper-worker.ts
 Environment=NODE_ENV=production
 
 # Security hardening

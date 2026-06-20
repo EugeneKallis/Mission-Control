@@ -7,7 +7,7 @@ Type=exec
 User=node
 Group=node
 WorkingDirectory=/opt/mission-control
-ExecStart=/usr/bin/node /opt/mission-control/node_modules/.bin/next start
+ExecStart=/usr/local/bin/bun next start
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=production

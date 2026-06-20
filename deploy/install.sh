@@ -3,6 +3,9 @@
 # Install Mission Control as a systemd service on a fresh server.
 # Run once after the repo is cloned/rsynced to /opt/mission-control.
 #
+# Requires Bun installed at /usr/local/bin/bun
+#   curl -fsSL https://bun.sh/install | bash
+#
 # Usage:
 #   sudo ./deploy/install.sh
 # ──────────────────────────────────────────────────────────────────────────────
@@ -17,8 +20,8 @@ echo "=== Installing Mission Control ==="
 # 1. Build the app
 echo "→ Building..."
 cd "$DEPLOY_DIR"
-npm ci
-npm run build
+bun install
+bun next build
 
 # 2. Install systemd units
 echo "→ Installing systemd units..."

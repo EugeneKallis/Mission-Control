@@ -35,10 +35,10 @@ git pull origin main
 
 # 2. Install dependencies and build
 echo "→ Installing dependencies..."
-npm ci
+bun install
 
 echo "→ Building..."
-npm run build
+bun next build
 
 # 3. Copy to deploy location (same dir if already in place)
 #    If REPO_DIR == DEPLOY_DIR, this is a no-op but helps with clean deployments
@@ -54,7 +54,7 @@ fi
 # 4. Install production deps at deploy location
 echo "→ Installing production dependencies..."
 cd "$DEPLOY_DIR"
-npm ci --omit=dev
+bun install --production
 
 # 5. Restart service
 echo "→ Restarting service..."

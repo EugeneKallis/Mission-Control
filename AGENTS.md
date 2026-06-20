@@ -13,8 +13,8 @@ Supports one-off TypeScript scripts for admin tasks and automation.
 | Frontend     | React                                      |
 | Backend      | Next.js API Routes (TypeScript)            |
 | Language     | TypeScript (app + scripts)                 |
+| Runtime      | **Bun** (runs TS natively, no tsx needed)  |
 | Task Runner  | Just (justfile)                            |
-| Scripts      | `tsx` for running TypeScript one-off files |
 
 ## Structure
 
