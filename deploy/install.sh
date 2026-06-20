@@ -14,8 +14,22 @@ set -euo pipefail
 
 DEPLOY_DIR="/opt/mission-control"
 SERVICES_DIR="$DEPLOY_DIR/deploy"
+BUN_PATH="/usr/local/bin/bun"
 
 echo "=== Installing Mission Control ==="
+
+# Ensure bun is installed
+if ! command -v "$BUN_PATH" &>/dev/null; then
+  echo "→ Bun not found at $BUN_PATH — installing..."
+  curl -fsSL https://bun.sh/install | bash
+  if [ -f "$HOME/.bun/bin/bun" ]; then
+    ln -sf "$HOME/.bun/bin/bun" "$BUN_PATH"
+  else
+    echo "ERROR: Bun install failed. Install manually: curl -fsSL https://bun.sh/install | bash"
+    exit 1
+  fi
+fi
+echo "→ Bun $(bun --version)"
 
 # 1. Build the app
 echo "→ Building..."

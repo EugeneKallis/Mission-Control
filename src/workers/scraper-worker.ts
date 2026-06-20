@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env bun
 /**
  * Scraper task — called by external cron (systemd timer, crontab, etc.)
  *
