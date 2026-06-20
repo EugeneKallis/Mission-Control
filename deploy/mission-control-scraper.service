@@ -4,14 +4,9 @@ After=network.target
 
 [Service]
 Type=exec
-User=node
-Group=node
 WorkingDirectory=/opt/mission-control
 ExecStart=/usr/local/bin/bun run src/workers/scraper-worker.ts
 Environment=NODE_ENV=production
 
-# Security hardening
-NoNewPrivileges=true
-ProtectSystem=strict
-ProtectHome=true
-PrivateTmp=true
+[Install]
+WantedBy=timers.target
