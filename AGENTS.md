@@ -45,20 +45,20 @@ Run via `just <command>`:
 | `just script`  | Run a one-off script                     |
 | `just lint`      | Lint code                                |
 | `just typecheck` | Type-check app + scripts              |
-| `just run-worker path` | Start a worker process (long-running) |
-| `just scrape`   | Quick-start the scraper worker           |
+| `just run-worker path` | Run a cron task once (default: scraper)  |
 
-## Workers (Long-running Processes)
+## Cron Tasks (External Scheduling)
 
-Workers live in `src/workers/` and are standalone TypeScript files that run indefinitely.
+Tasks live in `src/workers/` and are standalone TypeScript files that **run once and exit**.
 They can import from `@/lib/` to share code with the rest of the app.
 
 ```bash
-just run-worker src/workers/scraper-worker.ts   # foreground
-just run-worker src/workers/scraper-worker.ts &  # background
+just run-worker                          # run scraper task
+just run-worker src/workers/other.ts     # run a different task
 ```
 
-**Production:** manage with systemd or PM2 for auto-restart on crash.
+**Production timing is handled externally** — systemd timer, crontab, or similar.
+The script just does one job and exits; the scheduler calls it on the desired interval.
 
 ## Key Conventions
 

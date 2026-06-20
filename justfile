@@ -42,21 +42,18 @@ restart:
 
 # ── One-off Scripts ──────────────────────────────────────────────────────────
 
-# Run a one-off TypeScript script: just script scripts/foo.ts
-# Or: just run-script foo
-script name="":
-    npx tsx {{name}}
+# Run a one-off TypeScript script:  just script scripts/foo.ts
+# List available scripts:           ls scripts/
+script name:
+    @npx tsx {{name}}
 
-# ── Workers (Long-running processes) ─────────────────────────────────────────
+# ── External Cron Tasks (run once, scheduler handles timing) ──────────────────
 
-# Start a worker:      just run-worker src/workers/foo.ts
-# Run in background:   just run-worker src/workers/foo.ts &
-run-worker path="":
+# Run the scraper task (default). Runs once and exits.
+# Called by systemd timer or crontab:  just run-worker
+# Other tasks:                         just run-worker src/workers/other.ts
+run-worker path="src/workers/scraper-worker.ts":
     npx tsx {{path}}
-
-# Quick-start the scraper worker in the foreground
-scrape:
-    npx tsx src/workers/scraper-worker.ts
 
 # ── Quality ──────────────────────────────────────────────────────────────────
 
