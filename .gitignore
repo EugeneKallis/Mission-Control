@@ -1,6 +1,8 @@
-frontend/node_modules
-frontend/dist
-backend/__pycache__
-backend/.venv
+node_modules/
+dist/
+.venv/
+__pycache__/
 *.pyc
-__pycache__
+.env
+.DS_Store
+*.log
