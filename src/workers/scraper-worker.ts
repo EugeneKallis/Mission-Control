@@ -2,17 +2,19 @@
 /**
  * Scraper task — called by external cron (systemd timer, crontab, etc.)
  *
- * Runs once and exits. The scheduler handles timing.
- *   just run-worker              # quick test
- *   just run-worker src/workers/other.ts
+ * Thin shim around `scraper-runner.ts` that runs all three sources. The
+ * systemd timer unit (`mission-control-scraper.timer`) calls this script on
+ * its 30-minute interval.
+ *
+ * For manual one-off runs of a single source:
+ *   just run-worker src/workers/scraper-runner.ts -- 141jav
+ *   just run-worker src/workers/scraper-runner.ts -- projectjav
+ *   just run-worker src/workers/scraper-runner.ts -- pornrips
  */
 
-async function main() {
-  const now = new Date().toISOString();
-  console.log(`[${now}] Hello world — scraper task ran`);
-}
+import { runAllSources } from "./scraper-runner";
 
-main().catch((err) => {
+runAllSources().catch((err) => {
   console.error("Scraper task failed:", err);
   process.exit(1);
 });

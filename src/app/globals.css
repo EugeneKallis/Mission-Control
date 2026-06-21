@@ -1,26 +1,151 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ── Design System ─────────────────────────────────────────────────────── */
+
+@theme {
+  --color-primary: #00FF9C;
+  --color-primary-dim: #00E38A;
+  --color-primary-fixed: #56FFA7;
+  --color-secondary: #c0c6db;
+  --color-tertiary: #4CD6FF;
+  --color-error: #FFB4AB;
+  --color-bg: #0E0E0E;
+  --color-surface: #131313;
+  --color-surface-low: #1C1B1B;
+  --color-surface-container: #201F1F;
+  --color-surface-container-high: #2A2A2A;
+  --color-surface-container-lowest: #0E0E0E;
+  --color-on-primary: #002110;
+  --color-on-surface: #E5E2E1;
+  --color-on-surface-variant: #849587;
+  --color-outline-variant: #3B4B3F;
+
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+/* ── Base ──────────────────────────────────────────────────────────────── */
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  *:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-primary);
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    margin: 0;
+    background-color: var(--color-bg);
+    color: var(--color-on-surface);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    touch-action: manipulation;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+  }
+
+  /* Custom thin scrollbars */
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: var(--color-outline-variant);
+    border-radius: 0;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--color-on-surface-variant);
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-outline-variant) transparent;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ── Animations ────────────────────────────────────────────────────────── */
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
+
+.stagger-1 { animation: fade-up 0.4s ease-out both; animation-delay: 0.05s; }
+.stagger-2 { animation: fade-up 0.4s ease-out both; animation-delay: 0.10s; }
+.stagger-3 { animation: fade-up 0.4s ease-out both; animation-delay: 0.15s; }
+.stagger-4 { animation: fade-up 0.4s ease-out both; animation-delay: 0.20s; }
+.stagger-5 { animation: fade-up 0.4s ease-out both; animation-delay: 0.25s; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Terminal utilities ────────────────────────────────────────────────── */
+
+.terminal-scanline {
+  position: relative;
+  overflow: hidden;
+}
+
+.terminal-scanline::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.04) 2px,
+    rgba(0, 0, 0, 0.04) 4px
+  );
+}
+
+.terminal-glow {
+  box-shadow: inset 0 0 0 1px rgba(0, 255, 156, 0.08),
+              0 0 20px rgba(0, 255, 156, 0.04);
+}
+
+/* ── Toast animation ───────────────────────────────────────────────────── */
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes toast-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+.toast-fade {
+  animation: toast-in 0.25s ease-out, toast-out 0.3s ease-in 2.5s forwards;
+}
+
+/* ── Glassmorphism modal ───────────────────────────────────────────────── */
+
+.glass-modal {
+  background: rgba(32, 31, 31, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(59, 75, 63, 0.4);
+}
+
+/* ── Details / disclosure (sidebar macro groups) ───────────────────────── */
+
+details > summary { list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+details[open] summary .expand-icon { transform: rotate(180deg); }

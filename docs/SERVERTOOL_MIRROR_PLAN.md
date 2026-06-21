@@ -15,6 +15,34 @@ the exact implementation when needed.
 
 ---
 
+## Completion Status
+
+When a Part is finished, mark it ✅ here so any agent can see progress at a glance.
+
+| Part | Description | Status |
+|------|-------------|--------|
+| Part 0 — Foundation | Design system, Prisma schema, shared types, config/env | ✅ Done |
+| Part 1 — Layout Shell | Sidebar, nav, shared UI components, app-shell | ✅ Done |
+| Part 2 — Data Layer | Prisma queries, lib clients (Arr, Decypharr, Torbox, RD, Plex, Trakt, CineSync) | ✅ Done |
+| Part 3 — Home/Terminal | Terminal dashboard with macro runner | ✅ Done |
+| Part 4 — Admin | Macro & group CRUD with drag-reorder | ✅ Done |
+| Part 5 — History | Command execution history list + detail | ✅ Done |
+| Part 6 — Schedules | Schedule management page + cron engine | ✅ Done |
+| Part 7 — NZB & Debrid Viewers | File tree browsers for NZB and Debrid mounts | ✅ Done |
+| Part 8 — Scraper | Scraper management UI | ✅ Done |
+| Part 9 — Real-time Engine | WebSocket/SSE live terminal stream + macro runner | ✅ Done |
+| Part 10 — Cron Scheduler | In-process cron scheduler service | ✅ Done |
+| Part 11 — Agent System | Remote agent execution (Phase 2) | ✅ Done |
+| Part 12 — File Scanner Worker | File-tree scanner worker (systemd timer) | ✅ Done |
+| Part 13 — Scraper Workers | Webscraper workers (141jav, ProjectJAV, PornRips) | ✅ Done |
+| Part 14 — Database Viewer | Table browser with column filters | ✅ Done |
+| Part 15 — Config | Global config page (Real-Debrid key) | ✅ Done |
+| Part 16 — Server Status | Agent metrics table with live refresh | ✅ Done |
+| Part 17 — Log Viewer | Systemd journal log viewer | ✅ Done |
+| Part 18 — Scripts Migration | Rewrite cmd/* and scripts/* one-offs as TypeScript | ❌ |
+
+---
+
 ## 0. How to read this guide
 
 ### 0.1 Architecture translation
