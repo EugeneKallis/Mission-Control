@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * "Authorized Personnel Only" gate for the scraper page.
@@ -15,54 +15,50 @@ const INACTIVITY_MS = 60_000; // 1 minute
 const ACTIVITY_THROTTLE_MS = 5_000;
 
 export function AccessGate() {
-  const overlayRef = useRef<HTMLDivElement>(null);
+  const [accepted, setAccepted] = useState(false);
   const lastActivityRef = useRef<number>(0);
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const acceptedRef = useRef<boolean>(false);
+
+  const clearInactivityTimer = () => {
+    if (inactivityTimerRef.current !== null) {
+      clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = null;
+    }
+  };
+
+  const lock = () => {
+    setAccepted(false);
+    sessionStorage.removeItem(STORAGE_KEY);
+    clearInactivityTimer();
+  };
+
+  const accept = () => {
+    const now = Date.now();
+    lastActivityRef.current = now;
+    sessionStorage.setItem(STORAGE_KEY, now.toString());
+    setAccepted(true);
+    clearInactivityTimer();
+    inactivityTimerRef.current = setTimeout(lock, INACTIVITY_MS);
+  };
 
   useEffect(() => {
-    const overlay = overlayRef.current;
-    if (!overlay) return;
-
-    // Start state: visible if no recent session.
+    // Start state: accepted if there is a recent session.
     const lastAccepted = sessionStorage.getItem(STORAGE_KEY);
     if (lastAccepted) {
       const age = Date.now() - parseInt(lastAccepted, 10);
       if (age < INACTIVITY_MS) {
-        acceptedRef.current = true;
-        overlay.style.opacity = "0";
-        overlay.style.pointerEvents = "none";
-        startInactivityTimer();
-      }
-    }
-
-    function startInactivityTimer() {
-      clearInactivityTimer();
-      inactivityTimerRef.current = setTimeout(() => {
-        acceptedRef.current = false;
-        sessionStorage.removeItem(STORAGE_KEY);
-        if (overlay) {
-          overlay.style.opacity = "1";
-          overlay.style.pointerEvents = "auto";
-        }
-      }, INACTIVITY_MS);
-    }
-
-    function clearInactivityTimer() {
-      if (inactivityTimerRef.current !== null) {
-        clearTimeout(inactivityTimerRef.current);
-        inactivityTimerRef.current = null;
+        accept();
       }
     }
 
     function noteActivity() {
-      if (!acceptedRef.current) return;
+      if (!accepted) return;
       const now = Date.now();
       if (now - lastActivityRef.current > ACTIVITY_THROTTLE_MS) {
         lastActivityRef.current = now;
         sessionStorage.setItem(STORAGE_KEY, now.toString());
       }
-      startInactivityTimer();
+      accept();
     }
 
     const activityEvents = ["mousedown", "mousemove", "keypress", "scroll", "click", "touchstart"];
@@ -70,22 +66,10 @@ export function AccessGate() {
       document.addEventListener(ev, noteActivity, true);
     });
 
-    function handleEnter(e?: Event) {
-      if (e) e.preventDefault();
-      acceptedRef.current = true;
-      const now = Date.now();
-      lastActivityRef.current = now;
-      sessionStorage.setItem(STORAGE_KEY, now.toString());
-      if (overlay) {
-        overlay.style.opacity = "0";
-        overlay.style.pointerEvents = "none";
-      }
-      startInactivityTimer();
-    }
-
     function handleKey(e: KeyboardEvent) {
-      if (e.key === "Enter" && !acceptedRef.current) {
-        handleEnter();
+      if (e.key === "Enter" && !accepted) {
+        e.preventDefault();
+        accept();
       }
     }
 
@@ -98,13 +82,17 @@ export function AccessGate() {
       document.removeEventListener("keydown", handleKey);
       clearInactivityTimer();
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accepted]);
 
   return (
     <div
-      ref={overlayRef}
       className="fixed inset-0 z-[100] backdrop-blur-lg flex flex-col items-center justify-center overflow-hidden transition-opacity duration-300"
-      style={{ background: "rgba(0,0,0,0.95)" }}
+      style={{
+        background: "rgba(0,0,0,0.95)",
+        opacity: accepted ? 0 : 1,
+        pointerEvents: accepted ? "none" : "auto",
+      }}
     >
       <div
         className="max-w-xl w-full p-10 relative overflow-hidden mx-4 rounded-none"
@@ -131,17 +119,7 @@ export function AccessGate() {
           <button
             id="enter-btn"
             type="button"
-            onClick={() => {
-              acceptedRef.current = true;
-              const now = Date.now();
-              lastActivityRef.current = now;
-              sessionStorage.setItem(STORAGE_KEY, now.toString());
-              const overlay = overlayRef.current;
-              if (overlay) {
-                overlay.style.opacity = "0";
-                overlay.style.pointerEvents = "none";
-              }
-            }}
+            onClick={accept}
             className="flex-1 flex items-center justify-center gap-2 py-4 text-lg font-bold uppercase tracking-wider rounded-none transition-all"
             style={{
               background: "linear-gradient(135deg, #56FFA7, #00FF9C)",

@@ -65,14 +65,16 @@ export function getTorboxClient(): TorboxClient {
 // ── HTTP fetch with User-Agent ────────────────────────────────────────────
 
 const DEFAULT_UA = "Mozilla/5.0";
+const FETCH_TIMEOUT_MS = 30_000;
 
 /**
  * Fetch a URL and return the body as text. Sets a UA so sites that block empty
- * user agents still respond. Throws on non-200 status.
+ * user agents still respond. Throws on non-200 status or timeout.
  */
 export async function fetchHtml(url: string, userAgent = DEFAULT_UA): Promise<string> {
   const res = await fetch(url, {
     headers: { "User-Agent": userAgent },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
   if (!res.ok) {
     throw new Error(`HTTP ${res.status} fetching ${url}`);
@@ -89,6 +91,13 @@ export async function fetchHtml(url: string, userAgent = DEFAULT_UA): Promise<st
  * return any img src in the show page.
  */
 export async function scrapePixHost(url: string): Promise<string> {
+  try {
+    const parsed = new URL(url);
+    if (!parsed.hostname.toLowerCase().endsWith("pixhost.to")) return "";
+  } catch {
+    return "";
+  }
+
   try {
     const html = await fetchHtml(url);
     // The direct image is the largest <img> tag inside the #content div

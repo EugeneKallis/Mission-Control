@@ -14,7 +14,7 @@ import {
 import { triggerSourceInBackground } from "@/workers/scraper-runner";
 
 const schema = z.object({
-  source: z.string().min(1).optional(),
+  source: z.enum(["141jav", "projectjav", "pornrips"]).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -35,13 +35,15 @@ export async function POST(request: NextRequest) {
   try {
     if (parsed.data.source) {
       await deleteScrapeResultsBySource(parsed.data.source);
-      // The schema only allows valid sources through (string is just for the API shape).
-      const src = parsed.data.source as "141jav" | "projectjav" | "pornrips";
-      triggerSourceInBackground(src);
+      triggerSourceInBackground(parsed.data.source);
       return NextResponse.json({ success: true, source: parsed.data.source });
     }
     await deleteAllScrapeResults();
-    // When source is omitted, kick the first two (matches Go: 141jav + projectjav)
+    // When source is omitted, kick the first two — matches the Go
+    // ScraperRefresh handler which only respawns 141jav and projectjav
+    // (not pornrips, which paginates 1 page and is intentionally less
+    // aggressive). If the user wants pornrips refreshed they can call
+    // `POST /api/scraper/refresh` with `{ "source": "pornrips" }`.
     triggerSourceInBackground("141jav");
     triggerSourceInBackground("projectjav");
     return NextResponse.json({ success: true });

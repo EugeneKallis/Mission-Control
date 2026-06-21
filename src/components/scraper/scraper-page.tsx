@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/toast-provider";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AccessGate } from "./access-gate";
 import { ScraperCard } from "./scraper-card";
 import {
   SOURCES,
-  isValidSource,
   type ScraperSource,
   type ScraperTagInfo,
   type ScrapeResultView,
@@ -33,10 +33,12 @@ export function ScraperPage({
   const [results, setResults] = useState<ScrapeResultView[]>([]);
   const [loading, setLoading] = useState(true);
   const [isScraping, setIsScraping] = useState(false);
+  const [anyScraping, setAnyScraping] = useState(false);
   const [tagFilter, setTagFilter] = useState<Set<string>>(new Set());
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [hideAllConfirmOpen, setHideAllConfirmOpen] = useState(false);
   const cardContainerRef = useRef<HTMLDivElement>(null);
 
   // ── Fetch results when source changes ────────────────────────────────
@@ -64,10 +66,17 @@ export function ScraperPage({
     let cancelled = false;
     const tick = async () => {
       try {
-        const res = await fetch(`/api/scraper/status?source=${source}`);
-        if (res.ok) {
-          const data = await res.json();
+        const [sourceRes, allRes] = await Promise.all([
+          fetch(`/api/scraper/status?source=${source}`),
+          fetch("/api/scraper/status-all"),
+        ]);
+        if (sourceRes.ok) {
+          const data = await sourceRes.json();
           if (!cancelled) setIsScraping(Boolean(data.is_scraping));
+        }
+        if (allRes.ok) {
+          const data = await allRes.json();
+          if (!cancelled) setAnyScraping(Boolean(data.is_scraping));
         }
       } catch {
         /* ignore */
@@ -146,6 +155,7 @@ export function ScraperPage({
       const res = await fetch("/api/scraper/trigger-all", { method: "POST" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       toast.showToast("Scraping all sources…", "info");
+      setAnyScraping(true);
     } catch (err) {
       toast.showToast("Failed to trigger scrape-all", "error");
     }
@@ -337,7 +347,7 @@ export function ScraperPage({
           <div className="flex flex-wrap gap-3 justify-center mb-6 w-full">
             <button
               type="button"
-              onClick={() => void hideAll(source)}
+              onClick={() => setHideAllConfirmOpen(true)}
               className="flex items-center gap-2 py-2 px-4 text-sm font-semibold rounded-none transition-all"
               style={{
                 background: "rgba(245, 158, 11, 0.15)",
@@ -368,12 +378,17 @@ export function ScraperPage({
             <button
               id="scrape-all-btn"
               onClick={() => void triggerScrapeAll()}
-              className="flex items-center gap-2 py-2 px-4 text-sm font-semibold rounded-none transition-all btn-primary"
+              disabled={anyScraping}
+              className={`flex items-center gap-2 py-2 px-4 text-sm font-semibold rounded-none transition-all ${
+                anyScraping
+                  ? "cursor-not-allowed opacity-70"
+                  : "btn-primary"
+              }`}
             >
               <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>
                 auto_awesome
               </span>
-              Scrape All
+              {anyScraping ? "Scraping…" : "Scrape All"}
             </button>
             <button
               id="scrape-now-btn"
@@ -470,7 +485,7 @@ export function ScraperPage({
                       style={{ color: "#849587" }}
                     >
                       {tag}{" "}
-                      <span className="ml-1 text-[10px] font-mono" style={{ color: "#3b4b3f" }}>
+                      <span className="ml-1 text-[10px] font-mono" style={{ color: "#849587" }}>
                         ({count})
                       </span>
                     </span>
@@ -507,7 +522,8 @@ export function ScraperPage({
                 <button
                   key={s}
                   onClick={() => {
-                    if (isValidSource(s)) setSource(s);
+                    setSource(s);
+                    window.history.replaceState(null, "", `/scraper?source=${s}`);
                   }}
                   className="px-8 py-2.5 text-sm font-semibold transition-all border-b-2"
                   style={{
@@ -566,7 +582,6 @@ export function ScraperPage({
               >
                 <ScraperCard
                   result={r}
-                  index={idx}
                   onDownload={(id) => void downloadItem(id)}
                   onHide={(id) => void hideItem(id)}
                 />
@@ -591,6 +606,23 @@ export function ScraperPage({
           </button>
         )}
       </div>
+
+      <ConfirmDialog
+        open={hideAllConfirmOpen}
+        onClose={() => setHideAllConfirmOpen(false)}
+        onConfirm={() => {
+          setHideAllConfirmOpen(false);
+          void hideAll(source);
+        }}
+        title={`Hide all ${visibleResults.length} visible item${visibleResults.length === 1 ? "" : "s"}?`}
+        icon="visibility_off"
+        confirmLabel="Hide All"
+        variant="danger"
+      >
+        <p className="text-sm text-on-surface-variant">
+          This will hide every visible {source} card. You can undo the most recent hide.
+        </p>
+      </ConfirmDialog>
     </>
   );
 }

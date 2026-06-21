@@ -1,10 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import type { ScrapeResultView } from "./scraper-types";
 
 interface ScraperCardProps {
   result: ScrapeResultView;
-  index: number;
   onDownload: (id: number) => void;
   onHide: (id: number) => void;
 }
@@ -14,7 +14,7 @@ interface ScraperCardProps {
  * scraper.templ: tall image area, title, tag chips, DL + Hide buttons.
  * PornRips gets a side-by-side image layout (up to 2 images).
  */
-export function ScraperCard({ result, index, onDownload, onHide }: ScraperCardProps) {
+export function ScraperCard({ result, onDownload, onHide }: ScraperCardProps) {
   const isPornRips = result.source === "pornrips";
   const images = isPornRips ? result.images : [];
   const primaryImage = isPornRips && images.length > 0 ? images[0] : result.image;
@@ -24,7 +24,6 @@ export function ScraperCard({ result, index, onDownload, onHide }: ScraperCardPr
       className="scraper-card card-snap-area flex flex-col transition-transform hover:-translate-y-1 relative overflow-hidden rounded-none"
       data-tags={result.tags.join(",")}
       data-id={result.id}
-      data-index={index}
       style={{
         background: "#131313",
         border: "1px solid rgba(59, 75, 63, 0.3)",
@@ -50,48 +49,23 @@ export function ScraperCard({ result, index, onDownload, onHide }: ScraperCardPr
                     rel="noopener noreferrer"
                     className="block w-full h-full flex items-center justify-center"
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <RemoteImage
                       src={img}
                       alt={`${result.title} - ${idx + 1}`}
-                      className="w-full h-full object-contain"
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
                     />
                   </a>
                 </div>
               ))
             ) : (
-              <div
-                className="w-full h-full flex items-center justify-center"
-                style={{ background: "#1C1B1B" }}
-              >
-                <span className="material-symbols-outlined text-4xl" style={{ color: "#849587" }}>
-                  movie
-                </span>
-              </div>
+              <ImagePlaceholder />
             )}
           </div>
         ) : primaryImage ? (
           <div className="w-full h-full flex items-center justify-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={primaryImage}
-              alt={result.title}
-              className="w-full h-full object-contain"
-              loading="lazy"
-              referrerPolicy="no-referrer"
-            />
+            <RemoteImage src={primaryImage} alt={result.title} />
           </div>
         ) : (
-          <div
-            className="w-full h-full flex items-center justify-center"
-            style={{ background: "#1C1B1B" }}
-          >
-            <span className="material-symbols-outlined text-4xl" style={{ color: "#849587" }}>
-              movie
-            </span>
-          </div>
+          <ImagePlaceholder />
         )}
 
         {result.is_downloaded && (
@@ -168,6 +142,35 @@ export function ScraperCard({ result, index, onDownload, onHide }: ScraperCardPr
           Hide
         </button>
       </div>
+    </div>
+  );
+}
+
+function RemoteImage({ src, alt }: { src: string; alt: string }) {
+  const [broken, setBroken] = useState(false);
+  if (broken) return <ImagePlaceholder />;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={alt}
+      className="w-full h-full object-contain"
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      onError={() => setBroken(true)}
+    />
+  );
+}
+
+function ImagePlaceholder() {
+  return (
+    <div
+      className="w-full h-full flex items-center justify-center"
+      style={{ background: "#1C1B1B" }}
+    >
+      <span className="material-symbols-outlined text-4xl" style={{ color: "#849587" }}>
+        movie
+      </span>
     </div>
   );
 }
