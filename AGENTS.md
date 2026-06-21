@@ -62,7 +62,7 @@ The project runs as a **systemd service** at `/opt/mission-control`.
 git clone <repo-url> /opt/mission-control
 
 # Run the installer
-cd /opt/mission-control && sudo just install-service
+cd /opt/mission-control && just install-service
 ```
 
 This sets up:
@@ -73,8 +73,17 @@ This sets up:
 ### Deploy on push (N8N workflow)
 
 1. N8N detects a push to the repo
-2. Runs: `ssh user@server "cd /opt/mission-control && sudo just deploy"`
+2. Runs: `ssh root@server "cd /opt/mission-control && just deploy"`
 3. The deploy script: pulls latest → builds → restarts the service
+
+### deploy/ directory
+
+The `deploy/` directory contains the production system:
+- `install.sh` — one-time setup: copies service files, enables + starts systemd units
+- `deploy.sh` — pull → build → copy to `/opt/mission-control` → restart (called by N8N)
+- `mission-control.service` — systemd unit for the Next.js app (frontend + API routes)
+- `mission-control-scraper.service` — systemd unit for the scraper task (runs once and exits)
+- `mission-control-scraper.timer` — triggers the scraper every 30 minutes
 
 ## Cron Tasks (External Scheduling)
 
@@ -100,7 +109,6 @@ The script just does one job and exits; the scheduler calls it on the desired in
 ## Future Plans
 
 - **pi.dev SDK integration** — SDK will be added to `src/lib/pi/` when available; the project is structured to import it cleanly from there
-- **Service deployment** — will run as a systemd service or container; the `just start` / `just stop` / `just restart` targets are stubs for that
 
 ## Important!
 
