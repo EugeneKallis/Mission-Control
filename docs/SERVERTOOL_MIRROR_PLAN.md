@@ -32,7 +32,7 @@ When a Part is finished, mark it ✅ here so any agent can see progress at a gla
 | Part 8 — Scraper | Scraper management UI | ✅ Done |
 | Part 9 — Real-time Engine | WebSocket/SSE live terminal stream + macro runner | ✅ Done |
 | Part 10 — Cron Scheduler | In-process cron scheduler service | ✅ Done |
-| Part 11 — Agent System | Remote agent execution (Phase 2) | ❌ |
+| Part 11 — Agent System | Remote agent execution (Phase 2) | ✅ Done |
 | Part 12 — File Scanner Worker | File-tree scanner worker (systemd timer) | ✅ Done |
 | Part 13 — Scraper Workers | Webscraper workers (141jav, ProjectJAV, PornRips) | ✅ Done |
 | Part 14 — Database Viewer | Table browser with column filters | ✅ Done |

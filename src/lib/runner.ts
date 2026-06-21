@@ -9,6 +9,7 @@
 
 import { getMacro, createHistory, updateHistory } from "@/lib/db/queries";
 import { liveBus } from "@/lib/live-bus";
+import { agentRegistry } from "@/lib/agents/registry";
 import type { MacroCommand } from "@/types";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -79,7 +80,7 @@ export async function runMacro(
   }
   write("");
 
-  // 7. Run macro on agent (stubbed)
+  // 7. Run macro on agent
   if (macro.runOnAgent) {
     if (!resolvedAgent) {
       write(
@@ -95,11 +96,97 @@ export async function runMacro(
       return { historyId: history.id, status: "failed" };
     }
 
-    // Stub: agent execution not yet implemented (Part 11)
-    write(`[AGENT] Executing on ${resolvedAgent} — agent execution NYI`);
-    write(`[AGENT] Running ${commands.length} command(s) locally as fallback...`);
+    if (!agentRegistry.isConnected(resolvedAgent)) {
+      write(
+        `ERROR: Agent ${resolvedAgent} is not connected. Run: curl -sL <server>/api/agent/install | sudo bash -s`,
+      );
+      write("=== FAILED ===");
+      const finalOutput = chunks.join("");
+      await updateHistory(history.id, {
+        endTime: new Date(),
+        status: "failed",
+        output: finalOutput,
+      });
+      return { historyId: history.id, status: "failed" };
+    }
 
-    // Fall through to local execution for now
+    // Dispatch each command to the agent and stream output through the
+    // live bus + the history buffer. The agent's SSE stream receives
+    // the command; the agent POSTs output/exit to /api/agent/result.
+    let agentFailed = false;
+    for (const mc of commands) {
+      write(`> ${mc.cmd}`);
+
+      try {
+        const final = await agentRegistry.dispatch(resolvedAgent, mc.cmd, {
+          dir: mc.working_dir,
+          timeoutMs: 5 * 60 * 1000, // 5 minutes per command, matches Go
+          onChunk: (text) => {
+            liveBus.publish({
+              type: "output",
+              text,
+              macroId,
+              timestamp: Date.now(),
+            });
+            chunks.push(text);
+          },
+          onExit: (exitCode) => {
+            if (exitCode !== 0) {
+              write(`\nCommand failed with exit code ${exitCode}`);
+            } else {
+              write("");
+            }
+          },
+        });
+
+        if (final.type === "exit" && final.exitCode !== 0) {
+          write("=== FAILED ===");
+          const finalOutput = chunks.join("");
+          await updateHistory(history.id, {
+            endTime: new Date(),
+            status: "failed",
+            output: finalOutput,
+          });
+          return { historyId: history.id, status: "failed" };
+        }
+        if (final.type === "error") {
+          write(`[agent error: ${final.payload ?? "unknown"}]`);
+          write("=== FAILED ===");
+          const finalOutput = chunks.join("");
+          await updateHistory(history.id, {
+            endTime: new Date(),
+            status: "failed",
+            output: finalOutput,
+          });
+          return { historyId: history.id, status: "failed" };
+        }
+      } catch (err) {
+        write(`[dispatch error: ${err instanceof Error ? err.message : String(err)}]`);
+        agentFailed = true;
+        break;
+      }
+    }
+
+    if (agentFailed) {
+      write("=== FAILED ===");
+      const finalOutput = chunks.join("");
+      await updateHistory(history.id, {
+        endTime: new Date(),
+        status: "failed",
+        output: finalOutput,
+      });
+      return { historyId: history.id, status: "failed" };
+    }
+
+    // All commands succeeded
+    write("=== DONE ===");
+    const finalOutput = chunks.join("");
+    await updateHistory(history.id, {
+      endTime: new Date(),
+      status: "success",
+      output: finalOutput,
+    });
+    return { historyId: history.id, status: "success" };
   }
 
   // 8. Execute commands locally

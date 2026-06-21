@@ -115,7 +115,7 @@ This tells the next agent exactly where to pick up.
 | Phase 3 — Media Viewers | 7 (NZB Viewer), 12 (File scanner worker) | ✅ Done |
 | Phase 4 — Scraper | 8 (Scraper page), 13 (Scraper workers) | ✅ Done |
 | Phase 5 — Scheduling | 6 (Schedules page) | ✅ Done |
-| Phase 6 — Agent System | 11 (Agent remote-exec) | ❌ Not started |
+| Phase 6 — Agent System | 11 (Agent remote-exec) | ✅ Done |
 | Phase 7 — Scripts Migration | 18 (One-off scripts → TS) | ❌ Not started |
 
 **Convention:** After completing a phase, update:
@@ -212,6 +212,57 @@ SQLite that runs in both **Node** and **Bun**). This is the one adapter
 that works in both runtimes — `better-sqlite3` does not run in Bun, which
 would break the scraper/file-scanner workers. Migrations are owned by
 `prisma.config.ts` (Prisma 7 moved datasource config there).
+
+## New directories added in Phase 6
+
+```
+src/lib/agents/
+  registry.ts        # In-memory agent connection map (hostname → client)
+  event-stream.ts    # Per-hostname SSE bus for server→agent command push
+src/workers/agent.ts # Bun-native agent binary that runs on remote hosts
+```
+
+## Phase 6 agent system architecture
+
+The agent is a Bun process that runs on each remote host. Communication
+with the web server is split into two channels to avoid WebSocket
+(Next.js App Router doesn't natively support upgrades):
+
+- **Server → Agent (SSE):** the agent opens a long-lived `GET
+  /api/agent/events?hostname=X` connection. The server pushes commands
+  as JSON-encoded `data:` events. If the SSE stream drops, the agent
+  reconnects after 5s.
+- **Agent → Server (HTTP POST):** the agent POSTs `/api/agent/heartbeat`
+  every 5s with system stats (CPU, memory, IP, version), and POSTs
+  `/api/agent/result` for individual output chunks / exit codes so the
+  runner can stream output to the terminal in real time.
+
+This means the runner's `agentRegistry.dispatch()` blocks until the agent
+posts back an `exit` result, with an optional `onChunk` callback for
+streaming. Each command has a 5-minute timeout, matching the Go runner.
+
+The agent binary is in `src/workers/agent.ts` — Bun-native, no Go build
+step required. The install script (`/api/agent/install`) detects arch,
+pulls the source via `/api/agent/source`, and runs it under bun via a
+systemd unit. For users who ship a prebuilt Go binary, the
+`/api/agent/download?arch=amd64|arm64|arm` endpoint serves files from
+`bin/agent-linux-<arch>` if present.
+
+## Phase 6 agent API surface
+
+| Method | Path                                       | Purpose                                |
+| ------ | ------------------------------------------ | -------------------------------------- |
+| GET    | `/api/agent/events?hostname=`              | SSE — server pushes commands           |
+| POST   | `/api/agent/heartbeat`                     | Agent reports status + result delivery |
+| POST   | `/api/agent/result`                        | Agent streams output/exit              |
+| GET    | `/api/agent/install`                       | Install shell script (curl pipe)       |
+| GET    | `/api/agent/download?arch=ts\|amd64\|arm64\|arm` | Agent binary (TS wrapper or prebuilt) |
+| GET    | `/api/agent/source`                        | Bundled agent source (Bun-native)      |
+| GET    | `/api/agents`                              | List registered agents                 |
+| GET    | `/api/agents/options`                      | List hostnames for the agent modal     |
+| POST   | `/api/agent/request-update/[id]`           | Mark agent for update on next heartbeat |
+| POST   | `/api/agent/request-update-all`            | Mark every agent for update            |
+| POST   | `/api/agent/request-restart/[id]`          | Mark agent for restart on next heartbeat |
 
 ## Important!
 
