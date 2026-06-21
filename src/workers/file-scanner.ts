@@ -60,31 +60,35 @@ interface UpsertResult {
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
-function classifyTarget(target: string): Source | null {
+/** Classify a symlink target as nzb, debrid, or neither. */
+export function classifyTarget(target: string): Source | null {
   if (target.startsWith(NZB_TARGET_PREFIX)) return "nzb";
   if (target.startsWith(DEBRID_TARGET_PREFIX)) return "debrid";
   return null;
 }
 
-function toPosix(p: string): string {
+/** Convert platform-native separators to POSIX slashes (Prisma stores these). */
+export function toPosix(p: string): string {
   // Prisma stores paths with forward slashes (matches the Go original).
   return p.split(sep).join("/");
 }
 
-function parentOf(p: string): string {
+/** Get the parent of a POSIX path, mirroring Go's filepath.Dir. */
+export function parentOf(p: string): string {
   // Mirrors Go: filepath.Dir("a/b/c") → "a/b", filepath.Dir("a") → "."
   if (!p.includes("/")) return ".";
   const idx = p.lastIndexOf("/");
   return idx === 0 ? "/" : p.slice(0, idx);
 }
 
-function emptyToEmpty(p: string): string {
+/** Convert Go-style "." to "" for empty parentPath in DB rows. */
+export function emptyToEmpty(p: string): string {
   // Go converts filepath.Dir's "." to "" when storing in DB.
   return p === "." ? "" : p;
 }
 
 /** Concurrency-limited parallel map. */
-async function pMap<T, U>(items: T[], fn: (item: T) => Promise<U>, concurrency: number): Promise<U[]> {
+export async function pMap<T, U>(items: T[], fn: (item: T) => Promise<U>, concurrency: number): Promise<U[]> {
   const results: U[] = new Array(items.length);
   let next = 0;
   const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
@@ -179,7 +183,7 @@ async function walkMedia(root: string, onProgress?: (count: number) => void): Pr
  * Compute the recursive descendant-file count for every directory entry.
  * Mirrors `updateDirFileCountsFromEntries` in scanner.go.
  */
-function computeFileCounts(entries: ScanEntry[]): Map<string, number> {
+export function computeFileCounts(entries: ScanEntry[]): Map<string, number> {
   const childrenOf = new Map<string, string[]>();
   const isDir = new Map<string, boolean>();
 
@@ -346,7 +350,14 @@ async function main() {
   console.log(`[file-scanner] done in ${totalMs}ms`);
 }
 
-main().catch((err) => {
-  console.error("[file-scanner] fatal:", err);
-  process.exit(1);
-});
+// Only run main() when this file is executed directly, not when it's
+// imported (e.g. by unit tests that just want the pure helpers). Without
+// this guard, `bun test src/workers/file-scanner.test.ts` would trigger
+// a real walk of /mnt/debrid/media and write to the dev Prisma DB.
+// Same pattern as src/workers/scraper-runner.ts.
+if (import.meta.main) {
+  main().catch((err) => {
+    console.error("[file-scanner] fatal:", err);
+    process.exit(1);
+  });
+}

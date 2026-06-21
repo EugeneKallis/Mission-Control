@@ -34,6 +34,9 @@ function parseTargets(argv: string[]): Source[] {
   );
 }
 
+/** Public for testing. */
+export const __parseTargets = parseTargets;
+
 async function runOne(source: Source): Promise<void> {
   await withScrapingStatus(source, async () => {
     const started = Date.now();

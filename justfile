@@ -69,14 +69,31 @@ run-worker path="src/workers/scraper-worker.ts":
 
 # ── Quality ──────────────────────────────────────────────────────────────────
 
-# Type-check all code (both app and scripts)
+# Type-check all code (app, scripts, and tests)
 typecheck:
     bun tsc --noEmit --project tsconfig.json
     bun tsc --noEmit --project tsconfig.scripts.json
+    bun tsc --noEmit --project tsconfig.test.json
 
 # Lint
 lint:
     bun next lint
+
+# Run unit tests (bun:test, co-located *.test.ts / *.test.tsx)
+test:
+    bun test
+
+# Run unit tests in watch mode
+test-watch:
+    bun test --watch
+
+# Run unit tests with coverage report
+test-coverage:
+    bun test --coverage
+
+# Type-check test files only
+typecheck-tests:
+    bun tsc --noEmit --project tsconfig.test.json
 
 # Format (stub — add prettier or biome when you like)
 fmt:

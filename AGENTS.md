@@ -44,7 +44,10 @@ Run via `just <command>`:
 | `just start`   | Start production server                  |
 | `just script`  | Run a one-off script                     |
 | `just lint`      | Lint code                                |
-| `just typecheck`      | Type-check app + scripts                        |
+| `just typecheck`      | Type-check app + scripts + tests               |
+| `just test`           | Run unit tests (bun:test)                       |
+| `just test-watch`     | Run unit tests in watch mode                    |
+| `just test-coverage`  | Run unit tests with coverage report             |
 | `just run-worker path` | Run a cron task once (default: scraper)       |
 | `just install-service` | One-time: install systemd service on server   |
 | `just deploy`          | Full deploy: pull → build → restart (N8N)     |
@@ -148,6 +151,83 @@ src/components/schedules/
 src/lib/cron.ts            # Cron expression builder + parser + validator
                            # Mirrors the Go generateCronExpression / parseCronToForm
 ```
+
+## Testing
+
+Unit tests use **bun:test** (built into Bun, no extra install). They
+are co-located with source files as `*.test.ts` and follow the
+project's exclusion in `tsconfig.json`; `tsconfig.test.json` is a
+dedicated project for type-checking the tests and is what
+`just typecheck` runs.
+
+### What is covered
+
+- All pure functions in `src/lib/` (`format`, `cron`, `live-bus`,
+  `agents/event-stream`, `agents/registry`, `arr-map`, `config`).
+- Every HTTP client in `src/lib/clients/` with `fetch` mocked
+  (torbox, decypharr, real-debrid, arr, plex, trakt, cinesync).
+- All three HTML parsers in `src/workers/scrapers/` plus the shared
+  helpers (`sanitizeTitle`, `parseSize`, `scrapePixHost`, `fetchHtml`).
+- The scraping status helpers (`withScrapingStatus`,
+  `getScrapingStatus`, etc.) with a real in-file Prisma + libsql DB.
+- High-value DB query functions in `src/lib/db/queries.ts`
+  (idempotent inserts, the auto-Ungrouped group, hide/undo/download
+  transitions, `cleanOldScrapeResults` date math,
+  `deleteScrapeResultsBySource` filters, file tree + search + cleanup)
+  with the same in-file DB.
+- The macro runner (`src/lib/runner.ts`) with real `Bun.spawn` for
+  local commands and a mock WebSocket on the *real* `agentRegistry`
+  singleton for the agent path.
+- The cron scheduler lifecycle methods (`init`, `addSchedule`,
+  `updateSchedule`, `removeSchedule`, `stopAll`).
+- The file scanner's pure helpers (`classifyTarget`, `toPosix`,
+  `parentOf`, `emptyToEmpty`, `pMap`, `computeFileCounts`).
+- The scraper runner's `parseTargets` argv parser.
+
+### What is NOT covered (and why)
+
+- **React components** (`src/components/**`, `src/app/**/page.tsx`,
+  `src/hooks/*`) — would need `react-testing-library` and DOM
+  emulation. Not currently installed; add it if/when component tests
+  become valuable.
+- **Next.js API routes** (`src/app/api/**/route.ts`) — need the
+  Next.js test harness. Most routes are thin wrappers over the
+  queries module, which is already covered.
+- **The scraper / file-scanner / agent worker main loops** — these
+  are integration scripts that need real HTTP, real symlinks, or a
+  live agent. The pure logic they call is covered.
+- **`use-live-stream.ts`** — browser EventSource; needs JSDOM.
+
+### DB testing infrastructure
+
+DB tests can't talk to the dev SQLite (that would pollute dev data).
+`src/lib/db/test-helpers.ts` exports `makeTestDB()` which:
+
+1. Creates a unique temp-file SQLite DB in the OS temp dir.
+2. Reads `prisma/migrations/20260621000306_init/migration.sql` and
+   applies it to the temp DB.
+3. Returns a Prisma client pointed at that DB plus a `cleanup()`
+   function to drop the file at the end of the test.
+
+Tests that need the test DB use `mock.module("@/lib/db", ...)` to
+inject the test client, then re-import the queries module (often with
+a `?bust=<timestamp>` query suffix to dodge the module cache) so the
+mocked `@/lib/db` is used.
+
+### Test conventions
+
+- Test files are `*.test.ts` next to the source they cover. The main
+  `tsconfig.json` excludes them; `tsconfig.test.json` includes them
+  (and is what `just typecheck` runs).
+- Use `describe`/`test`/`expect`/`mock` from `bun:test`.
+- `mock.module("@/lib/db", ...)` is process-global; tests that mock
+  the same module should be in their own files so the mock doesn't
+  leak.
+- The `agentRegistry` singleton in `src/lib/agents/registry.ts` is
+  always the real one; the test installs a mock WebSocket on it
+  rather than replacing the module.
+- For `fetch` mocking, save the original `globalThis.fetch` in a
+  module-level constant and restore it in `afterEach`.
 
 ## Phase 5 schedule form pattern
 

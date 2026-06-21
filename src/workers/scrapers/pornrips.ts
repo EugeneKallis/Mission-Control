@@ -18,7 +18,7 @@ import { createScrapeResult, scrapeResultExists } from "@/lib/db/queries";
 const BASE_URL = "https://pornrips.to/category/1080p/";
 const MAX_PAGES = 1;
 
-interface ParsedItem {
+interface _ParsedItemPrivate {
   title: string;
   thumb: string;
   images: string[];
@@ -26,6 +26,7 @@ interface ParsedItem {
   magnet: string;
   tags: string[];
 }
+export type ParsedItem = _ParsedItemPrivate;
 
 function containsAny(haystack: string, needles: string[]): boolean {
   return needles.some((n) => haystack.includes(n));
