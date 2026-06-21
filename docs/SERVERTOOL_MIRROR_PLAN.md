@@ -27,7 +27,7 @@ When a Part is finished, mark it ✅ here so any agent can see progress at a gla
 | Part 3 — Home/Terminal | Terminal dashboard with macro runner | ✅ Done |
 | Part 4 — Admin | Macro & group CRUD with drag-reorder | ✅ Done |
 | Part 5 — History | Command execution history list + detail | ✅ Done |
-| Part 6 — Schedules | Schedule management page + cron engine | ❌ |
+| Part 6 — Schedules | Schedule management page + cron engine | ✅ Done |
 | Part 7 — NZB & Debrid Viewers | File tree browsers for NZB and Debrid mounts | ✅ Done |
 | Part 8 — Scraper | Scraper management UI | ✅ Done |
 | Part 9 — Real-time Engine | WebSocket/SSE live terminal stream + macro runner | ✅ Done |

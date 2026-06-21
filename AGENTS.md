@@ -114,7 +114,7 @@ This tells the next agent exactly where to pick up.
 | Phase 2 — Home + Engines | 3 (Home/Terminal), 9 (Real-time engine), 10 (Cron scheduler) | ✅ Done |
 | Phase 3 — Media Viewers | 7 (NZB Viewer), 12 (File scanner worker) | ✅ Done |
 | Phase 4 — Scraper | 8 (Scraper page), 13 (Scraper workers) | ✅ Done |
-| Phase 5 — Scheduling | 6 (Schedules page) | ❌ Not started |
+| Phase 5 — Scheduling | 6 (Schedules page) | ✅ Done |
 | Phase 6 — Agent System | 11 (Agent remote-exec) | ❌ Not started |
 | Phase 7 — Scripts Migration | 18 (One-off scripts → TS) | ❌ Not started |
 
@@ -137,6 +137,42 @@ src/components/scraper/    # UI for /scraper
   scraper-card.tsx         # Single scrape result card
   scraper-types.ts         # Shared TS types for the scraper
 ```
+
+## New directories added in Phase 5
+
+```
+src/components/schedules/
+  schedules-list.tsx       # List page client component (rows + toggle + delete)
+  new-schedule-form.tsx    # Form for the "New Schedule" card on the list page
+  edit-schedule-form.tsx   # Edit form (re-uses the same shape as new-schedule-form)
+src/lib/cron.ts            # Cron expression builder + parser + validator
+                           # Mirrors the Go generateCronExpression / parseCronToForm
+```
+
+## Phase 5 schedule form pattern
+
+The schedules form has three shapes (interval / daily / weekly) with
+conditional fields. The client builds the cron expression via
+`buildCronExpression(values)` from `src/lib/cron.ts` and sends it to
+`POST /api/schedules` — the server stores it verbatim. The edit form
+calls `parseCronToForm(cronExpression)` to pre-fill the form from the
+stored expression.
+
+The Go original only supports three shapes. We follow that: no
+arbitrary cron strings, no advanced recurrence. The `validateCronExpression`
+helper is only used to reject obvious garbage in the unlikely event a
+caller bypasses `buildCronExpression`.
+
+## Phase 5 — Schedules page
+
+| Method | Path                              | Purpose                                |
+| ------ | --------------------------------- | -------------------------------------- |
+| GET    | `/api/schedules`                  | List all schedules (with macro name)   |
+| POST   | `/api/schedules`                  | Create schedule (body: `{macroId, cronExpression}`) |
+| GET    | `/api/schedules/[id]`             | Get single schedule                    |
+| PUT    | `/api/schedules/[id]`             | Update schedule (preserves enabled state) |
+| DELETE | `/api/schedules/[id]`             | Delete + unregister                    |
+| POST   | `/api/schedules/[id]/toggle`      | Toggle enabled + add/remove from scheduler |
 
 ## Phase 4 worker pattern
 
