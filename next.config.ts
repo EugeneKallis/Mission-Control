@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Enable instrumentation hook (cron scheduler starts on server boot).
+  // This is enabled by default in Next.js 16 when src/instrumentation.ts exists.
+  // If needed in older versions, add: experimental: { instrumentationHook: true }
 
   // ── pi.dev SDK (future) ─────────────────────────────────────────────
   // When integrating the pi.dev SDK, configure it here:

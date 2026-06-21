@@ -102,6 +102,81 @@ The script just does one job and exits; the scheduler calls it on the desired in
 - **pi.dev SDK integration** — SDK will be added to `src/lib/pi/` when available; the project is structured to import it cleanly from there
 - **Service deployment** — will run as a systemd service or container; the `just start` / `just stop` / `just restart` targets are stubs for that
 
+## Phase Tracker
+
+When you complete a phase, update this table and mark completed Parts in `docs/SERVERTOOL_MIRROR_PLAN.md`.
+This tells the next agent exactly where to pick up.
+
+| Phase | Parts | Status |
+|-------|-------|--------|
+| Phase 0 — Foundation | 0 (Design system + Prisma + Types + Config), 1 (Layout shell + Components), 2 (Data layer + Lib clients) | ✅ Done |
+| Phase 1 — Core CRUD Pages | 4 (Admin), 5 (History), 14 (Database), 15 (Config), 16 (Server Status), 17 (Log Viewer) | ✅ Done |
+| Phase 2 — Home + Engines | 3 (Home/Terminal), 9 (Real-time engine), 10 (Cron scheduler) | ✅ Done |
+| Phase 3 — Media Viewers | 7 (NZB Viewer), 12 (File scanner worker) | ✅ Done |
+| Phase 4 — Scraper | 8 (Scraper page), 13 (Scraper workers) | ✅ Done |
+| Phase 5 — Scheduling | 6 (Schedules page) | ❌ Not started |
+| Phase 6 — Agent System | 11 (Agent remote-exec) | ❌ Not started |
+| Phase 7 — Scripts Migration | 18 (One-off scripts → TS) | ❌ Not started |
+
+**Convention:** After completing a phase, update:
+1. This table (set Status to ✅ Done, add next phase as ⏳ In progress)
+2. The plan document's completion table at the top of `docs/SERVERTOOL_MIRROR_PLAN.md`
+
+## New directories added in Phase 4
+
+```
+src/workers/scrapers/      # One source-specific scraper per file
+  141jav.ts                # Big Tits tag listing (3 pages, all magnets)
+  projectjav.ts            # big-tits-7 tag (3 pages, Torbox cache filter)
+  pornrips.ts              # 1080p category (1 page, PixHost image enrichment)
+  shared.ts                # sanitizeTitle, parseSize, fetchHtml, scrapePixHost, Torbox helper
+  status.ts                # DB-backed is_scraping flag (so web and worker share state)
+src/components/scraper/    # UI for /scraper
+  access-gate.tsx          # "Authorized Personnel Only" modal + inactivity lock
+  scraper-page.tsx         # Main client component (toolbar / tabs / cards / keyboard nav)
+  scraper-card.tsx         # Single scrape result card
+  scraper-types.ts         # Shared TS types for the scraper
+```
+
+## Phase 4 worker pattern
+
+`src/workers/scraper-runner.ts` is the orchestrator. It is invoked in two ways:
+
+| Caller                      | Command                                                                  | Effect                             |
+| --------------------------- | ------------------------------------------------------------------------ | ---------------------------------- |
+| `mission-control-scraper.timer` (systemd) | `bun run src/workers/scraper-worker.ts` → `runAllSources()` | All three sources, sequentially    |
+| `POST /api/scraper/trigger` (web)         | `triggerSourceInBackground(src)`                            | One source, background             |
+| `POST /api/scraper/trigger-all`           | `triggerAllSourcesInBackground()`                           | All three sources, background      |
+| Manual (one source)         | `just run-worker src/workers/scraper-runner.ts -- <source>`               | One source, foreground (logs visible) |
+
+Scraping status (`is_scraping` per source) is stored in the `settings` table
+under the key `scraper_status:<source>` so the web process and worker process
+can share it. The web page polls `/api/scraper/status?source=` every 2s.
+
+## Phase 4 API surface
+
+| Method | Path                              | Purpose                                |
+| ------ | --------------------------------- | -------------------------------------- |
+| GET    | `/api/scraper/results?source=`    | List visible results for a source      |
+| GET    | `/api/scraper/status?source=`     | Is a source currently scraping?        |
+| GET    | `/api/scraper/status-all`         | Is any source currently scraping?      |
+| POST   | `/api/scraper/trigger`            | Trigger one source                     |
+| POST   | `/api/scraper/trigger-all`        | Trigger all three sources              |
+| POST   | `/api/scraper/hide`               | Hide one result (id)                   |
+| POST   | `/api/scraper/undo`               | Un-hide (source = last hidden, or id)  |
+| POST   | `/api/scraper/download`           | Submit to Decypharr, mark downloaded   |
+| POST   | `/api/scraper/hide-all`           | Hide all (or all for a source)         |
+| POST   | `/api/scraper/refresh`            | Clear + rescrape (source, or all)      |
+
+## Phase 4 — Prisma 7 driver-adapter note
+
+Prisma 7 removed the no-arg `new PrismaClient()` constructor. The DB client
+in `src/lib/db/index.ts` now uses `@prisma/adapter-libsql` (libsql fork of
+SQLite that runs in both **Node** and **Bun**). This is the one adapter
+that works in both runtimes — `better-sqlite3` does not run in Bun, which
+would break the scraper/file-scanner workers. Migrations are owned by
+`prisma.config.ts` (Prisma 7 moved datasource config there).
+
 ## Important!
 
 This file is the living scope and convention document.  

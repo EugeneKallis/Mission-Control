@@ -19,7 +19,7 @@ init: setup typecheck
 
 # Start the dev server (default target)
 dev:
-    bun next dev
+    NEXT_PRIVATE_LOCAL_DEV=1 bun next dev -p 3001 -H 0.0.0.0
 
 # ── Build ────────────────────────────────────────────────────────────────────
 

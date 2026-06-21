@@ -1,0 +1,178 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Macro {
+  id            Int       @id @default(autoincrement())
+  name          String
+  description   String    @default("")
+  groupName     String    @default("Ungrouped") @map("group_name")
+  ord           Int       @default(0)
+  runOnAgent    Boolean   @default(false) @map("run_on_agent")
+  agentHostname String    @default("") @map("agent_hostname")
+  commands      String    @default("[]")
+  history       History[]
+  schedules     Schedule[]
+
+  @@map("macros")
+}
+
+model MacroGroup {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+  ord  Int    @default(0)
+
+  @@map("macro_groups")
+}
+
+model History {
+  id          Int       @id @default(autoincrement())
+  macroId     Int       @map("macro_id")
+  startTime   DateTime  @map("start_time")
+  endTime     DateTime? @map("end_time")
+  status      String
+  output      String?
+  triggeredBy String?   @default("user") @map("triggered_by")
+  macro       Macro     @relation(fields: [macroId], references: [id])
+
+  @@map("history")
+}
+
+model Schedule {
+  id             Int      @id @default(autoincrement())
+  macroId        Int      @map("macro_id")
+  cronExpression String   @map("cron_expression")
+  enabled        Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at")
+  macro          Macro    @relation(fields: [macroId], references: [id])
+
+  @@map("schedules")
+}
+
+model ServerAgent {
+  id               Int      @id @default(autoincrement())
+  hostname         String   @unique
+  ipAddress        String?  @map("ip_address")
+  cpuUsage         Float?   @map("cpu_usage")
+  memoryTotal      Int?     @map("memory_total")
+  memoryUsed       Int?     @map("memory_used")
+  lastSeen         DateTime @default(now()) @map("last_seen")
+  version          String?
+  updateRequested  Boolean  @default(false) @map("update_requested")
+  restartRequested Boolean  @default(false) @map("restart_requested")
+  networkSent      Int      @default(0) @map("network_sent")
+  networkRecv      Int      @default(0) @map("network_recv")
+
+  @@map("server_agents")
+}
+
+model ScrapedItem {
+  id           Int       @id @default(autoincrement())
+  source       String    @default("141jav")
+  title        String
+  imageUrl     String?   @map("image_url")
+  magnetLink   String    @unique @map("magnet_link")
+  torrentLink  String?   @map("torrent_link")
+  tags         String?
+  isHidden     Boolean   @default(false) @map("is_hidden")
+  isDownloaded Boolean   @default(false) @map("is_downloaded")
+  hiddenAt     DateTime? @map("hidden_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  files        ScrapedItemFile[]
+
+  @@map("scraped_items")
+}
+
+model ScrapedItemFile {
+  id           Int      @id @default(autoincrement())
+  scrapedItemId Int     @map("scraped_item_id")
+  magnetLink   String   @map("magnet_link")
+  fileSize     String?  @map("file_size")
+  seeds        Int      @default(0)
+  leechers     Int      @default(0)
+  createdAt    DateTime @default(now()) @map("created_at")
+  scrapedItem  ScrapedItem @relation(fields: [scrapedItemId], references: [id], onDelete: Cascade)
+
+  @@unique([scrapedItemId, magnetLink])
+  @@map("scraped_item_files")
+}
+
+model FileCheck {
+  id           Int       @id @default(autoincrement())
+  filePath     String    @unique @map("file_path")
+  lastChecked  DateTime? @map("last_checked")
+  brokenCount  Int       @default(0) @map("broken_count")
+  isIgnored    Boolean   @default(false) @map("is_ignored")
+  errorMessage String?   @map("error_message")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  @@map("file_checks")
+}
+
+model NzbFile {
+  id         Int       @id @default(autoincrement())
+  path       String    @unique
+  name       String
+  isDir      Boolean   @default(false) @map("is_dir")
+  parentPath String    @default("") @map("parent_path")
+  linkTarget String?   @map("link_target")
+  fileCount  Int       @default(0) @map("file_count")
+  updatedAt  DateTime  @default(now()) @map("updated_at")
+
+  @@index([parentPath])
+  @@index([name])
+  @@map("nzb_files")
+}
+
+model DebridFile {
+  id         Int       @id @default(autoincrement())
+  path       String    @unique
+  name       String
+  isDir      Boolean   @default(false) @map("is_dir")
+  parentPath String    @default("") @map("parent_path")
+  linkTarget String?   @map("link_target")
+  fileCount  Int       @default(0) @map("file_count")
+  updatedAt  DateTime  @default(now()) @map("updated_at")
+
+  @@index([parentPath])
+  @@index([name])
+  @@map("debrid_files")
+}
+
+model ScrapeResult {
+  id           Int       @id @default(autoincrement())
+  source       String
+  title        String
+  imageUrl     String?   @map("image_url")
+  magnetLink   String?   @map("magnet_link")
+  torrentLink  String?   @map("torrent_link")
+  uniqueKey    String    @unique @map("unique_key")
+  infoHash     String?   @map("info_hash")
+  fileSize     String?   @map("file_size")
+  tags         String?
+  isHidden     Boolean   @default(false) @map("is_hidden")
+  isDownloaded Boolean   @default(false) @map("is_downloaded")
+  hiddenAt     DateTime? @map("hidden_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  @@map("scrape_results")
+}
+
+model Setting {
+  key   String @id
+  value String?
+
+  @@map("settings")
+}
+
+model Config {
+  id         Int      @id @default(autoincrement())
+  configJson String   @default("{}") @map("config_json")
+  updatedAt  DateTime @default(now()) @map("updated_at")
+
+  @@map("configs")
+}
