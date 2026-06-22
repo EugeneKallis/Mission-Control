@@ -144,7 +144,7 @@ export default function ServerStatusPage() {
           <div className="flex gap-2">
             <button
               onClick={() => setShowAddModal(true)}
-              className="px-3 py-1.5 text-xs font-medium rounded transition-colors"
+              className="px-4 py-2 text-xs font-semibold rounded-none transition-colors"
               style={{ background: "#201F1F", color: "#E5E2E1", border: "1px solid rgba(59, 75, 63, 0.3)" }}
             >
               Add Server
@@ -152,7 +152,7 @@ export default function ServerStatusPage() {
             <button
               onClick={handleUpdateAll}
               disabled={agents.length === 0}
-              className="px-3 py-1.5 text-xs font-medium rounded transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-xs font-semibold rounded-none transition-colors disabled:opacity-50"
               style={{ background: "rgba(97, 139, 107, 0.1)", color: "#618B6B", border: "1px solid rgba(97, 139, 107, 0.3)" }}
             >
               Update All
@@ -226,14 +226,14 @@ export default function ServerStatusPage() {
                           <div className="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
                               onClick={() => handleUpdateAgent(agent.id)}
-                              className="px-2 py-1 text-[10px] font-medium rounded"
+                              className="px-3 py-1.5 text-xs font-semibold rounded-none"
                               style={{ background: "rgba(97, 139, 107, 0.1)", color: "#618B6B", border: "1px solid rgba(97, 139, 107, 0.3)" }}
                             >
                               Update
                             </button>
                             <button
                               onClick={() => handleRestartAgent(agent.id)}
-                              className="px-2 py-1 text-[10px] font-medium rounded"
+                              className="px-3 py-1.5 text-xs font-semibold rounded-none"
                               style={{ background: "rgba(255, 180, 171, 0.1)", color: "#FFB4AB", border: "1px solid rgba(255, 180, 171, 0.3)" }}
                             >
                               Restart
@@ -293,14 +293,14 @@ export default function ServerStatusPage() {
                     <div className="flex gap-2 pt-1">
                       <button
                         onClick={() => handleUpdateAgent(agent.id)}
-                        className="flex-1 px-2 py-1.5 text-xs font-medium rounded"
+                        className="flex-1 px-4 py-2 text-xs font-semibold rounded-none"
                         style={{ background: "rgba(97, 139, 107, 0.1)", color: "#618B6B", border: "1px solid rgba(97, 139, 107, 0.3)" }}
                       >
                         Update
                       </button>
                       <button
                         onClick={() => handleRestartAgent(agent.id)}
-                        className="flex-1 px-2 py-1.5 text-xs font-medium rounded"
+                        className="flex-1 px-4 py-2 text-xs font-semibold rounded-none"
                         style={{ background: "rgba(255, 180, 171, 0.1)", color: "#FFB4AB", border: "1px solid rgba(255, 180, 171, 0.3)" }}
                       >
                         Restart
@@ -327,7 +327,7 @@ export default function ServerStatusPage() {
               </h2>
               <button
                 onClick={() => setShowAddModal(false)}
-                className="text-[#849587] hover:text-[#E5E2E1] transition-colors"
+                className="p-1.5 text-[#849587] hover:text-[#E5E2E1] transition-colors"
               >
                 <span className="material-symbols-outlined">close</span>
               </button>
@@ -347,7 +347,7 @@ export default function ServerStatusPage() {
                 navigator.clipboard.writeText(text);
                 showToast("Copied to clipboard", "success");
               }}
-              className="mt-3 px-3 py-1.5 text-xs font-medium rounded transition-colors"
+              className="mt-3 px-4 py-2 text-xs font-semibold rounded-none transition-colors"
               style={{ background: "#201F1F", color: "#E5E2E1", border: "1px solid rgba(59, 75, 63, 0.3)" }}
             >
               Copy to Clipboard

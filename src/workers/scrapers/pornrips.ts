@@ -3,9 +3,9 @@
  *
  * Fetches the 1080p category listing, parses each `article.type-post`,
  * then re-fetches each detail page to grab additional images (PixHost).
- * Filters out Trans/TGirs/.TS/Transfixed content. Inserts every item — no
- * Torbox cache filter. Mirrors `ScrapePornRips` + `runPornRipsScrape` +
- * `scrapeDetail` in `~/ServerTool/cmd/web/handler/pornrips.go`.
+ * Filters out Trans/TGirs/.TS/Transfixed content and inserts every item.
+ * Mirrors `ScrapePornRips` + `runPornRipsScrape` + `scrapeDetail` in
+ * `~/ServerTool/cmd/web/handler/pornrips.go`.
  *
  * Note: the original only paginated 1 page. We follow that to avoid hammering
  * the upstream; bumping to multi-page is a one-line change when desired.
@@ -25,6 +25,7 @@ interface _ParsedItemPrivate {
   torrent: string;
   magnet: string;
   tags: string[];
+  detailURL: string;
 }
 export type ParsedItem = _ParsedItemPrivate;
 
@@ -69,8 +70,7 @@ export function parsePornRipsListing(html: string): ParsedItem[] {
     });
 
     if (title) {
-      results.push({ title, thumb, images: [], torrent, magnet, tags, /* detailURL */ } as ParsedItem & { detailURL?: string });
-      (results[results.length - 1] as ParsedItem & { detailURL?: string }).detailURL = detailURL;
+      results.push({ title, thumb, images: [], torrent, magnet, tags, detailURL });
     }
   });
 
@@ -82,7 +82,7 @@ export function parsePornRipsListing(html: string): ParsedItem[] {
  * - looks for PixHost `show` links, follows each, captures the direct image
  * - falls back to any <img> inside .entry-content that isn't a logo/banner
  */
-export async function enrichPornRipsItem(item: ParsedItem & { detailURL?: string }): Promise<ParsedItem> {
+export async function enrichPornRipsItem(item: ParsedItem): Promise<ParsedItem> {
   if (!item.detailURL) return item;
 
   let html: string;
@@ -151,6 +151,18 @@ export async function runPornRipsScrape(): Promise<{ pages: number; inserted: nu
       // The Go code uses torrent when present, otherwise magnet. We mirror that.
       const torrentURL = item.torrent || item.magnet;
       if (!torrentURL) continue;
+
+      // Enrich: fetch the detail page to grab PixHost direct image URLs.
+      // Mirrors ServerTool's scrapeDetail() call — without this,
+      // item.images stays empty and cards only show the single
+      // listing thumbnail instead of 2 images side by side.
+      if (item.detailURL) {
+        try {
+          await enrichPornRipsItem(item);
+        } catch (err) {
+          console.warn(`[pornrips] enrich failed for "${item.title}":`, err);
+        }
+      }
 
       const title = sanitizeTitle(item.title);
       const tagsStr = item.tags.join(",");

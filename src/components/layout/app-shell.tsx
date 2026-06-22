@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { ToastProvider } from "@/components/toast-provider";
 import { SidebarContent } from "@/components/layout/sidebar-content";
 import { MobileHeader } from "@/components/layout/mobile-header";
@@ -28,6 +29,8 @@ export function AppShell({ children, noScroll = false, showRightRail = false, ri
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [agentModalOpen, setAgentModalOpen] = useState(false);
   const [pendingMacroId, setPendingMacroId] = useState<number | null>(null);
+  const pathname = usePathname();
+  const router = useRouter();
 
   // Listen for agent-macro clicks from sidebar / right rail
   useEffect(() => {
@@ -41,7 +44,21 @@ export function AppShell({ children, noScroll = false, showRightRail = false, ri
   }, []);
 
   const handleAgentRun = (macroId: number, agent: string) => {
-    fetch(`/api/run/${macroId}?agent=${encodeURIComponent(agent)}`, { method: "POST" });
+    // The home page owns the SSE terminal stream, so funnel the run
+    // through it. If we're already on "/", dispatch the in-app event;
+    // otherwise navigate to the deep-link URL the home page executes
+    // on mount.
+    if (pathname === "/") {
+      window.dispatchEvent(
+        new CustomEvent("macro:run", {
+          detail: { macroId, agent },
+        }),
+      );
+    } else {
+      router.push(
+        `/?run_macro=${macroId}&agent=${encodeURIComponent(agent)}`,
+      );
+    }
   };
 
   return (
@@ -81,6 +98,7 @@ export function AppShell({ children, noScroll = false, showRightRail = false, ri
 
           {/* Scrollable content */}
           <div
+            id="main-scroll-container"
             className={`flex-1 flex flex-col ${noScroll ? "" : "overflow-y-auto overflow-x-hidden"}`}
           >
             {children}

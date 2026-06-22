@@ -8,7 +8,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ variant = "ghost", className = "", children, ...props }, ref) => {
-    const base = "inline-flex items-center justify-center gap-2 text-xs font-semibold transition-all duration-200";
+    const base = "inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold rounded-none transition-all duration-200";
 
     const variants: Record<ButtonVariant, string> = {
       primary:

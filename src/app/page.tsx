@@ -9,27 +9,26 @@ import type { GroupWithMacros, Macro } from "@/types";
 // ── Macro Right Rail (rendered inside AppShell's right-rail slot) ─────────
 
 function MacroRightRail({ macros }: { macros: GroupWithMacros[] }) {
-  const toast = useToast();
-
-  const handleClick = useCallback(
-    (macro: Macro) => {
-      if (macro.runOnAgent && !macro.agentHostname) {
-        window.dispatchEvent(
-          new CustomEvent("macro:run-agent", {
-            detail: { macroId: macro.id, macroName: macro.name },
-          }),
-        );
-      } else {
-        const agent = macro.agentHostname || undefined;
-        const url = agent
-          ? `/api/run/${macro.id}?agent=${encodeURIComponent(agent)}`
-          : `/api/run/${macro.id}`;
-        fetch(url, { method: "POST" }).catch(() => {});
-        toast?.showToast(`Running: ${macro.name}`, "info");
-      }
-    },
-    [toast],
-  );
+  const handleClick = useCallback((macro: Macro) => {
+    if (macro.runOnAgent && !macro.agentHostname) {
+      window.dispatchEvent(
+        new CustomEvent("macro:run-agent", {
+          detail: { macroId: macro.id, macroName: macro.name },
+        }),
+      );
+    } else {
+      // Home page is already mounted, so dispatch the in-app event
+      // rather than the deep-link URL. runMacro on Home will pick it up.
+      window.dispatchEvent(
+        new CustomEvent("macro:run", {
+          detail: {
+            macroId: macro.id,
+            agent: macro.agentHostname || undefined,
+          },
+        }),
+      );
+    }
+  }, []);
 
   if (macros.length === 0) {
     return (
@@ -99,6 +98,22 @@ export default function Home() {
     },
     [toast],
   );
+
+  // ── In-app macro trigger (sidebar, agent modal, right rail) ────────
+  // The home page is the only place that owns the SSE terminal stream,
+  // so every macro run has to be funneled through here. The sidebar
+  // and agent modal navigate to "/" when not already on it; this
+  // listener fires on the home page mount with the deep-link query,
+  // or directly when the run originates from the right rail.
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ macroId: number; agent?: string }>).detail;
+      runMacro(detail.macroId, detail.agent);
+    };
+    window.addEventListener("macro:run", handler);
+    return () => window.removeEventListener("macro:run", handler);
+  }, [runMacro]);
 
   // ── Deep link ──────────────────────────────────────────────────────
 

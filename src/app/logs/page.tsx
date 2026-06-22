@@ -122,7 +122,7 @@ export default function LogsPage() {
               <button
                 key={s}
                 onClick={() => { setService(s); setLogs("Loading..."); }}
-                className="px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
+                className="px-3 py-2 text-xs font-semibold rounded-none transition-colors"
                 style={{
                   background: service === s ? "#201F1F" : "transparent",
                   color: service === s ? "#E5E2E1" : "#849587",
@@ -166,7 +166,7 @@ export default function LogsPage() {
           {/* Manual refresh */}
           <button
             onClick={() => fetchLogs(service, false)}
-            className="px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
+            className="px-4 py-2 text-xs font-semibold rounded-none transition-colors"
             style={{ background: "#201F1F", color: "#E5E2E1", border: "1px solid rgba(59, 75, 63, 0.3)" }}
           >
             Refresh

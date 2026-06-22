@@ -149,3 +149,29 @@
 details > summary { list-style: none; }
 details > summary::-webkit-details-marker { display: none; }
 details[open] summary .expand-icon { transform: rotate(180deg); }
+
+/* ── Scraper page scroll-snap ──────────────────────────────────────────── */
+/* Mirrors ServerTool's scraper.templ exactly. The page root
+   (#scraper-content-container) is the scroll container, and every
+   card is a snap target with a viewport-relative min-height. The
+   header section is also a snap target. */
+
+.card-snap-area {
+  scroll-snap-align: start;
+  min-height: 90dvh;
+  flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+  .card-snap-area {
+    min-height: 100dvh;
+  }
+}
+
+/* Hide the outer layout scroll while the scraper page is active so
+   only the content container scrolls. Mirrors ServerTool's
+   body:has(#scraper-content-container) #scroll-container rule. */
+body:has(#scraper-content-container) #main-scroll-container {
+  overflow: hidden !important;
+  padding: 0 !important;
+}

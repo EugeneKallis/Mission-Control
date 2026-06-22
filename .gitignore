@@ -44,3 +44,10 @@ next-env.d.ts
 
 # scripts build output
 /dist/scripts
+
+# SQLite databases — main file, WAL, and rollback journal
+# (do not commit; created/updated by `prisma migrate deploy` in deploy.sh)
+prisma/*.db
+prisma/*.db-wal
+prisma/*.db-journal
+prisma/*.db-shm

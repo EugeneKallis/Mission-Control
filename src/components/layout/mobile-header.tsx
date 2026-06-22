@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 interface MobileHeaderProps {
   brand?: string;
   version?: string;
@@ -22,9 +24,13 @@ export function MobileHeader({
       >
         <span className="material-symbols-outlined text-on-surface text-2xl">menu</span>
       </button>
-      <span className="ml-3 text-lg font-bold text-primary tracking-tight font-display">
+      <Link
+        href="/"
+        className="ml-3 text-lg font-bold text-primary tracking-tight font-display hover:opacity-80 transition-opacity"
+        aria-label="Go to home"
+      >
         {brand}
-      </span>
+      </Link>
       <div className="ml-auto text-[11px] text-on-surface-variant text-right leading-tight">
         <div>v{version}</div>
         {uptime && <div>{uptime}</div>}

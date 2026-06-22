@@ -6,11 +6,9 @@
  * URL), `.img-area img` (with data-srcset), a `.badge-secondary` tag
  * list, and a file table with magnet + size + seeds + leechers.
  *
- * Note: `shouldSkipByTags` is module-private. We exercise it indirectly
- * via the SKIP_TAGS set's effect on the orchestrator, but the unit-level
- * tag-skip behavior is documented here and tested at the listing level
- * (a skipped item just doesn't appear in the listing anyway — the runX
- * orchestrator applies the filter).
+ * Note: the runX orchestrator's behavior is tested via real scrapes
+ * (see src/workers/scraper-runner.test.ts). The unit tests here cover
+ * just the parser.
  */
 
 import { describe, test, expect } from "bun:test";

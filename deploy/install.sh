@@ -31,10 +31,19 @@ cd "$DEPLOY_DIR"
 bun install
 bun next build
 
+# 1b. Ensure the database schema is applied.
+#     `prisma migrate deploy` is idempotent — no-op if already at latest.
+#     This creates dev.db on first install and applies new migrations on
+#     subsequent ones, instead of relying on a committed binary blob.
+echo "→ Applying database migrations..."
+cd "$DEPLOY_DIR"
+bunx prisma migrate deploy
+
 # 2. Write service files with the correct bun path
 echo "→ Writing systemd units..."
 sed "s|/usr/local/bin/bun|$BUN_PATH|g" "$SERVICES_DIR/mission-control.service" > /etc/systemd/system/mission-control.service
 sed "s|/usr/local/bin/bun|$BUN_PATH|g" "$SERVICES_DIR/mission-control-scraper.service" > /etc/systemd/system/mission-control-scraper.service
+sed "s|/usr/local/bin/bun|$BUN_PATH|g" "$SERVICES_DIR/mission-control-magnet-bridge.service" > /etc/systemd/system/mission-control-magnet-bridge.service
 cp "$SERVICES_DIR/mission-control-scraper.timer" /etc/systemd/system/
 
 # 3. Reload systemd and enable services
@@ -42,11 +51,14 @@ echo "→ Enabling services..."
 systemctl daemon-reload
 systemctl enable --now mission-control.service
 systemctl enable --now mission-control-scraper.timer
+systemctl enable --now mission-control-magnet-bridge.service
 
 # 4. Show status
 echo ""
 echo "=== Install complete ==="
 systemctl status mission-control.service --no-pager
 systemctl status mission-control-scraper.timer --no-pager
+systemctl status mission-control-magnet-bridge.service --no-pager
 echo ""
 echo "Logs:  journalctl -u mission-control.service -f"
+echo "       journalctl -u mission-control-magnet-bridge.service -f"

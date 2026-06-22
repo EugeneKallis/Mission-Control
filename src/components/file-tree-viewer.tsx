@@ -434,7 +434,7 @@ export function FileTreeViewer({ source }: FileTreeViewerProps) {
                             <button
                               type="button"
                               onClick={() => expandDir(item.path)}
-                              className="p-1 hover:bg-surface-container-high rounded-none transition-colors"
+                              className="p-1.5 hover:bg-surface-container-high rounded-none transition-colors"
                               aria-label={isExpanded ? "Collapse" : "Expand"}
                             >
                               {isLoading ? (

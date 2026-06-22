@@ -2,15 +2,23 @@
  * Macro execution engine.
  * Port of ~/ServerTool/cmd/web/handler/command.go RunMacro.
  *
- * Runs a macro's commands either locally (via Bun.spawn) or remotely
- * via an agent (stubbed until Part 11). Streams all output through
- * the shared LiveBus so connected home-page terminals see live output.
+ * Runs a macro's commands either locally (via child_process.spawn, so it
+ * works in both Node and Bun) or remotely via the agent registry. Streams
+ * all output through the shared LiveBus so connected home-page terminals
+ * see live output.
  */
 
-import { getMacro, createHistory, updateHistory } from "@/lib/db/queries";
+import { spawn } from "child_process";
+import { getMacro, createHistory, updateHistory, flushHistoryOutput } from "@/lib/db/queries";
 import { liveBus } from "@/lib/live-bus";
 import { agentRegistry } from "@/lib/agents/registry";
 import type { MacroCommand } from "@/types";
+
+/** How often the runner flushes partial output to the history row
+ *  while a macro is running. 1.5 s is short enough that the history
+ *  tab feels live even for short macros, and long enough that we
+ *  don't hammer the DB with writes for chatty commands. */
+const FLUSH_INTERVAL_MS = 1500;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -43,9 +51,14 @@ export async function runMacro(
     output: "",
   });
 
-  // 3. Resolve agent hostname
-  const resolvedAgent =
-    agentHostname || (macro.runOnAgent ? macro.agentHostname : "");
+  // 3. Resolve agent hostname. The URL `?agent=` override only applies
+  //    to macros that are actually flagged for agent execution — for
+  //    local macros we ignore it so a stale `agentHostname` on the row
+  //    can't cause the runner to print a misleading "Node:" header and
+  //    then fall through to local execution.
+  const resolvedAgent = macro.runOnAgent
+    ? (agentHostname || macro.agentHostname || "")
+    : "";
 
   // 4. Parse commands
   let commands: MacroCommand[] = [];
@@ -55,8 +68,18 @@ export async function runMacro(
     commands = [];
   }
 
-  // 5. Build output buffer (concatenated for history storage)
+  // 5. Build output buffer (concatenated for history storage) and
+  //    track whether new output needs to be flushed to the DB. The
+  //    flush interval below picks up dirty=true runs every 1.5 s so
+  //    /history/[id] can show partial output for an in-flight macro
+  //    without waiting for the final updateHistory() call.
   const chunks: string[] = [];
+  let dirty = false;
+  let flushInterval: ReturnType<typeof setInterval> | null = null;
+
+  function markDirty() {
+    dirty = true;
+  }
 
   function write(msg: string) {
     const chunk = msg.endsWith("\n") ? msg : msg + "\n";
@@ -67,15 +90,34 @@ export async function runMacro(
       timestamp: Date.now(),
     });
     chunks.push(chunk);
+    markDirty();
   }
 
+  // Flush the chunks buffer to the DB on a short interval so the
+  // history tab can show partial output for a still-running macro.
+  // The dirty flag short-circuits idle ticks. On flush failure we
+  // leave dirty=true so the next tick retries; the final
+  // updateHistory() in each exit path is the authoritative write
+  // either way. cleared in the finally block below.
+  flushInterval = setInterval(async () => {
+    if (!dirty) return;
+    const output = chunks.join("");
+    try {
+      await flushHistoryOutput(history.id, output);
+      dirty = false;
+    } catch (err) {
+      console.error(`[runMacro] Failed to flush history ${history.id}:`, err);
+    }
+  }, FLUSH_INTERVAL_MS);
+
   // 6. Header
+  try {
   write(`=== Running Macro: ${macro.name} ===`);
   if (macro.description) {
     write(`Description: ${macro.description}`);
   }
   write(`Triggered By: ${triggeredBy}`);
-  if (resolvedAgent) {
+  if (macro.runOnAgent && resolvedAgent) {
     write(`Node: ${resolvedAgent}`);
   }
   write("");
@@ -129,6 +171,7 @@ export async function runMacro(
               timestamp: Date.now(),
             });
             chunks.push(text);
+            markDirty();
           },
           onExit: (exitCode) => {
             if (exitCode !== 0) {
@@ -189,60 +232,56 @@ export async function runMacro(
     return { historyId: history.id, status: "success" };
   }
 
-  // 8. Execute commands locally
+  // 8. Execute commands locally. Uses child_process.spawn (available in
+  //    both Node and Bun) so the runner doesn't blow up if the dev server
+  //    is started under Node, or if the Next.js bundler strips the
+  //    `Bun` global from the runtime context.
   let finalized = false;
   try {
     for (const mc of commands) {
       write(`> ${mc.cmd}`);
 
-      const proc = Bun.spawn(["bash", "-c", mc.cmd], {
+      const proc = spawn("bash", ["-c", mc.cmd], {
         cwd: mc.working_dir || process.cwd(),
-        stdout: "pipe",
-        stderr: "pipe",
+        stdio: ["ignore", "pipe", "pipe"],
       });
 
-      // Stream stdout — capture promise so we can await after exit
-      const stdoutReader = proc.stdout.getReader();
-      const stdoutPromise = (async () => {
-        while (true) {
-          const { done, value } = await stdoutReader.read();
-          if (done) break;
-          if (value) {
-            const text = decodeChunk(value);
-            liveBus.publish({
-              type: "output",
-              text,
-              macroId,
-              timestamp: Date.now(),
-            });
-            chunks.push(text);
-          }
-        }
-      })();
+      // Stream stdout
+      proc.stdout.on("data", (chunk: Buffer) => {
+        const text = decodeChunk(new Uint8Array(chunk));
+        liveBus.publish({
+          type: "output",
+          text,
+          macroId,
+          timestamp: Date.now(),
+        });
+        chunks.push(text);
+        markDirty();
+      });
 
-      // Stream stderr — capture promise so we can await after exit
-      const stderrReader = proc.stderr.getReader();
-      const stderrPromise = (async () => {
-        while (true) {
-          const { done, value } = await stderrReader.read();
-          if (done) break;
-          if (value) {
-            const text = decodeChunk(value);
-            liveBus.publish({
-              type: "output",
-              text,
-              macroId,
-              timestamp: Date.now(),
-            });
-            chunks.push(text);
-          }
-        }
-      })();
+      // Stream stderr
+      proc.stderr.on("data", (chunk: Buffer) => {
+        const text = decodeChunk(new Uint8Array(chunk));
+        liveBus.publish({
+          type: "output",
+          text,
+          macroId,
+          timestamp: Date.now(),
+        });
+        chunks.push(text);
+        markDirty();
+      });
 
-      // Wait for process to finish, then ensure readers are done
-      const exitCode = await proc.exited;
-      await stdoutPromise;
-      await stderrPromise;
+      // Wait for the process to exit. Surface spawn errors as a failed
+      // macro run rather than a thrown exception, so the history row
+      // gets the right status and output.
+      const exitCode: number = await new Promise((resolve) => {
+        proc.on("error", (err) => {
+          write(`[spawn error: ${err.message}]`);
+          resolve(1);
+        });
+        proc.on("close", (code) => resolve(code ?? 0));
+      });
 
       if (exitCode !== 0) {
         write(`\nCommand failed with exit code ${exitCode}`);
@@ -285,5 +324,14 @@ export async function runMacro(
       }
     }
     throw err;
+  }
+  } finally {
+    // Always stop the flush interval — the final updateHistory() in
+    // each exit path above has already (or is about to) write the
+    // authoritative state, so further ticks would be wasted work.
+    if (flushInterval) {
+      clearInterval(flushInterval);
+      flushInterval = null;
+    }
   }
 }

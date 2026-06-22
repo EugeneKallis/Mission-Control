@@ -9,6 +9,7 @@
 
 import { describe, test, expect, mock, afterEach } from "bun:test";
 import { DecypharrClient } from "./decypharr";
+import type { DecypharrTorrentsResponse } from "./decypharr";
 
 const originalFetch = globalThis.fetch;
 
@@ -91,5 +92,57 @@ describe("DecypharrClient", () => {
     const form = call.init.body as FormData;
     expect(form.get("arr")).toBe("special");
     expect(form.get("downloadFolder")).toBe("/mnt/debrid/downloads");
+  });
+
+  test("listTorrents GETs /api/torrents and parses the response", async () => {
+    const body: DecypharrTorrentsResponse = {
+      categories: ["special", "movies"],
+      has_next: false,
+      has_prev: false,
+      limit: 50,
+      page: 1,
+      torrents: [
+        { id: "1", category: "special", name: "A", state: "pausedUP", info_hash: "AAAA", content_path: "/p/A" },
+        { id: "2", category: "movies", name: "B", state: "downloading", info_hash: "BBBB", content_path: "/p/B" },
+      ],
+    };
+    const get = installFetch(() => new Response(JSON.stringify(body), { status: 200 }));
+    const client = new DecypharrClient("http://example.com:8282");
+    const resp = await client.listTorrents();
+    const call = get();
+    expect(call.url).toBe("http://example.com:8282/api/torrents");
+    expect(call.init.method).toBeUndefined(); // GET
+    expect(resp.torrents).toHaveLength(2);
+    expect(resp.torrents[0].info_hash).toBe("AAAA");
+    expect(resp.torrents[1].category).toBe("movies");
+  });
+
+  test("listTorrents throws on non-2xx", async () => {
+    installFetch(() => new Response("no", { status: 503 }));
+    const client = new DecypharrClient("http://example.com:8282");
+    await expect(client.listTorrents()).rejects.toThrow(/503/);
+  });
+
+  test("deleteTorrent DELETEs /api/torrents/<category>/<infohash>", async () => {
+    const get = installFetch(() => new Response("ok", { status: 200 }));
+    const client = new DecypharrClient("http://example.com:8282");
+    await client.deleteTorrent("special", "abcd1234");
+    const call = get();
+    expect(call.url).toBe("http://example.com:8282/api/torrents/special/abcd1234");
+    expect(call.init.method).toBe("DELETE");
+  });
+
+  test("deleteTorrent encodes unsafe path segments", async () => {
+    const get = installFetch(() => new Response("ok", { status: 200 }));
+    const client = new DecypharrClient("http://example.com:8282");
+    await client.deleteTorrent("my cat", "hash with spaces");
+    const call = get();
+    expect(call.url).toBe("http://example.com:8282/api/torrents/my%20cat/hash%20with%20spaces");
+  });
+
+  test("deleteTorrent throws on non-2xx", async () => {
+    installFetch(() => new Response("no", { status: 404 }));
+    const client = new DecypharrClient("http://example.com:8282");
+    await expect(client.deleteTorrent("special", "X")).rejects.toThrow(/404/);
   });
 });

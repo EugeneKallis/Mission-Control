@@ -51,6 +51,22 @@ export class ArrClient {
     return this.fetch(`/wanted/missing?page=${page}&pageSize=${pageSize}&sortKey=airDateUtc&sortDir=desc`);
   }
 
+  // ── Quality Profiles & Root Folders ─────────────────────────────────────
+
+  async listQualityProfiles(): Promise<QualityProfileResponse[]> {
+    return this.fetch("/qualityprofile");
+  }
+
+  async listRootFolders(): Promise<RootFolderResponse[]> {
+    return this.fetch("/rootfolder");
+  }
+
+  // ── Movie lookup (Radarr) ───────────────────────────────────────────────
+
+  async lookupMovie(term: string): Promise<MovieLookupResponse[]> {
+    return this.fetch(`/movie/lookup?term=${encodeURIComponent(term)}`);
+  }
+
   // ── Commands ───────────────────────────────────────────────────────────
 
   async triggerMovieSearch(movieIds: number[]) {
@@ -109,11 +125,13 @@ export class ArrClient {
     tvdbId: number;
     title: string;
     qualityProfileId: number;
-    languageProfileId: number;
+    languageProfileId?: number;
     rootFolderPath: string;
     seriesType: string;
-    seasonFolder: boolean;
+    seasonFolder?: boolean;
     monitored: boolean;
+    images?: { coverType: string; remoteUrl: string }[];
+    seasons?: { seasonNumber: number; monitored: boolean }[];
     addOptions?: { searchForMissingEpisodes?: boolean; monitor?: string };
   }) {
     return this.fetch("/series", {
@@ -130,7 +148,8 @@ export class ArrClient {
     rootFolderPath: string;
     monitored: boolean;
     minimumAvailability?: string;
-    addOptions?: { searchForMovie?: boolean };
+    images?: { coverType: string; remoteUrl: string }[];
+    addOptions?: { searchForMovie?: boolean; searchForMissingEpisodes?: boolean };
   }) {
     return this.fetch("/movie", {
       method: "POST",
@@ -163,6 +182,9 @@ interface ArrSeriesResponse {
   seriesType?: string;
   seasonFolder?: boolean;
   monitored?: boolean;
+  genres?: string[];
+  seasons?: { seasonNumber: number; monitored: boolean }[];
+  images?: { coverType: string; remoteUrl: string }[];
 }
 
 interface ArrEpisodeResponse {
@@ -172,6 +194,34 @@ interface ArrEpisodeResponse {
   seasonNumber: number;
   airDateUtc?: string;
   hasFile?: boolean;
+}
+
+export interface QualityProfileResponse {
+  id: number;
+  name: string;
+  upgradeAllowed: boolean;
+  cutoff: number;
+  items: { quality?: { id: number; name: string }; name: string; allowed: boolean }[];
+  formatItems?: unknown[];
+}
+
+export interface RootFolderResponse {
+  id: number;
+  path: string;
+  accessible: boolean;
+  freeSpace: number;
+  unmappedFolders?: { name: string; path: string }[];
+}
+
+export interface MovieLookupResponse {
+  id: number;
+  title: string;
+  tmdbId: number;
+  titleSlug: string;
+  genres?: string[];
+  images?: { coverType: string; remoteUrl: string }[];
+  monitored?: boolean;
+  minimumAvailability?: string;
 }
 
 /**

@@ -76,6 +76,21 @@ export default function HistoryPage() {
 
   useEffect(() => {
     fetchHistory();
+
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      fetchHistory();
+    }, 5000);
+
+    const onVisibilityChange = () => {
+      if (!document.hidden) fetchHistory();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [fetchHistory]);
 
   const handleClear = useCallback(async () => {
@@ -101,15 +116,24 @@ export default function HistoryPage() {
           <h1 className="text-2xl font-bold text-[#E5E2E1] tracking-tight" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
             Command History
           </h1>
-          {items.length > 0 && (
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setClearOpen(true)}
-              className="px-3 py-1.5 text-xs font-medium rounded transition-colors"
-              style={{ background: "rgba(255, 180, 171, 0.1)", color: "#FFB4AB", border: "1px solid rgba(255, 180, 171, 0.3)" }}
+              onClick={fetchHistory}
+              className="px-4 py-2 text-xs font-semibold rounded-none transition-colors"
+              style={{ background: "#201F1F", color: "#E5E2E1", border: "1px solid rgba(59, 75, 63, 0.3)" }}
             >
-              Clear History
+              Refresh
             </button>
-          )}
+            {items.length > 0 && (
+              <button
+                onClick={() => setClearOpen(true)}
+                className="px-4 py-2 text-xs font-semibold rounded-none transition-colors"
+                style={{ background: "rgba(255, 180, 171, 0.1)", color: "#FFB4AB", border: "1px solid rgba(255, 180, 171, 0.3)" }}
+              >
+                Clear History
+              </button>
+            )}
+          </div>
         </div>
 
         {/* List */}

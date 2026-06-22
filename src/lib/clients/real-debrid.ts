@@ -47,7 +47,7 @@ export class RealDebridClient {
     return Math.floor(user.premium / 86400);
   }
 
-  // ── Torrent API methods (used by realdebrid_migrate) ─────────────────
+  // ── Torrent API methods ────────────────────────────────────────────────
 
   async getTorrents(limit = 5000, offset = 0): Promise<TorrentInfo[]> {
     return this.fetch(`/torrents?limit=${limit}&offset=${offset}`);

@@ -24,7 +24,6 @@ const envSchema = z.object({
     .default("movies,movies4k,moviesanime,movieskids,movieslocal,special,tv,tv4k,tvanime,tvkids,tvlocal"),
 
   // External service keys
-  TORBOX_API_TOKEN: z.string().default(""),
   DECYPHARR_URL: z.string().default("http://192.168.1.99:8282"),
   REAL_DEBRID_API_KEY: z.string().default(""),
 
@@ -88,7 +87,6 @@ export class AppConfig {
   readonly rclonePath: string;
   readonly mediaBasePath: string;
   readonly mediaDirectories: string[];
-  readonly torboxApiToken: string;
   readonly decypharrUrl: string;
   readonly realDebridApiKey: string;
   readonly plexToken: string;
@@ -104,7 +102,6 @@ export class AppConfig {
     this.rclonePath = env.RCLONE_PATH;
     this.mediaBasePath = env.MEDIA_BASE_PATH;
     this.mediaDirectories = env.MEDIA_DIRECTORIES.split(",").map((s) => s.trim()).filter(Boolean);
-    this.torboxApiToken = env.TORBOX_API_TOKEN;
     this.decypharrUrl = env.DECYPHARR_URL;
     this.realDebridApiKey = env.REAL_DEBRID_API_KEY;
     this.plexToken = env.PLEX_TOKEN;

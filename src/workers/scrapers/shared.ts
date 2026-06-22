@@ -4,9 +4,6 @@
  * ~/ServerTool/cmd/web/handler/projectjav.go, and ~/ServerTool/cmd/web/handler/pornrips.go.
  */
 
-import { TorboxClient } from "@/lib/clients/torbox";
-import { getConfig } from "@/lib/config";
-
 // ── Title / size helpers ──────────────────────────────────────────────────
 
 /**
@@ -50,16 +47,6 @@ export function parseSize(sizeStr: string): number {
     default:
       return val;
   }
-}
-
-// ── Torbox cache check ────────────────────────────────────────────────────
-
-/**
- * Lazily build a Torbox client. Re-uses the env key on every call.
- */
-export function getTorboxClient(): TorboxClient {
-  const cfg = getConfig();
-  return new TorboxClient(cfg.torboxApiToken);
 }
 
 // ── HTTP fetch with User-Agent ────────────────────────────────────────────

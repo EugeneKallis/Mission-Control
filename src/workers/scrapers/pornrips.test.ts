@@ -35,7 +35,7 @@ describe("parsePornRipsListing", () => {
       </article>
     </body></html>`;
 
-    const items = parsePornRipsListing(html) as (ParsedItem & { detailURL?: string })[];
+    const items = parsePornRipsListing(html);
     expect(items).toHaveLength(1);
     expect(items[0].title).toBe("Some Scene 1080p");
     expect(items[0].thumb).toBe("https://cdn.example.com/thumb42.jpg");
@@ -86,6 +86,7 @@ describe("enrichPornRipsItem", () => {
       torrent: "tr",
       magnet: "mg",
       tags: [],
+      detailURL: "",
     };
     expect(await enrichPornRipsItem(item)).toBe(item);
   });
@@ -101,6 +102,7 @@ describe("enrichPornRipsItem", () => {
       torrent: "tr",
       magnet: "mg",
       tags: [],
+      detailURL: "",
     };
     expect(await enrichPornRipsItem({ ...item, detailURL: "https://pornrips.to/x" })).toMatchObject({
       title: "X",
@@ -132,6 +134,7 @@ describe("enrichPornRipsItem", () => {
       torrent: "tr",
       magnet: "mg",
       tags: [],
+      detailURL: "",
     };
     const enriched = await enrichPornRipsItem({ ...item, detailURL: "https://pornrips.to/x" });
     expect(enriched.images).toEqual([
@@ -158,6 +161,7 @@ describe("enrichPornRipsItem", () => {
       torrent: "tr",
       magnet: "mg",
       tags: [],
+      detailURL: "",
     };
     const enriched = await enrichPornRipsItem({ ...item, detailURL: "https://pornrips.to/x" });
     expect(enriched.images).toEqual([
@@ -192,6 +196,7 @@ describe("enrichPornRipsItem", () => {
       torrent: "tr",
       magnet: "mg",
       tags: [],
+      detailURL: "",
     };
     const enriched = await enrichPornRipsItem({ ...item, detailURL: "https://pornrips.to/x" });
     // The PixHost branch added the direct image once. The fallback branch

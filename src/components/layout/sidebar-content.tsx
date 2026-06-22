@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { NavItem } from "./nav-item";
 import type { GroupWithMacros, Macro } from "@/types";
 
@@ -11,24 +13,38 @@ interface SidebarContentProps {
   macrosCollapsed?: boolean;
 }
 
-/** Run a simple macro directly (no agent required). */
-function runSimple(macro: Macro) {
+/**
+ * Run a macro. If the user is already on the home page (where the
+ * terminal stream lives), dispatch the in-app event so the home
+ * page's listener picks it up. Otherwise navigate to the home page
+ * with a deep-link query that the home page will execute on mount.
+ */
+function runMacroFromSidebar(macro: Macro, pathname: string, push: (href: string) => void) {
   const agent = macro.agentHostname || undefined;
-  const url = agent
-    ? `/api/run/${macro.id}?agent=${encodeURIComponent(agent)}`
-    : `/api/run/${macro.id}`;
-  fetch(url, { method: "POST" }).catch(() => {});
+  if (pathname === "/") {
+    window.dispatchEvent(
+      new CustomEvent("macro:run", {
+        detail: { macroId: macro.id, agent },
+      }),
+    );
+    return;
+  }
+  const search = new URLSearchParams({ run_macro: String(macro.id) });
+  if (agent) search.set("agent", agent);
+  push(`/?${search.toString()}`);
 }
 
 export function SidebarContent({
   brand = "Mission Control",
   version = "0.1.0",
   uptime,
-  macrosCollapsed = false,
+  macrosCollapsed = true,
 }: SidebarContentProps) {
   const [rdStatus, setRdStatus] = useState<{ label: string; ok: boolean } | null>(null);
   const [groupedMacros, setGroupedMacros] = useState<GroupWithMacros[]>([]);
   const [macrosLoading, setMacrosLoading] = useState(true);
+  const pathname = usePathname();
+  const router = useRouter();
 
   // Fetch Real-Debrid status
   useEffect(() => {
@@ -60,9 +76,9 @@ export function SidebarContent({
         }),
       );
     } else {
-      runSimple(macro);
+      runMacroFromSidebar(macro, pathname, router.push);
     }
-  }, []);
+  }, [pathname, router]);
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
@@ -71,7 +87,13 @@ export function SidebarContent({
         className="h-14 flex items-center justify-between px-5 shrink-0"
         style={{ borderBottom: "1px solid rgba(59, 75, 63, 0.3)" }}
       >
-        <span className="text-lg font-bold text-primary font-display">{brand}</span>
+        <Link
+          href="/"
+          className="text-lg font-bold text-primary font-display hover:opacity-80 transition-opacity"
+          aria-label="Go to home"
+        >
+          {brand}
+        </Link>
         <div className="text-[11px] text-on-surface-variant text-right leading-tight">
           <div>v{version}</div>
           {uptime && <div>{uptime}</div>}
@@ -169,7 +191,7 @@ export function SidebarContent({
             >
               bolt
             </span>
-            <span className="text-on-surface-variant">Real-Debrid</span>
+            <span className="text-on-surface-variant">RD</span>
           </div>
           <span
             className={`text-xs font-semibold font-mono ${

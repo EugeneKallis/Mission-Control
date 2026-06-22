@@ -2,28 +2,17 @@
  * ProjectJAV scraper.
  *
  * Fetches up to 3 pages of https://projectjav.com/tag/big-tits-7/, parses
- * each `.video-item` for title, image, files (magnet + size + seeds + leechers)
- * and tags, then performs a single Torbox `checkCached` batch for every hash
- * across all items, and inserts the largest cached file per item. Skips VR
- * tagged items entirely. Mirrors `ScrapeProjectJAV` + `runProjectJAVScrape` in
+ * each `.video-item`, and inserts one row per item using its first magnet.
+ * Mirrors `ScrapeProjectJAV` + `runProjectJAVScrape` in
  * `~/ServerTool/cmd/web/handler/projectjav.go` and `~/ServerTool/cmd/web/handler/scraper.go`.
  */
 
 import { load } from "cheerio";
-import { fetchHtml, parseSize, sanitizeTitle, getTorboxClient } from "./shared";
+import { fetchHtml, sanitizeTitle } from "./shared";
 import { createScrapeResult, scrapeResultExists } from "@/lib/db/queries";
-import { TorboxClient } from "@/lib/clients/torbox";
 
 const BASE_URL = "https://projectjav.com/tag/big-tits-7/";
 const MAX_PAGES = 3;
-
-const SKIP_TAGS = new Set([
-  "vr",
-  "vr exclusive",
-  "high-quality vr",
-  "8kvr",
-  "high quality vr",
-]);
 
 interface ScrapeFile {
   magnet: string;
@@ -115,16 +104,9 @@ export function parseProjectJAVListing(html: string): ParsedItem[] {
   return results;
 }
 
-function shouldSkipByTags(tags: string[]): boolean {
-  return tags.some((t) => SKIP_TAGS.has(t.toLowerCase()));
-}
-
-export async function runProjectJAVScrape(): Promise<{ pages: number; inserted: number; skipped: number }> {
+export async function runProjectJAVScrape(): Promise<{ pages: number; inserted: number }> {
   let pagesScanned = 0;
   let inserted = 0;
-  let skipped = 0;
-
-  const allItems: ParsedItem[] = [];
 
   for (let page = 1; page <= MAX_PAGES; page++) {
     const url = page === 1 ? BASE_URL : `${BASE_URL}?page=${page}`;
@@ -145,78 +127,31 @@ export async function runProjectJAVScrape(): Promise<{ pages: number; inserted: 
     }
 
     for (const item of items) {
-      if (shouldSkipByTags(item.tags)) {
-        skipped++;
-        continue;
+      const first = item.files[0];
+      if (!first) continue;
+      const uniqueKey = `${first.magnet}|`;
+      if (await scrapeResultExists(uniqueKey)) continue;
+
+      try {
+        await createScrapeResult({
+          source: "projectjav",
+          title: sanitizeTitle(item.title),
+          imageUrl: item.image || null,
+          magnetLink: first.magnet,
+          torrentLink: null,
+          uniqueKey,
+          infoHash: null,
+          fileSize: first.fileSize || null,
+          tags: item.tags.join(",") || null,
+        });
+        inserted++;
+      } catch (err) {
+        console.warn(`[projectjav] insert failed for "${item.title}":`, err);
       }
-      allItems.push(item);
     }
     pagesScanned++;
   }
 
-  // Batch Torbox cache check across every hash for every item
-  const allHashes: string[] = [];
-  for (const item of allItems) {
-    for (const f of item.files) {
-      const h = TorboxClient.extractHashFromMagnet(f.magnet);
-      if (h) allHashes.push(h);
-    }
-  }
-
-  // Dedupe hashes (Torbox dedupes server-side but we save the request body)
-  const uniqueHashes = Array.from(new Set(allHashes));
-  let cachedMap = new Map<string, boolean>();
-  if (uniqueHashes.length > 0) {
-    try {
-      const client = getTorboxClient();
-      cachedMap = await client.checkCached(uniqueHashes);
-    } catch (err) {
-      console.warn(`[projectjav] torbox cache check failed (continuing without filter):`, err);
-    }
-  }
-
-  // Insert one row per item — largest cached file wins; if nothing is cached
-  // the item is skipped entirely.
-  for (const item of allItems) {
-    const cachedFiles = item.files
-      .filter((f) => {
-        const h = TorboxClient.extractHashFromMagnet(f.magnet);
-        return h && cachedMap.get(h) === true;
-      })
-      .sort((a, b) => parseSize(b.fileSize) - parseSize(a.fileSize));
-
-    if (cachedFiles.length === 0) {
-      continue;
-    }
-    const best = cachedFiles[0];
-
-    const title = sanitizeTitle(item.title);
-    const tagsStr = item.tags.join(",");
-    const uniqueKey = `${best.magnet}|`;
-    const infoHash = TorboxClient.extractHashFromMagnet(best.magnet);
-
-    if (await scrapeResultExists(uniqueKey)) continue;
-
-    try {
-      await createScrapeResult({
-        source: "projectjav",
-        title,
-        imageUrl: item.image || null,
-        magnetLink: best.magnet,
-        torrentLink: null,
-        uniqueKey,
-        infoHash: infoHash || null,
-        fileSize: best.fileSize || null,
-        tags: tagsStr || null,
-      });
-      inserted++;
-    } catch (err) {
-      console.warn(`[projectjav] insert failed for "${title}":`, err);
-    }
-  }
-
-  console.log(
-    `[projectjav] done — pages=${pagesScanned}, inserted=${inserted}, skipped=${skipped}`
-  );
-  return { pages: pagesScanned, inserted, skipped };
+  console.log(`[projectjav] done — pages=${pagesScanned}, inserted=${inserted}`);
+  return { pages: pagesScanned, inserted };
 }

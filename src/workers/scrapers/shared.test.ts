@@ -4,7 +4,6 @@
  * Covers:
  *  - sanitizeTitle: quotes stripped + trimmed
  *  - parseSize: GB / MB / KB / bytes, junk input, missing unit
- *  - getTorboxClient: builds a client with the env key
  *  - fetchHtml: forwards UA, sets timeout, throws on non-2xx
  *  - scrapePixHost: rejects non-pixhost URLs, returns "" for bad input,
  *    extracts direct image from the input box, falls back to first <img>
@@ -12,9 +11,7 @@
  */
 
 import { describe, test, expect, mock, afterEach } from "bun:test";
-import { sanitizeTitle, parseSize, getTorboxClient, fetchHtml, scrapePixHost } from "./shared";
-import { getConfig } from "@/lib/config";
-import { TorboxClient } from "@/lib/clients/torbox";
+import { sanitizeTitle, parseSize, fetchHtml, scrapePixHost } from "./shared";
 
 describe("sanitizeTitle", () => {
   test("strips both single and double quotes", () => {
@@ -79,18 +76,6 @@ describe("parseSize", () => {
 
   test("handles whitespace between number and unit", () => {
     expect(parseSize("3.5 gb")).toBe(3.5 * 1024 ** 3);
-  });
-});
-
-describe("getTorboxClient", () => {
-  // We don't test the full function here because it depends on
-  // getConfig() — a process-wide singleton. Other test files in this
-  // repo mock @/lib/config to test cross-cutting behavior, and those
-  // mocks bleed into this file (mock.module is process-global in Bun).
-  // The function is a 1-line constructor wrapper; the underlying
-  // TorboxClient is covered by torbox.test.ts.
-  test("the wrapper exists and is exported", () => {
-    expect(typeof getTorboxClient).toBe("function");
   });
 });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, createContext, useContext, useState, useCallback } from "react";
+import { type ReactNode, createContext, useContext, useState, useCallback, useMemo } from "react";
 
 type ToastType = "info" | "success" | "error";
 
@@ -37,8 +37,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  const value = useMemo(() => ({ showToast }), [showToast]);
+
   return (
-    <ToastContext.Provider value={{ showToast }}>
+    <ToastContext.Provider value={value}>
       {children}
       {/* Toast container — fixed top-right, non-intrusive */}
       <div className="fixed top-5 right-5 z-[9999] flex flex-col gap-2 pointer-events-none">

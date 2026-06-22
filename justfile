@@ -7,11 +7,13 @@ default := "dev"
 
 # ── Setup ────────────────────────────────────────────────────────────────────
 
-# Install all dependencies
+# Install all dependencies + generate Prisma client + apply migrations
 setup:
     bun install
+    bunx prisma generate
+    bunx prisma migrate deploy
 
-# Initialize the project (install + build + typecheck)
+# Initialize the project (install + prisma + typecheck)
 init: setup typecheck
     @echo "✔ Project ready."
 
@@ -52,6 +54,24 @@ restart:
 # Tail the service logs
 logs:
     journalctl -u mission-control.service -f
+
+# ── Magnet Bridge (long-running Decypharr poller) ────────────────────────────
+
+# Run the magnet bridge worker in the foreground (for local dev / debugging)
+magnet-bridge:
+    bun run src/workers/magnet-bridge.ts
+
+# Tail magnet bridge logs
+magnet-bridge-logs:
+    journalctl -u mission-control-magnet-bridge.service -f
+
+# Restart the magnet bridge service (picks up new code after deploy)
+magnet-bridge-restart:
+    systemctl restart mission-control-magnet-bridge.service
+
+# Stop the magnet bridge service
+magnet-bridge-stop:
+    systemctl stop mission-control-magnet-bridge.service
 
 # ── One-off Scripts ──────────────────────────────────────────────────────────
 

@@ -36,6 +36,7 @@ export function SchedulesList({ macros, initialSchedules }: SchedulesListProps) 
   const [deleteTarget, setDeleteTarget] = useState<ScheduleRow | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
 
   const handleCreate = useCallback(
     async (params: { macroId: number; cronExpression: string }) => {
@@ -50,6 +51,7 @@ export function SchedulesList({ macros, initialSchedules }: SchedulesListProps) 
           throw new Error(err.error ?? `HTTP ${res.status}`);
         }
         toast.showToast("Schedule created", "success");
+        setFormOpen(false);
         router.refresh();
       } catch (err) {
         toast.showToast(
@@ -105,53 +107,96 @@ export function SchedulesList({ macros, initialSchedules }: SchedulesListProps) 
   }, [deleteTarget, toast]);
 
   return (
-    <div className="flex flex-col gap-6 max-w-3xl mx-auto stagger-1 p-4 md:p-6">
-      <h1
-        className="text-2xl font-bold text-on-surface tracking-tight"
-        style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
-      >
-        Scheduled Commands
-      </h1>
-
-      <div
-        className="p-6 rounded-none"
-        style={{ background: "#1C1B1B", border: "1px solid rgba(59, 75, 63, 0.3)" }}
-      >
-        <h2
-          className="text-lg font-bold text-on-surface mb-5"
-          style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
-        >
-          New Schedule
-        </h2>
-        <NewScheduleForm macros={macros} onCreate={handleCreate} />
+    <div className="flex flex-col gap-6 stagger-1 p-4 md:p-6 w-full">
+      {/* ── Page header ─────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1
+            className="text-2xl font-bold text-on-surface tracking-tight"
+            style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
+          >
+            Scheduled Commands
+          </h1>
+          <p className="text-xs text-on-surface-variant mt-1">
+            {schedules.length === 0
+              ? "No schedules yet"
+              : `${schedules.length} ${schedules.length === 1 ? "schedule" : "schedules"} · ${
+                  schedules.filter((s) => s.enabled).length
+                } enabled`}
+          </p>
+        </div>
+        {!formOpen && (
+          <Button variant="primary" onClick={() => setFormOpen(true)} disabled={macros.length === 0}>
+            <span className="material-symbols-outlined text-sm">add</span>
+            Add Schedule
+          </Button>
+        )}
       </div>
 
+      {/* ── New schedule panel (collapsible) ────────────────────────── */}
+      {formOpen && (
+        <div
+          className="p-6 rounded-none"
+          style={{ background: "#1C1B1B", border: "1px solid rgba(59, 75, 63, 0.3)" }}
+        >
+          <div className="flex items-center justify-between mb-5">
+            <h2
+              className="text-lg font-bold text-on-surface"
+              style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
+            >
+              New Schedule
+            </h2>
+            <button
+              onClick={() => setFormOpen(false)}
+              aria-label="Close form"
+              className="text-on-surface-variant hover:text-on-surface transition-colors"
+            >
+              <span className="material-symbols-outlined text-lg">close</span>
+            </button>
+          </div>
+          {macros.length === 0 ? (
+            <p className="text-sm text-on-surface-variant italic">
+              No macros available. Create a macro first in the Admin page.
+            </p>
+          ) : (
+            <NewScheduleForm
+              macros={macros}
+              onCreate={handleCreate}
+              onCancel={() => setFormOpen(false)}
+            />
+          )}
+        </div>
+      )}
+
+      {/* ── Schedules list ──────────────────────────────────────────── */}
       <div
-        className="p-6 rounded-none"
+        className="rounded-none"
         style={{ background: "#1C1B1B", border: "1px solid rgba(59, 75, 63, 0.3)" }}
       >
-        <h2
-          className="text-lg font-bold text-on-surface mb-4"
-          style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
-        >
-          Schedules
-        </h2>
         {schedules.length === 0 ? (
-          <p className="text-on-surface-variant text-sm italic">No schedules found.</p>
+          <div className="p-10 text-center flex flex-col items-center gap-3">
+            <span className="material-symbols-outlined text-4xl text-on-surface-variant/40">
+              schedule
+            </span>
+            <p className="text-on-surface-variant text-sm">
+              No schedules configured yet.
+            </p>
+            {!formOpen && (
+              <Button variant="ghost" onClick={() => setFormOpen(true)}>
+                Create your first schedule
+              </Button>
+            )}
+          </div>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="divide-y" style={{ borderColor: "rgba(59, 75, 63, 0.15)" }}>
             {schedules.map((s) => (
               <div
                 key={s.id}
                 data-schedule-id={s.id}
-                className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 rounded-none gap-3 transition-opacity"
-                style={{
-                  background: "#201F1F",
-                  border: "1px solid rgba(59, 75, 63, 0.3)",
-                  opacity: s.enabled ? 1 : 0.4,
-                }}
+                className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 gap-3 transition-opacity"
+                style={{ opacity: s.enabled ? 1 : 0.5 }}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
                   <ToggleSwitch
                     enabled={s.enabled}
                     onChange={() => {
@@ -159,9 +204,11 @@ export function SchedulesList({ macros, initialSchedules }: SchedulesListProps) 
                     }}
                     label={`Toggle schedule for ${s.macroName}`}
                   />
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-on-surface">{s.macroName}</span>
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-on-surface truncate">
+                        {s.macroName}
+                      </span>
                       {!s.enabled && (
                         <span
                           className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-none"
@@ -174,15 +221,26 @@ export function SchedulesList({ macros, initialSchedules }: SchedulesListProps) 
                         </span>
                       )}
                     </div>
-                    <div
-                      className="font-mono text-xs"
-                      style={{ color: "#00FF9C" }}
-                    >
-                      {s.cronExpression}
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <code
+                        className="font-mono text-xs px-2 py-0.5 rounded-none"
+                        style={{
+                          background: "#0E0E0E",
+                          color: "#00FF9C",
+                          border: "1px solid rgba(59, 75, 63, 0.3)",
+                        }}
+                      >
+                        {s.cronExpression}
+                      </code>
+                      {s.createdAt && (
+                        <span className="text-[10px] text-on-surface-variant/60">
+                          created {new Date(s.createdAt).toLocaleString()}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
-                <div className="flex gap-2 items-center">
+                <div className="flex gap-2 items-center shrink-0">
                   <Link href={`/schedules/${s.id}/edit`}>
                     <Button variant="ghost">
                       <span className="material-symbols-outlined text-sm">edit</span>

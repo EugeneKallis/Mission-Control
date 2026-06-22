@@ -22,6 +22,8 @@ import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/toast-provider";
 import type { Macro, MacroCommand, MacroGroup, GroupWithMacros } from "@/types";
+import { BrowseScripts } from "@/components/browse-scripts";
+import { MacroLogPanel } from "@/components/macro-log-panel";
 
 // ── Command shortcuts ────────────────────────────────────────────────────
 
@@ -40,6 +42,7 @@ function SortableMacroRow({
   onToggle,
   onEdit,
   onDelete,
+  onRun,
   commands,
   commandsLoading,
   onDeleteCommand,
@@ -67,6 +70,7 @@ function SortableMacroRow({
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onRun: () => void;
   commands: MacroCommand[];
   commandsLoading: boolean;
   onDeleteCommand: (index: number) => void;
@@ -113,7 +117,7 @@ function SortableMacroRow({
         <div className="flex items-center gap-2 px-3 py-2.5">
           {/* Drag handle */}
           <button
-            className="cursor-grab active:cursor-grabbing text-[#3B4B3F] hover:text-[#849587] transition-colors"
+            className="p-1.5 cursor-grab active:cursor-grabbing text-[#3B4B3F] hover:text-[#849587] transition-colors"
             {...attributes}
             {...listeners}
           >
@@ -123,7 +127,7 @@ function SortableMacroRow({
           {/* Expand arrow */}
           <button
             onClick={onToggle}
-            className="text-[#849587] hover:text-[#E5E2E1] transition-colors"
+            className="p-1.5 text-[#849587] hover:text-[#E5E2E1] transition-colors"
           >
             <span className="material-symbols-outlined text-sm transition-transform" style={{ transform: expanded ? "rotate(90deg)" : "" }}>
               chevron_right
@@ -155,14 +159,23 @@ function SortableMacroRow({
           {/* Actions */}
           <div className="flex gap-1 shrink-0">
             <button
+              onClick={onRun}
+              className="px-3 py-1.5 text-xs font-semibold rounded-none transition-colors inline-flex items-center gap-1"
+              style={{ background: "rgba(97, 139, 107, 0.1)", color: "#618B6B", border: "1px solid rgba(97, 139, 107, 0.3)" }}
+              title="Run this macro"
+            >
+              <span className="material-symbols-outlined text-xs">play_arrow</span>
+              Run
+            </button>
+            <button
               onClick={onEdit}
-              className="px-1.5 py-0.5 text-[10px] font-medium rounded transition-colors hover:bg-[#2A2A2A] text-[#849587]"
+              className="px-3 py-1.5 text-xs font-semibold rounded-none transition-colors hover:bg-[#2A2A2A] text-[#849587]"
             >
               Edit
             </button>
             <button
               onClick={onDelete}
-              className="px-1.5 py-0.5 text-[10px] font-medium rounded transition-colors hover:bg-[#2A2A2A] text-[#FFB4AB]"
+              className="px-3 py-1.5 text-xs font-semibold rounded-none transition-colors hover:bg-[#2A2A2A] text-[#FFB4AB]"
             >
               Delete
             </button>
@@ -198,14 +211,17 @@ function SortableMacroRow({
             {/* Inline add form */}
             {showAddForm && (
               <div className="px-3 py-2 space-y-2" style={{ borderTop: "1px solid rgba(59, 75, 63, 0.15)" }}>
-                <input
-                  className="w-full bg-[#131313] border border-[#3B4B3F] rounded px-2 py-1.5 text-xs font-mono text-[#E5E2E1] outline-none focus:border-[#618B6B]"
-                  placeholder="Command (e.g. scripts/my-script.sh)"
-                  value={addCmdText}
-                  onChange={(e) => onAddCmdTextChange(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") onAddCmdSubmit(); }}
-                  autoFocus
-                />
+                <div className="flex gap-1 items-start">
+                  <input
+                    className="flex-1 bg-[#131313] border border-[#3B4B3F] rounded px-2 py-1.5 text-xs font-mono text-[#E5E2E1] outline-none focus:border-[#618B6B]"
+                    placeholder="Command (e.g. scripts/my-script.sh)"
+                    value={addCmdText}
+                    onChange={(e) => onAddCmdTextChange(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") onAddCmdSubmit(); }}
+                    autoFocus
+                  />
+                  <BrowseScripts onSelect={(cmd) => onAddCmdTextChange(cmd)} />
+                </div>
                 <input
                   className="w-full bg-[#131313] border border-[#3B4B3F] rounded px-2 py-1.5 text-xs font-mono text-[#E5E2E1] outline-none focus:border-[#618B6B]"
                   placeholder="Working directory (optional)"
@@ -216,13 +232,13 @@ function SortableMacroRow({
                 <div className="flex gap-2">
                   <button
                     onClick={onAddCmdSubmit}
-                    className="px-2 py-1 text-xs font-medium rounded bg-[#618B6B] text-white transition-colors hover:bg-[#00E38A]"
+                    className="px-4 py-2 text-xs font-semibold rounded-none transition-colors bg-[#618B6B] text-white hover:bg-[#00E38A]"
                   >
                     Save
                   </button>
                   <button
                     onClick={onAddCmdCancel}
-                    className="px-2 py-1 text-xs font-medium rounded transition-colors hover:bg-[#2A2A2A] text-[#849587]"
+                    className="px-4 py-2 text-xs font-semibold rounded-none transition-colors hover:bg-[#2A2A2A] text-[#849587]"
                   >
                     Cancel
                   </button>
@@ -369,7 +385,7 @@ function SortableCommandRow({
       className="flex items-center gap-2 px-2.5 py-1.5 rounded text-xs"
     >
       <button
-        className="cursor-grab active:cursor-grabbing text-[#3B4B3F] hover:text-[#849587] transition-colors"
+        className="p-1.5 cursor-grab active:cursor-grabbing text-[#3B4B3F] hover:text-[#849587] transition-colors"
         {...attributes}
         {...listeners}
       >
@@ -379,14 +395,17 @@ function SortableCommandRow({
 
       {editing ? (
         <div className="flex flex-col flex-1 gap-1">
-          <input
-            className="w-full bg-[#131313] border border-[#3B4B3F] rounded px-1.5 py-0.5 text-[10px] font-mono text-[#E5E2E1] outline-none focus:border-[#618B6B]"
-            placeholder="Command"
-            value={editCmdText}
-            onChange={(e) => onEditCmdTextChange(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") onEditCmdSave(); if (e.key === "Escape") onEditCmdCancel(); }}
-            autoFocus
-          />
+          <div className="flex gap-1 items-start">
+            <input
+              className="flex-1 bg-[#131313] border border-[#3B4B3F] rounded px-1.5 py-0.5 text-[10px] font-mono text-[#E5E2E1] outline-none focus:border-[#618B6B]"
+              placeholder="Command"
+              value={editCmdText}
+              onChange={(e) => onEditCmdTextChange(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") onEditCmdSave(); if (e.key === "Escape") onEditCmdCancel(); }}
+              autoFocus
+            />
+            <BrowseScripts onSelect={(cmd) => onEditCmdTextChange(cmd)} />
+          </div>
           <input
             className="w-full bg-[#131313] border border-[#3B4B3F] rounded px-1.5 py-0.5 text-[10px] font-mono text-[#849587] outline-none focus:border-[#618B6B]"
             placeholder="Working directory"
@@ -410,11 +429,11 @@ function SortableCommandRow({
 
       <div className="flex gap-1 shrink-0">
         {!editing && (
-          <button onClick={onEditCmdStart} className="text-[#849587] hover:text-[#E5E2E1] transition-colors">
+          <button onClick={onEditCmdStart} className="p-1.5 text-[#849587] hover:text-[#E5E2E1] transition-colors">
             <span className="material-symbols-outlined text-xs">edit</span>
           </button>
         )}
-        <button onClick={onDelete} className="text-[#FFB4AB] hover:text-red-400 transition-colors">
+        <button onClick={onDelete} className="p-1.5 text-[#FFB4AB] hover:text-red-400 transition-colors">
           <span className="material-symbols-outlined text-xs">close</span>
         </button>
       </div>
@@ -435,6 +454,7 @@ function GroupCard({
   onEditMacro,
   onDeleteMacro,
   onAddMacro,
+  onRunMacro,
 }: {
   group: MacroGroup;
   macros: Macro[];
@@ -446,6 +466,7 @@ function GroupCard({
   onEditMacro: (macro: Macro) => void;
   onDeleteMacro: (id: number) => void;
   onAddMacro: () => void;
+  onRunMacro: (macro: Macro) => void;
 }) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -511,13 +532,13 @@ function GroupCard({
         <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={(e) => { e.stopPropagation(); setEditing(true); setEditName(group.name); }}
-            className="px-1.5 py-0.5 text-[10px] font-medium rounded transition-colors hover:bg-[#2A2A2A] text-[#849587]"
+            className="px-3 py-1.5 text-xs font-semibold rounded-none transition-colors hover:bg-[#2A2A2A] text-[#849587]"
           >
             Edit
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            className="px-1.5 py-0.5 text-[10px] font-medium rounded transition-colors hover:bg-[#2A2A2A] text-[#FFB4AB]"
+            className="px-3 py-1.5 text-xs font-semibold rounded-none transition-colors hover:bg-[#2A2A2A] text-[#FFB4AB]"
           >
             Delete
           </button>
@@ -541,6 +562,7 @@ function GroupCard({
                     macro={macro}
                     onEdit={() => onEditMacro(macro)}
                     onDelete={() => onDeleteMacro(macro.id)}
+                    onRun={() => onRunMacro(macro)}
                   />
                 ))
               )}
@@ -565,14 +587,17 @@ function MacroRowContainer({
   macro,
   onEdit,
   onDelete,
+  onRun,
 }: {
   macro: Macro;
   onEdit: () => void;
   onDelete: () => void;
+  onRun: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [commands, setCommands] = useState<MacroCommand[]>([]);
   const [commandsLoading, setCommandsLoading] = useState(false);
+  const fetchedForExpansionRef = useRef(false);
 
   // Inline add form state
   const [showAddForm, setShowAddForm] = useState(false);
@@ -585,17 +610,28 @@ function MacroRowContainer({
   const [editCmdDir, setEditCmdDir] = useState("");
 
   useEffect(() => {
-    if (expanded && commands.length === 0 && !commandsLoading) {
-      setCommandsLoading(true);
-      fetch(`/api/macros/${macro.id}/commands`)
-        .then((r) => r.json())
-        .then((data) => {
-          setCommands(data);
-          setCommandsLoading(false);
-        })
-        .catch(() => setCommandsLoading(false));
+    if (!expanded) {
+      // Reset on collapse so a subsequent expand re-fetches the latest
+      // server state (e.g. after another admin adds a command).
+      fetchedForExpansionRef.current = false;
+      return;
     }
-  }, [expanded, macro.id, commands.length, commandsLoading]);
+    if (fetchedForExpansionRef.current) return;
+    fetchedForExpansionRef.current = true;
+
+    setCommandsLoading(true);
+    fetch(`/api/macros/${macro.id}/commands`)
+      .then((r) => r.json())
+      .then((data) => {
+        setCommands(data);
+      })
+      .catch(() => {
+        // Allow a retry by collapsing + expanding
+        fetchedForExpansionRef.current = false;
+        setCommands([]);
+      })
+      .finally(() => setCommandsLoading(false));
+  }, [expanded, macro.id]);
 
   // ── Add command ──────────────────────────────────────────────────────
   const handleShowAddForm = () => {
@@ -687,6 +723,7 @@ function MacroRowContainer({
       onToggle={() => setExpanded(!expanded)}
       onEdit={onEdit}
       onDelete={onDelete}
+      onRun={onRun}
       commands={commands}
       commandsLoading={commandsLoading}
       onDeleteCommand={handleDeleteCommandLocal}
@@ -732,6 +769,11 @@ export default function AdminPage() {
   const [newMacroRunOnAgent, setNewMacroRunOnAgent] = useState(false);
   const [newMacroAgent, setNewMacroAgent] = useState("");
   const [agentOptions, setAgentOptions] = useState<{ id: number; hostname: string }[]>([]);
+
+  // Log panel state
+  const [logPanelOpen, setLogPanelOpen] = useState(false);
+  const [runningMacroId, setRunningMacroId] = useState<number | null>(null);
+  const [runningMacroName, setRunningMacroName] = useState("");
 
   const fetchMacros = useCallback(async () => {
     try {
@@ -869,6 +911,29 @@ export default function AdminPage() {
     }
   }, [deleteMacroTarget, showToast, fetchMacros]);
 
+  const handleRunMacro = useCallback(
+    (macro: Macro) => {
+      const url = macro.runOnAgent && macro.agentHostname
+        ? `/api/run/${macro.id}?agent=${encodeURIComponent(macro.agentHostname)}`
+        : `/api/run/${macro.id}`;
+      fetch(url, { method: "POST" })
+        .then((r) => {
+          if (r.ok) {
+            showToast(`Running: ${macro.name}`, "info");
+            setRunningMacroId(macro.id);
+            setRunningMacroName(macro.name);
+            setLogPanelOpen(true);
+          } else {
+            showToast("Failed to start macro", "error");
+          }
+        })
+        .catch(() => {
+          showToast("Failed to start macro", "error");
+        });
+    },
+    [showToast],
+  );
+
   const handleReorderMacros = useCallback(async (macroIds: number[]) => {
     // Find which group these macros belong to
     const macro = groupedMacros
@@ -903,7 +968,7 @@ export default function AdminPage() {
           <div className="flex gap-2">
             <button
               onClick={() => setAllExpanded(!allExpanded)}
-              className="px-3 py-1.5 text-xs font-medium rounded transition-colors"
+              className="px-3 py-1.5 text-xs font-semibold rounded-none transition-colors"
               style={{ background: "#201F1F", color: "#E5E2E1", border: "1px solid rgba(59, 75, 63, 0.3)" }}
             >
               {allExpanded ? "Compress All" : "Expand All"}
@@ -926,23 +991,49 @@ export default function AdminPage() {
             <p>No macros or groups yet.</p>
           </div>
         ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto space-y-3" style={{ scrollbarWidth: "thin", scrollbarColor: "#3B4B3F transparent" }}>
-            {groupedMacros.map((g) => (
-              <GroupCard
-                key={g.group?.id || "ungrouped"}
-                group={g.group || { id: 0, name: "Ungrouped", ord: 999 }}
-                macros={g.macros}
-                expanded={allExpanded}
-                onToggle={() => {}}
-                onEdit={fetchMacros}
-                onDelete={() => g.group && setDeleteGroupTarget(g.group)}
-                onReorderMacros={handleReorderMacros}
-                onEditMacro={(macro) => setEditMacroTarget({ ...macro })}
-                onDeleteMacro={(id) => setDeleteMacroTarget(groupedMacros.flatMap((x) => x.macros).find((m) => m.id === id) || null)}
-                onAddMacro={() => { resetNewMacroForm(); setShowNewMacroModal(true); }}
-              />
-            ))}
-          </div>
+          <>
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-3" style={{ scrollbarWidth: "thin", scrollbarColor: "#3B4B3F transparent" }}>
+              {groupedMacros.map((g) => (
+                <GroupCard
+                  key={g.group?.id || "ungrouped"}
+                  group={g.group || { id: 0, name: "Ungrouped", ord: 999 }}
+                  macros={g.macros}
+                  expanded={allExpanded}
+                  onToggle={() => {}}
+                  onEdit={fetchMacros}
+                  onDelete={() => g.group && setDeleteGroupTarget(g.group)}
+                  onReorderMacros={handleReorderMacros}
+                  onEditMacro={(macro) => setEditMacroTarget({ ...macro })}
+                  onDeleteMacro={(id) => setDeleteMacroTarget(groupedMacros.flatMap((x) => x.macros).find((m) => m.id === id) || null)}
+                  onAddMacro={() => { resetNewMacroForm(); setShowNewMacroModal(true); }}
+                  onRunMacro={handleRunMacro}
+                />
+              ))}
+            </div>
+
+            {/* Log panel — shown when a macro is running or panel is pinned open */}
+            {logPanelOpen && (
+              <div className="mt-4">
+                <MacroLogPanel
+                  runningMacroId={runningMacroId}
+                  runningMacroName={runningMacroName}
+                  onClose={() => {
+                    setLogPanelOpen(false);
+                    setRunningMacroId(null);
+                  }}
+                />
+              </div>
+            )}
+            {!logPanelOpen && (
+              <button
+                onClick={() => setLogPanelOpen(true)}
+                className="mt-2 self-start px-3 py-1.5 text-xs text-[#618B6B] hover:underline inline-flex items-center gap-1"
+              >
+                <span className="material-symbols-outlined text-xs">terminal</span>
+                Show log panel
+              </button>
+            )}
+          </>
         )}
       </div>
 
@@ -1004,13 +1095,16 @@ export default function AdminPage() {
 
           <div>
             <label className="block text-xs text-[#849587] mb-1">Initial Command</label>
-            <input
-              className="w-full bg-[#131313] border border-[#3B4B3F] rounded px-3 py-2 text-sm font-mono text-[#E5E2E1] outline-none focus:border-[#618B6B]"
-              list="cmd-shortcuts"
-              value={newMacroCmd}
-              onChange={(e) => setNewMacroCmd(e.target.value)}
-              placeholder="e.g. scripts/my-script.sh"
-            />
+            <div className="flex gap-1 items-start">
+              <input
+                className="flex-1 bg-[#131313] border border-[#3B4B3F] rounded px-3 py-2 text-sm font-mono text-[#E5E2E1] outline-none focus:border-[#618B6B]"
+                list="cmd-shortcuts"
+                value={newMacroCmd}
+                onChange={(e) => setNewMacroCmd(e.target.value)}
+                placeholder="e.g. scripts/my-script.sh"
+              />
+              <BrowseScripts onSelect={(cmd) => setNewMacroCmd(cmd)} size="sm" />
+            </div>
             <datalist id="cmd-shortcuts">
               {COMMAND_SHORTCUTS.map((s) => <option key={s} value={s} />)}
             </datalist>

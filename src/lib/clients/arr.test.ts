@@ -206,6 +206,29 @@ describe("ArrClient", () => {
     expect(calls[0].url).toBe("http://192.168.1.111:7878/api/v3/movie");
     expect(JSON.parse(calls[0].init.body as string).title).toBe("Heat");
   });
+
+  test("listQualityProfiles hits /qualityprofile", async () => {
+    const calls = installFetch(() => new Response("[]"));
+    const client = new ArrClient(sonarr);
+    await client.listQualityProfiles();
+    expect(calls[0].url).toBe("http://192.168.1.111:8989/api/v3/qualityprofile");
+  });
+
+  test("listRootFolders hits /rootfolder", async () => {
+    const calls = installFetch(() => new Response("[]"));
+    const client = new ArrClient(radarr);
+    await client.listRootFolders();
+    expect(calls[0].url).toBe("http://192.168.1.111:7878/api/v3/rootfolder");
+  });
+
+  test("lookupMovie hits /movie/lookup and URL-encodes the term", async () => {
+    const calls = installFetch(() => new Response("[]"));
+    const client = new ArrClient(radarr);
+    await client.lookupMovie("the dark knight");
+    expect(calls[0].url).toBe(
+      "http://192.168.1.111:7878/api/v3/movie/lookup?term=the%20dark%20knight",
+    );
+  });
 });
 
 describe("buildArrMappings", () => {

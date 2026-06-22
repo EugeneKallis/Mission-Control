@@ -137,6 +137,22 @@ export async function updateHistory(
   });
 }
 
+/**
+ * Flush the in-memory output buffer to the database mid-run. Called by
+ * the runner on a short interval so /history/[id] can show partial
+ * output for a still-running macro without waiting for the final
+ * updateHistory() call.
+ *
+ * This only updates the `output` column — status and endTime remain
+ * the runner's responsibility to set when the run finalises.
+ */
+export async function flushHistoryOutput(id: number, output: string) {
+  return db.history.update({
+    where: { id },
+    data: { output },
+  });
+}
+
 export async function getHistory() {
   return db.history.findMany({
     orderBy: { startTime: "desc" },

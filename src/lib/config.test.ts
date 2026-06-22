@@ -46,7 +46,6 @@ describe("AppConfig defaults", () => {
     expect(cfg.rclonePath).toBe("/mnt/addons/debrid/__all__");
     expect(cfg.mediaBasePath).toBe("/mnt/debrid/media/");
     expect(cfg.mediaDirectories.length).toBeGreaterThan(0);
-    expect(cfg.torboxApiToken).toBe("");
   });
 
   test("coerces WEB_PORT from string to number", async () => {

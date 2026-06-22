@@ -5,10 +5,6 @@
  * card with cheerio (goquery equivalent), and inserts every magnet into the
  * `scrape_results` table. Mirrors `Scrape141Jav` + `run141JavScrape` in
  * `~/ServerTool/cmd/web/handler/scraper.go`.
- *
- * The Go implementation also did Torbox `checkCached` filtering for 141jav in
- * earlier versions; the current version inserts every magnet directly (it
- * doesn't filter by cache). We follow that simpler behavior.
  */
 
 import { load } from "cheerio";

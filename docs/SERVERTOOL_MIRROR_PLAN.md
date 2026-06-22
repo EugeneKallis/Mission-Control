@@ -23,7 +23,7 @@ When a Part is finished, mark it ✅ here so any agent can see progress at a gla
 |------|-------------|--------|
 | Part 0 — Foundation | Design system, Prisma schema, shared types, config/env | ✅ Done |
 | Part 1 — Layout Shell | Sidebar, nav, shared UI components, app-shell | ✅ Done |
-| Part 2 — Data Layer | Prisma queries, lib clients (Arr, Decypharr, Torbox, RD, Plex, Trakt, CineSync) | ✅ Done |
+| Part 2 — Data Layer | Prisma queries, lib clients (Arr, Decypharr, RD, Plex, Trakt) | ✅ Done |
 | Part 3 — Home/Terminal | Terminal dashboard with macro runner | ✅ Done |
 | Part 4 — Admin | Macro & group CRUD with drag-reorder | ✅ Done |
 | Part 5 — History | Command execution history list + detail | ✅ Done |
@@ -39,7 +39,8 @@ When a Part is finished, mark it ✅ here so any agent can see progress at a gla
 | Part 15 — Config | Global config page (Real-Debrid key) | ✅ Done |
 | Part 16 — Server Status | Agent metrics table with live refresh | ✅ Done |
 | Part 17 — Log Viewer | Systemd journal log viewer | ✅ Done |
-| Part 18 — Scripts Migration | Rewrite cmd/* and scripts/* one-offs as TypeScript | ❌ |
+| Part 18 — Scripts Migration | Rewrite cmd/* and scripts/* one-offs as TypeScript | ✅ Done |
+| Part 19 — ServerTool Migration | /migrate page: import macros/groups + scraped items from existing ServerTool DB | ✅ Done |
 
 ---
 
@@ -197,11 +198,11 @@ is_dir,parent_path,link_target?,file_count?,updated_at?}`), `Config`.
 Use nullable fields (`string | null`) for the `*`-pointer fields.
 
 ### 0.D Env / config
-- `.env`: `DATABASE_URL`, `WEB_PORT`, `TORBOX_API_TOKEN`, `PLEX_TOKEN`, `PLEX_URL`,
+- `.env`: `DATABASE_URL`, `WEB_PORT`, `PLEX_TOKEN`, `PLEX_URL`,
   `PLEX_WATCHLIST_RSS`, `TRAKT_CLIENT_ID`, `TRAKT_CLIENT_SECRET`, plus config-dir
   overrides. Mirror `~/ServerTool/.env.example`.
 - `src/lib/config.ts` to load + validate (Zod) the runtime config (Arr instances list,
-  media paths, rclone path, torbox key) — see `~/ServerTool/config/config.go` and
+  media paths, rclone path) — see `~/ServerTool/config/config.go` and
   `agents.md → Configuration Reference` for the default Arr instances + media dirs.
 
 **Acceptance:** `bun prisma migrate dev` succeeds; `just typecheck` passes; the app boots
@@ -262,15 +263,11 @@ Port these Go client packages to TS (HTTP fetch wrappers):
   (refresh every 10 min).
 - **Decypharr client** (`pkg/decypharr`): `addMagnet`, `addTorrent` against
   `http://192.168.1.99:8282` (configurable). Used by scraper download flow.
-- **Torbox client** (`pkg/torbox`): `checkCached(hashes[])`, `extractHashFromMagnet`.
-  `POST https://api.torbox.app/v1/api/torrents/checkcached` with `TORBOX_API_TOKEN`.
 - **Real-Debrid client** (`pkg/realdebrid` + `context/resources/api-real-debrid-com.md`):
-  `getUser` (for status badge — premium days remaining), and any methods used by
-  `realdebrid_migrate`.
+  `getUser` (for status badge — premium days remaining).
 - **Plex client**: OAuth PIN flow, hubs (`continueWatching`), watchlist RSS, library
   listing, used by Plex workers (Part 18) and possibly a future Plex page.
 - **Trakt client**: device-code flow + watched-shows export (Part 18).
-- **CineSync client**: auth + file details + skip-processing (Part 18).
 
 **Acceptance:** each client has typed methods and a small smoke test or script; Arr
 mapping cache loads.
@@ -536,7 +533,7 @@ Browse scraped media cards, filter by tags, hide/download items, trigger rescrap
   tags[], is_downloaded }`.
 
 ### Worker dependency (Part 13)
-The actual scraping (HTTP + HTML parse + Torbox cache check + DB insert) runs as worker
+The actual scraping (HTTP + HTML parse + DB insert) runs as worker
 tasks. The page only triggers/reads. Scraping status (`is_scraping` per source) must be
 queryable — implement via a `settings`/in-memory flag the worker sets (or a small status
 table) since workers are separate processes. (See Part 13 for the status-sharing
@@ -673,7 +670,7 @@ files + rows.
 ## Part 13 — Scraper workers (the webscrapers)
 
 **Source:** `scraper.go` (141jav + orchestration), `projectjav.go`, `pornrips.go`,
-`pkg/torbox`, `pkg/decypharr`. **Type:** run-once workers in
+`pkg/decypharr`. **Type:** run-once workers in
 `src/workers/scrapers/`, scheduled by systemd timer (original = every 3h).
 
 > The user explicitly wants the webscrapers rewritten as **worker tasks in TypeScript**.
@@ -691,16 +688,15 @@ files + rows.
 - Fetch `https://www.141jav.com/tag/Big%20Tits`, up to 3 pages (`?page=N`).
 - Parse listing with an HTML parser (e.g. `cheerio` — equivalent of `goquery`).
 - Extract title, image, magnet, tags per item.
-- For each magnet: `extractHashFromMagnet` → Torbox `checkCached`; **insert only cached
-  items**. `unique_key = magnet + "|"`.
+- For each magnet: **insert the item directly** (no cache filter). `unique_key = magnet + "|"`.
 - Sanitize titles.
 
 ### Source: ProjectJAV (`scrape-projectjav.ts`)
 - Fetch `https://projectjav.com/tag/big-tits-7/`, up to 3 pages.
 - Parse `.video-item`: title, image, date, page URL, tags, and per-item files
   (magnet/fileSize/seeds/leechers).
-- Torbox cache-check all file hashes; **insert the item with its largest cached file**;
-  skip VR tags and JAV filters per original logic. `unique_key` per file.
+- **Insert the item with its largest file** (no cache check); skip VR tags and JAV filters
+  per original logic. `unique_key` per file.
 
 ### Source: PornRips (`scrape-pornrips.ts`)
 - Fetch `https://pornrips.to/category/1080p/`, 1 page.
@@ -714,13 +710,12 @@ files + rows.
   Decypharr (`addMagnet`/`addTorrent`), mark `is_downloaded` + `is_hidden`.
 
 ### Lib deps
-Cheerio (HTML parse), Torbox client (Part 2), Decypharr client (Part 2).
+Cheerio (HTML parse), Decypharr client (Part 2).
 
 ### Agent tasks
 1. Port each source's parser to TS + cheerio, preserving selectors and filters exactly.
-2. Port Torbox cache-check + hash extraction.
-3. Build the runner with status flags + cleanup + DB inserts.
-4. Add systemd timer unit (every 3h) + `just run-worker src/workers/scraper-runner.ts`.
+2. Build the runner with status flags + cleanup + DB inserts.
+3. Add systemd timer unit (every 3h) + `just run-worker src/workers/scraper-runner.ts`.
 
 **Acceptance:** running the worker populates `scrape_results`; the scraper page shows
 cards; cache-check filtering matches original behavior; status polling works.
@@ -872,8 +867,6 @@ Port from `cmd/`:
   "special" paths; worker pool. `--delete`, `--workers`.
 - **broken_link_finder** → `broken-link-finder.ts`: find broken symlinks + corrupt media
   (via `ffprobe` 30s timeout) in special dirs; worker pool; write report file; `--rm`.
-- **cinesync_cleanup** → `cinesync-cleanup.ts`: walk special/VR symlinks, remap paths,
-  auth to CineSync, skip processing for already-symlinked files.
 
 ### 18.C Torrent / download scripts (`scripts/torrent/` or `src/workers/`)
 - **magnet_bridge** → `src/workers/magnet-bridge.ts` (long-running) + optional API mode:
@@ -886,12 +879,6 @@ Port from `cmd/`:
   Magnet Bridge API. `--watch-dir`, `--url`, `--arr`.
 
 ### 18.D Plex / Trakt scripts (`scripts/plex/`)
-- **plex_comparer** → `plex-comparer.ts`: OAuth PIN flow, list servers, pick two
-  libraries, compare file sets, report missing/duplicates. Persist token to
-  `~/.servertool/plex_token` (or env). `--url`, `--token`, `--lib-a`, `--lib-b`.
-- **plex_recent_requester** → `plex-recent-requester.ts`: Continue Watching + Watchlist
-  RSS → Sonarr lookup/add (anime detection via SkyHook + TVMaze fallback), unmonitor
-  prior episodes, `SeriesSearch`. Env: `PLEX_TOKEN`, `PLEX_URL`, `PLEX_WATCHLIST_RSS`.
 - **plex_token_extractor** → `plex-token-extractor.ts`: standalone OAuth PIN flow →
   print `PLEX_TOKEN=`.
 - **trakt_exporter** → `trakt-exporter.ts`: device-code flow, export watched shows as
@@ -908,8 +895,6 @@ Port from `cmd/`:
   reference migration script.)
 - **icon_gen** → `scripts/util/icon-gen.ts`: generate PWA/favicon icons from a source
   PNG (auto-crop + resize to 192/180/32/16/ico). Use `sharp`.
-- **realdebrid_migrate** → `scripts/util/realdebrid-migrate.ts`: consult
-  `cmd/realdebrid_migrate/` for exact behavior (config/flags) and port accordingly.
 - **github_release.py** → `scripts/util/github-release.ts`: poll GitHub for latest
   releases of tracked repos within a time window (arg: hours).
 - **cleanup_orphans.py / .sh** → `scripts/media/cleanup-orphans.ts`: find/delete
@@ -947,7 +932,7 @@ original behavior (dry-run output identical where feasible).
   verbatim (Part 0.C). The Next.js version replaces both the templ UI and the Go API with
   App Router pages + route handlers, but the JSON contracts stay the same.
 - **External services** (keep addresses configurable): Decypharr `192.168.1.99:8282`,
-  Torbox `api.torbox.app`, CineSync `192.168.1.102:5173`/`:8082`, Plex, Trakt, TVMaze,
+  Plex, Trakt, TVMaze,
   141jav, ProjectJAV, PornRips, PixHost.
 
 ---

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
@@ -60,22 +60,62 @@ export default function HistoryDetailPage() {
   const [item, setItem] = useState<HistoryDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  // Mirrors the latest item so the poll loop can read the current
+  // status without re-creating the interval on every render.
+  // Synced in an effect to avoid the React 19 lint rule against
+  // mutating refs during render.
+  const itemRef = useRef<HistoryDetail | null>(null);
+  useEffect(() => {
+    itemRef.current = item;
+  }, [item]);
+
+  const fetchItem = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/history/${id}`);
+      if (!res.ok) throw new Error("Not found");
+      const data: HistoryDetail = await res.json();
+      setItem(data);
+      itemRef.current = data;
+      setError(null);
+      setLastUpdated(new Date().toLocaleTimeString());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load");
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
 
   useEffect(() => {
-    fetch(`/api/history/${id}`)
-      .then((r) => {
-        if (!r.ok) throw new Error("Not found");
-        return r.json();
-      })
-      .then((data) => {
-        setItem(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
-      });
-  }, [id]);
+    setLoading(true);
+    setItem(null);
+    itemRef.current = null;
+    fetchItem();
+
+    // The runner flushes the in-memory output buffer to the DB every
+    // 1.5 s while a macro is running, so a 2 s poll cadence keeps the
+    // terminal pane within ~1 poll of the latest content. Once the
+    // status finalises, we drop back to 5 s (parity with the list
+    // page) since the row no longer changes.
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      if (itemRef.current && itemRef.current.status !== "running") return;
+      fetchItem();
+    }, 2000);
+
+    const onVisibilityChange = () => {
+      if (!document.hidden) fetchItem();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [fetchItem]);
+
+  const isRunning = item?.status === "running";
+  const terminalText = item?.output ?? "";
 
   return (
     <AppShell>
@@ -103,6 +143,16 @@ export default function HistoryDetailPage() {
                 <span>Started: {formatTime(item.startTime)}</span>
                 <span>Duration: {formatDuration(item.startTime, item.endTime)}</span>
                 <span>Triggered by: {item.triggeredBy}</span>
+                {lastUpdated && (
+                  <span className="ml-auto">Last updated: {lastUpdated}</span>
+                )}
+                <button
+                  onClick={fetchItem}
+                  className="px-3 py-1.5 text-[10px] font-semibold rounded-none transition-colors"
+                  style={{ background: "#201F1F", color: "#E5E2E1", border: "1px solid rgba(59, 75, 63, 0.3)" }}
+                >
+                  Refresh
+                </button>
               </div>
             </>
           ) : null}
@@ -128,7 +178,7 @@ export default function HistoryDetailPage() {
                 scrollbarColor: "#3B4B3F transparent",
               }}
             >
-              {item.output || "No output recorded."}
+              {terminalText || (isRunning ? "Waiting for first flush…" : "No output recorded.")}
             </pre>
           </div>
         )}

@@ -83,7 +83,7 @@ export async function runAllSources(): Promise<void> {
   console.log(`[scraper-runner] sources: ${targets.join(", ")}`);
 
   // Run sequentially. The original Go runner is also sequential per-source; running
-  // them in parallel would just thrash Torbox and the source sites.
+  // them in parallel would just thrash the source sites.
   for (const src of targets) {
     await runOne(src);
   }

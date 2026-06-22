@@ -21,13 +21,10 @@ export async function GET() {
     const user = await client.getUser();
     const days = Math.floor(user.premium / 86400);
 
-    if (days > 30) {
-      return NextResponse.json({ label: `${days}d remaining`, ok: true });
-    } else if (days > 0) {
-      return NextResponse.json({ label: `${days}d remaining`, ok: true });
-    } else {
-      return NextResponse.json({ label: "Expired", ok: false });
+    if (days > 0) {
+      return NextResponse.json({ label: `${days}d`, ok: true });
     }
+    return NextResponse.json({ label: "Expired", ok: false });
   } catch (err) {
     if (isAuthError(err)) {
       return NextResponse.json({ label: "Invalid key", ok: false });

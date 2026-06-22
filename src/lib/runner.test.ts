@@ -2,13 +2,13 @@
  * Integration tests for src/lib/runner.ts
  *
  * runMacro is the macro execution engine — it loads a macro, creates
- * a history row, runs each command (locally via Bun.spawn or remotely
- * via the agent registry), streams output through the LiveBus, and
- * updates the history with the final status.
+ * a history row, runs each command (locally via child_process.spawn or
+ * remotely via the agent registry), streams output through the LiveBus,
+ * and updates the history with the final status.
  *
- * We exercise the local-execution path with a real Bun.spawn against
- * `echo` and a real Prisma client (via the shared test helper), so
- * the SQL round-trip + history persistence + LiveBus publishing are
+ * We exercise the local-execution path with a real child_process.spawn
+ * against `echo` (and a real Prisma client via the shared test helper),
+ * so the SQL round-trip + history persistence + LiveBus publishing are
  * all covered.
  *
  * The remote-execution path is tested by registering a real mock
@@ -187,6 +187,45 @@ describe("runMacro — local execution", () => {
     const hist = await testDB.db.history.findUnique({ where: { id: result.historyId } });
     expect(hist?.output).toContain("before-fail");
     expect(hist?.output).not.toContain("after-fail");
+  });
+
+  test("ignores agent hostname override for non-agent macros (regression)", async () => {
+    // Regression test: a macro with runOnAgent=false and a stale agentHostname
+    // must run locally and must NOT print a misleading "Node: ..." header.
+    // The previous behavior would set resolvedAgent from the URL `?agent=`
+    // override, print "Node: e2e-test", and then fall through to local
+    // execution — which crashed with `Bun is not defined` under Node.
+    const macro = await testDB.db.macro.create({
+      data: {
+        name: "Local With Stale Agent",
+        runOnAgent: false,
+        agentHostname: "e2e-test",
+        commands: JSON.stringify([{ ord: 0, cmd: "echo local-ok" }]),
+      },
+    });
+    // Pass an `agentHostname` arg as if it came from `?agent=e2e-test`.
+    const result = await runner.runMacro(macro.id, "user", "e2e-test");
+    expect(result.status).toBe("success");
+    const hist = await testDB.db.history.findUnique({ where: { id: result.historyId } });
+    expect(hist?.output).toContain("echo local-ok");
+    expect(hist?.output).toContain("local-ok");
+    expect(hist?.output).not.toContain("Node: e2e-test");
+    expect(hist?.output).toContain("=== DONE ===");
+  });
+
+  test("records spawn failure cleanly when the command itself can't start", async () => {
+    // A non-existent binary should not throw out of runMacro — it should
+    // be recorded as a failed run with a [spawn error: ...] line.
+    const macro = await testDB.db.macro.create({
+      data: {
+        name: "Bad Binary",
+        commands: JSON.stringify([{ ord: 0, cmd: "definitely-not-a-real-binary-xyz" }]),
+      },
+    });
+    const result = await runner.runMacro(macro.id, "user");
+    expect(result.status).toBe("failed");
+    const hist = await testDB.db.history.findUnique({ where: { id: result.historyId } });
+    expect(hist?.output).toContain("=== FAILED ===");
   });
 });
 

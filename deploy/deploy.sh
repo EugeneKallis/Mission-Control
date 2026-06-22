@@ -56,8 +56,16 @@ echo "→ Installing production dependencies..."
 cd "$DEPLOY_DIR"
 bun install --production
 
-# 5. Restart service
-echo "→ Restarting service..."
+# 4b. Apply any new migrations. Idempotent — no-op if already at latest.
+#     This avoids the SQLITE_READONLY crash caused by `git pull`
+#     overwriting a tracked dev.db while its -wal file is live.
+echo "→ Applying database migrations..."
+cd "$DEPLOY_DIR"
+bunx prisma migrate deploy
+
+# 5. Restart services
+echo "→ Restarting services..."
 systemctl restart mission-control.service
+systemctl restart mission-control-magnet-bridge.service
 
 echo "=== Deploy complete ==="

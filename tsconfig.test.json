@@ -11,10 +11,10 @@
     "**/*.test.ts",
     "**/*.test.tsx"
   ],
-  // src/lib/db/test-helpers.ts lives under src/ on purpose — it lets the
-  // test code use the @/lib/... path aliases. It is test-only and safe to
-  // include in typechecking; do not add it to `exclude` (an exclude entry
-  // cannot remove a file matched by the include glob).
+  // Exclude `scripts` so the script sources are not type-checked here.
+  // The scripts are checked by the separate `tsconfig.scripts.json`
+  // project (run by `just typecheck`). `node_modules` and `.next` are
+  // excluded for build/perf reasons.
   "exclude": [
     "node_modules",
     "scripts",

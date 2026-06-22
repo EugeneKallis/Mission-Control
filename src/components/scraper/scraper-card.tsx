@@ -27,7 +27,6 @@ export function ScraperCard({ result, onDownload, onHide }: ScraperCardProps) {
       style={{
         background: "#131313",
         border: "1px solid rgba(59, 75, 63, 0.3)",
-        minHeight: "min(90dvh, 800px)",
       }}
     >
       <div

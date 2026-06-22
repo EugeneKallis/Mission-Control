@@ -17,11 +17,6 @@ export interface ScrapeResultView {
   created_at: string | null;
 }
 
-export interface ScraperTagInfo {
-  tag: string;
-  count: number;
-}
-
 export type ScraperSource = "141jav" | "projectjav" | "pornrips";
 
 export const SOURCES: ScraperSource[] = ["141jav", "projectjav", "pornrips"];

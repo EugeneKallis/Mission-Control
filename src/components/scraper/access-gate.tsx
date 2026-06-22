@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from "react";
  * scroll, keypress) reset the inactivity timer.
  */
 const STORAGE_KEY = "scraper_warning_accepted";
-const INACTIVITY_MS = 60_000; // 1 minute
+const INACTIVITY_MS = 30_000; // 30 seconds
 const ACTIVITY_THROTTLE_MS = 5_000;
 
 export function AccessGate() {
@@ -87,7 +87,7 @@ export function AccessGate() {
 
   return (
     <div
-      className="fixed inset-0 z-[100] backdrop-blur-lg flex flex-col items-center justify-center overflow-hidden transition-opacity duration-300"
+      className="fixed inset-0 lg:left-64 z-[100] backdrop-blur-lg flex flex-col items-center justify-center overflow-hidden transition-opacity duration-300"
       style={{
         background: "rgba(0,0,0,0.95)",
         opacity: accepted ? 0 : 1,

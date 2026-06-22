@@ -1,0 +1,16 @@
+[Unit]
+Description=Mission Control — magnet bridge (long-running Decypharr poller)
+After=network.target
+
+[Service]
+Type=exec
+WorkingDirectory=/opt/mission-control
+ExecStart=/usr/local/bin/bun run src/workers/magnet-bridge.ts
+Environment=NODE_ENV=production
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
