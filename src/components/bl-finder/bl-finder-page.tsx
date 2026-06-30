@@ -218,9 +218,10 @@ export function BlFinderPage() {
         console.warn("Delete-all failures:", errors);
       }
       setDeleteAllOpen(false);
-      await fetchRows();
+      void fetchRows();
     } catch (err) {
       toast.showToast("Delete-all failed", "error");
+      void fetchRows();
     } finally {
       setDeletingAll(false);
     }
@@ -255,21 +256,30 @@ export function BlFinderPage() {
     }
   }, [toast, fetchRows]);
 
-  const deleteOne = useCallback(async (id: number) => {
+  const deleteOne = useCallback(async (id: number, filePath?: string) => {
+    const shortPath = filePath?.split("/").pop() ?? id.toString();
+
+    // Optimistically remove the row from the visible list immediately.
+    setRows((prev) => prev.filter((r) => r.id !== id));
+    setDeleteCandidate(null);
+
     try {
       const res = await fetch(`/api/bl-finder/delete/${id}`, { method: "POST" });
       if (!res.ok) {
         const err = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(err.error ?? `HTTP ${res.status}`);
       }
-      toast.showToast("Deleted", "success");
-      setDeleteCandidate(null);
-      await fetchRows();
+      toast.showToast(`Deleted ${shortPath}`, "success");
+      // Re-fetch in the background to sync with the server.
+      void fetchRows();
     } catch (err) {
       toast.showToast(
         err instanceof Error ? err.message : "Delete failed",
         "error",
       );
+      // Restore the row by re-fetching so optimistically-removed rows
+      // that failed come back.
+      void fetchRows();
     }
   }, [toast, fetchRows]);
 
@@ -608,7 +618,7 @@ export function BlFinderPage() {
       <ConfirmDialog
         open={deleteCandidate !== null}
         onClose={() => setDeleteCandidate(null)}
-        onConfirm={() => { if (deleteCandidate) void deleteOne(deleteCandidate.id); }}
+        onConfirm={() => { if (deleteCandidate) void deleteOne(deleteCandidate.id, deleteCandidate.filePath); }}
         title="Delete broken symlink?"
         icon="delete"
         confirmLabel="Delete"
