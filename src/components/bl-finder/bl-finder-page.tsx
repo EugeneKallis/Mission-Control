@@ -40,6 +40,8 @@ export function BlFinderPage() {
   const [loading, setLoading] = useState(true);
 
   const [deleteCandidate, setDeleteCandidate] = useState<BlFinderRowType | null>(null);
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
 
   // ── Fetchers (ref-stable for the polling effect) ────────────────────
   const fetchRowsRef = useRef<() => Promise<void>>(async () => {});
@@ -184,6 +186,44 @@ export function BlFinderPage() {
       toast.showToast("Failed to trigger scan", "error");
     }
   }, [toast, fetchRows]);
+
+  const deleteAll = useCallback(async () => {
+    setDeletingAll(true);
+    try {
+      const body: Record<string, string> = {};
+      if (mediaDirFilter) body.mediaDir = mediaDirFilter;
+      const res = await fetch("/api/bl-finder/delete-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as {
+        deleted: number;
+        total: number;
+        results: { filePath: string; deleted: boolean; error?: string }[];
+      };
+      const errors = data.results.filter((r) => !r.deleted);
+      if (errors.length === 0) {
+        toast.showToast(
+          `Deleted ${data.deleted} broken symlink${data.deleted === 1 ? "" : "s"}`,
+          "success",
+        );
+      } else {
+        toast.showToast(
+          `Deleted ${data.deleted}/${data.total} — ${errors.length} failed (check log)`,
+          "error",
+        );
+        console.warn("Delete-all failures:", errors);
+      }
+      setDeleteAllOpen(false);
+      await fetchRows();
+    } catch (err) {
+      toast.showToast("Delete-all failed", "error");
+    } finally {
+      setDeletingAll(false);
+    }
+  }, [mediaDirFilter, toast, fetchRows]);
 
   const recheckOne = useCallback(async (id: number) => {
     try {
@@ -517,6 +557,20 @@ export function BlFinderPage() {
             <span className="material-symbols-outlined text-sm">restart_alt</span>
             Recheck all
           </button>
+          {(counts.broken ?? 0) > 0 && (
+            <button
+              onClick={() => setDeleteAllOpen(true)}
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-none"
+              style={{
+                background: "#3D1F1F",
+                color: "#FFB4AB",
+                border: "1px solid rgba(255, 180, 171, 0.25)",
+              }}
+            >
+              <span className="material-symbols-outlined text-sm">delete_sweep</span>
+              Delete all{mediaDirFilter ? ` in "${mediaDirFilter}" (${counts.broken ?? 0})` : ` (${counts.broken ?? 0})`}
+            </button>
+          )}
         </div>
       </div>
 
@@ -573,6 +627,31 @@ export function BlFinderPage() {
               {deleteCandidate.filePath}
             </pre>
           )}
+        </div>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={deleteAllOpen}
+        onClose={() => setDeleteAllOpen(false)}
+        onConfirm={() => void deleteAll()}
+        title="Delete all broken symlinks?"
+        icon="delete_sweep"
+        confirmLabel={deletingAll ? "Deleting…" : "Delete all"}
+        variant="danger"
+      >
+        <div className="space-y-3 text-sm">
+          <p style={{ color: "#FFB4AB" }}>
+            This will permanently remove <strong>{counts.broken ?? 0}</strong> broken
+            {mediaDirFilter ? ` symlinks in "${mediaDirFilter}"` : ` symlinks from across all media directories`}.
+            Each symlink on disk will be removed and its database row
+            deleted. The target files on the remote mount will
+            <strong> not</strong> be touched.
+          </p>
+          <p className="text-xs italic" style={{ color: "#849587" }}>
+            Files that are not currently broken (status "ok", "pending",
+            or "checking") are skipped. Ignored rows are also skipped.
+          </p>
+
         </div>
       </ConfirmDialog>
     </div>

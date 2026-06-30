@@ -730,6 +730,16 @@ export async function deleteFileCheckRow(id: number) {
   return db.fileCheck.delete({ where: { id } });
 }
 
+/**
+ * List all non-ignored broken rows, optionally filtered by mediaDir.
+ * Used by the delete-all bulk operation.
+ */
+export async function listBrokenFileChecks(opts: { mediaDir?: string } = {}) {
+  const where: Record<string, unknown> = { status: "broken", isIgnored: false };
+  if (opts.mediaDir) where.mediaDir = opts.mediaDir;
+  return db.fileCheck.findMany({ where });
+}
+
 export async function toggleFileCheckIgnore(id: number) {
   const row = await db.fileCheck.findUniqueOrThrow({ where: { id } });
   return db.fileCheck.update({
