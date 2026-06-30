@@ -646,6 +646,7 @@ Phase 9 makes the history tab a true database-driven view:
 | POST | `/api/bl-finder/ignore/[id]` | Toggle `isIgnored` on a row |
 | POST | `/api/bl-finder/trigger-scan` | Mark all rows pending + clear worker's lastPassAt to trigger immediate discovery |
 | POST | `/api/bl-finder/delete-all` | Bulk-delete all non-ignored broken symlinks (optional mediaDir filter, safety-checked) |
+| GET | `/api/bl-finder/counts` | Lightweight per-status counts (broken/ok/pending/checking/total) of non-ignored rows; backs the navbar badge |
 
 ## New directories added in Phase 11
 
@@ -661,7 +662,7 @@ src/lib/p-map.ts            # Shared concurrency-limited parallel map (moved fro
 src/workers/broken-link-checker.ts       # Long-running poller
 src/workers/broken-link-checker.test.ts  # 10 tests (pollOnce with mocked DB + mocked probe)
 src/app/database/bl-finder/page.tsx      # Page shell
-src/app/api/bl-finder/                   # 9 route files + tests (list, status, config, recheck, delete, delete-all, ignore, trigger-scan, log)
+src/app/api/bl-finder/                   # 10 route files + tests (list, status, config, recheck, delete, delete-all, ignore, trigger-scan, log, counts)
 deploy/mission-control-broken-link-checker.service  # systemd unit
 ```
 

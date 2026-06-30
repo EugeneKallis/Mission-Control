@@ -43,6 +43,7 @@ export function SidebarContent({
   const [rdStatus, setRdStatus] = useState<{ label: string; ok: boolean } | null>(null);
   const [groupedMacros, setGroupedMacros] = useState<GroupWithMacros[]>([]);
   const [macrosLoading, setMacrosLoading] = useState(true);
+  const [brokenCount, setBrokenCount] = useState<number | null>(null);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -65,6 +66,31 @@ export function SidebarContent({
       .catch(() => {
         setMacrosLoading(false);
       });
+  }, []);
+
+  // Poll the BL Finder broken count so the nav badge stays fresh.
+  // 60s matches the uptime poll; we also re-fetch on tab focus so a
+  // backgrounded tab picks up new broken rows quickly when reopened.
+  useEffect(() => {
+    let cancelled = false;
+    const fetchBroken = () => {
+      fetch("/api/bl-finder/counts")
+        .then((r) => r.json())
+        .then((data: { broken?: number }) => {
+          if (cancelled) return;
+          if (typeof data.broken === "number") setBrokenCount(data.broken);
+        })
+        .catch(() => { /* leave previous value */ });
+    };
+    fetchBroken();
+    const interval = setInterval(fetchBroken, 60_000);
+    const onVis = () => { if (!document.hidden) fetchBroken(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVis);
+    };
   }, []);
 
   const handleMacroClick = useCallback((macro: Macro) => {
@@ -171,7 +197,13 @@ export function SidebarContent({
         <NavItem label="Server Status" icon="dns" href="/status" color="green" />
         <NavItem label="Log Viewer" icon="terminal" href="/logs" color="primary" />
         <NavItem label="Database" icon="table_chart" href="/database" color="violet" />
-        <NavItem label="BL Finder" icon="broken_image" href="/database/bl-finder" color="amber" />
+        <NavItem
+          label="BL Finder"
+          icon="broken_image"
+          href="/database/bl-finder"
+          color="amber"
+          badge={brokenCount ?? undefined}
+        />
 
         {/* Divider */}
         <div className="my-3 mx-4 h-px" style={{ background: "rgba(59, 75, 63, 0.4)" }} />

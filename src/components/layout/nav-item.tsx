@@ -8,6 +8,12 @@ interface NavItemProps {
   icon: string;
   href: string;
   color?: string;
+  /**
+   * Optional numeric badge rendered to the right of the label.
+   * Only shown when defined and > 0. Used to surface counts that
+   * need attention (e.g. broken-link files).
+   */
+  badge?: number;
 }
 
 const accentColors: Record<string, string> = {
@@ -20,9 +26,10 @@ const accentColors: Record<string, string> = {
   rose: "hover:bg-rose-500/10",
 };
 
-export function NavItem({ label, icon, href, color = "primary" }: NavItemProps) {
+export function NavItem({ label, icon, href, color = "primary", badge }: NavItemProps) {
   const pathname = usePathname();
   const isActive = pathname === href;
+  const showBadge = typeof badge === "number" && badge > 0;
 
   return (
     <Link
@@ -35,6 +42,19 @@ export function NavItem({ label, icon, href, color = "primary" }: NavItemProps) 
     >
       <span className="material-symbols-outlined text-xl">{icon}</span>
       <span>{label}</span>
+      {showBadge && (
+        <span
+          className="ml-auto inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 text-[10px] font-mono font-semibold rounded-none"
+          style={{
+            background: "#3D1F1F",
+            color: "#FFB4AB",
+            border: "1px solid rgba(255, 180, 171, 0.35)",
+          }}
+          title={`${badge} broken`}
+        >
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
     </Link>
   );
 }
