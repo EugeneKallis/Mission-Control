@@ -190,7 +190,10 @@ export async function pollOnce(opts: PollOnceOptions): Promise<BlFinderPassResul
     if (!opts.checkOnly && opts.forceDiscover) {
       try {
         const seeds = await discoverFiles({
-          mediaDirs: opts.mediaDirs.length > 0 ? opts.mediaDirs : undefined,
+          // Hardcoded to /mnt/debrid/media/special — the BL Finder only
+          // checks the special directory, not movies/tv/etc.
+          basePath: "/mnt/debrid/media",
+          mediaDirs: ["special"],
         });
         for (const s of seeds) {
           await upsertFileCheck({

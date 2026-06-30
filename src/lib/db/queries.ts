@@ -762,7 +762,8 @@ export const DEFAULT_BLFINDER_CONFIG: BlFinderConfig = {
   timeoutSec: 30,
   recheckAgeDays: 7,
   discoverIntervalSec: 30 * 60,
-  mediaDirs: [],
+  /** Hardcoded to special only. */
+  mediaDirs: ["special"],
 };
 
 export async function getBlFinderConfig(): Promise<BlFinderConfig> {
