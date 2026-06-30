@@ -316,9 +316,10 @@ export function BlFinderPage() {
             {/* Media root */}
             <span className="inline-flex items-center gap-1 whitespace-nowrap">
               <span className="material-symbols-outlined text-[12px]">folder</span>
-              <span>{envInfo.mediaBasePath}</span>
-              <span style={{ color: effectiveMediaDirs.length > 3 ? "#E5E2E1" : undefined }}>
-                {'{'}{effectiveMediaDirs.join(", ")}{'}'}
+              <span
+                title={effectiveMediaDirs.map((d) => `${envInfo.mediaBasePath}${d}`).join("\n")}
+              >
+                Scanning: {effectiveMediaDirs.map((d) => envInfo.mediaBasePath + d).join(", ")}
               </span>
               {usingEnvDirs && (
                 <span
