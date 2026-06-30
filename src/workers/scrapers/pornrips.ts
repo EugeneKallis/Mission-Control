@@ -26,6 +26,8 @@ interface _ParsedItemPrivate {
   magnet: string;
   tags: string[];
   detailURL: string;
+  /** Raw file-size string like "457 MB" extracted from the detail page. */
+  fileSize: string;
 }
 export type ParsedItem = _ParsedItemPrivate;
 
@@ -47,15 +49,12 @@ export function parsePornRipsListing(html: string): ParsedItem[] {
     }
 
     const detailURL = $el.find(".entry-title a").attr("href") ?? "";
-    const postIDAttr = $el.attr("id") ?? "";
-    const postID = postIDAttr.replace(/^post-/, "");
-
+    // The torrent and magnet URLs are NOT synthesized from postID anymore.
+    // The site changed — download.php?id=X&type=* endpoints are 404.
+    // Instead, the real .torrent file URL is extracted from the detail
+    // page during enrichPornRipsItem below.
     let torrent = "";
     let magnet = "";
-    if (postID) {
-      torrent = `https://pornrips.to/download.php?id=${postID}&type=torrent`;
-      magnet = `https://pornrips.to/download.php?id=${postID}&type=magnet`;
-    }
 
     let thumb = "";
     const thumbImg = $el.find(".wrapper-excerpt-thumbnail img");
@@ -70,7 +69,7 @@ export function parsePornRipsListing(html: string): ParsedItem[] {
     });
 
     if (title) {
-      results.push({ title, thumb, images: [], torrent, magnet, tags, detailURL });
+      results.push({ title, thumb, images: [], torrent, magnet, tags, detailURL, fileSize: "" });
     }
   });
 
@@ -78,9 +77,12 @@ export function parsePornRipsListing(html: string): ParsedItem[] {
 }
 
 /**
- * Re-fetch a detail page to get additional images. Mirrors `scrapeDetail`:
+ * Re-fetch a detail page to get additional images AND the direct .torrent
+ * file URL. Mirrors `scrapeDetail`:
  * - looks for PixHost `show` links, follows each, captures the direct image
  * - falls back to any <img> inside .entry-content that isn't a logo/banner
+ * - extracts the real .torrent URL from the download link
+ * - extracts file size from the info block
  */
 export async function enrichPornRipsItem(item: ParsedItem): Promise<ParsedItem> {
   if (!item.detailURL) return item;
@@ -95,7 +97,7 @@ export async function enrichPornRipsItem(item: ParsedItem): Promise<ParsedItem> 
   const $ = load(html);
   const seen = new Set<string>(item.images);
 
-  // PixHost galleries
+  // ── PixHost galleries ──────────────────────────────────────────────────
   const pixhostLinks = $(".entry-content a[href*='pixhost.to/show/']")
     .map((_, a) => $(a).attr("href") ?? "")
     .get()
@@ -108,7 +110,7 @@ export async function enrichPornRipsItem(item: ParsedItem): Promise<ParsedItem> 
     }
   }
 
-  // Fallback images in .entry-content
+  // ── Fallback images in .entry-content ──────────────────────────────────
   $(".entry-content img").each((_, img) => {
     // Skip images already covered by the PixHost link we just followed
     if ($(img).closest("a[href*='pixhost.to/show/']").length > 0) return;
@@ -120,6 +122,26 @@ export async function enrichPornRipsItem(item: ParsedItem): Promise<ParsedItem> 
       item.images.push(src);
     }
   });
+
+  // ── Extract the real .torrent file URL ─────────────────────────────────
+  // The site serves the .torrent at pornrips.to/torrents/<Title>.torrent
+  // linked from within .entry-content. This is the ONLY working download
+  // URL — the old download.php?id=X&type=torrent endpoint is 404.
+  if (!item.torrent) {
+    const torrentLink = $(".entry-content a[href$='.torrent']").first();
+    if (torrentLink.length) {
+      item.torrent = torrentLink.attr("href") ?? "";
+    }
+  }
+
+  // ── Extract file size ──────────────────────────────────────────────────
+  if (!item.fileSize) {
+    const bodyText = $.text();
+    const match = bodyText.match(/File Size:\s*([\d.]+\s*(?:GB|MB|KB))/i);
+    if (match) {
+      item.fileSize = match[1];
+    }
+  }
 
   return item;
 }
@@ -147,15 +169,10 @@ export async function runPornRipsScrape(): Promise<{ pages: number; inserted: nu
     }
 
     for (const item of items) {
-      // Decide final download URL — torrent wins, magnet is fallback.
-      // The Go code uses torrent when present, otherwise magnet. We mirror that.
-      const torrentURL = item.torrent || item.magnet;
-      if (!torrentURL) continue;
-
-      // Enrich: fetch the detail page to grab PixHost direct image URLs.
-      // Mirrors ServerTool's scrapeDetail() call — without this,
-      // item.images stays empty and cards only show the single
-      // listing thumbnail instead of 2 images side by side.
+      // Enrich FIRST — fetches the detail page to get PixHost images AND
+      // the real .torrent URL. We need to enrich before the torrent URL
+      // check because parsePornRipsListing no longer synthesizes
+      // download.php URLs (those endpoints are 404 on the live site).
       if (item.detailURL) {
         try {
           await enrichPornRipsItem(item);
@@ -164,6 +181,10 @@ export async function runPornRipsScrape(): Promise<{ pages: number; inserted: nu
         }
       }
 
+      // Decide final download URL — torrent wins, magnet is fallback.
+      const torrentURL = item.torrent || item.magnet;
+      if (!torrentURL) continue;
+
       const title = sanitizeTitle(item.title);
       const tagsStr = item.tags.join(",");
       const imgURL = item.images.length > 0 ? item.images.join(",") : item.thumb;
@@ -171,16 +192,21 @@ export async function runPornRipsScrape(): Promise<{ pages: number; inserted: nu
 
       if (await scrapeResultExists(uniqueKey)) continue;
 
+      // Parse file size string to bytes if available
+      const fileSizeBytes = item.fileSize
+        ? (await import("./shared")).parseSize(item.fileSize)
+        : null;
+
       try {
         await createScrapeResult({
           source: "pornrips",
           title,
           imageUrl: imgURL || null,
-          magnetLink: item.magnet || null,
+          magnetLink: null, // pornrips has no magnet links; use torrent always
           torrentLink: torrentURL,
           uniqueKey,
           infoHash: null,
-          fileSize: null,
+          fileSize: fileSizeBytes,
           tags: tagsStr || null,
         });
         inserted++;

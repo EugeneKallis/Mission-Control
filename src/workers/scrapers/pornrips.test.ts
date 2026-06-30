@@ -40,8 +40,12 @@ describe("parsePornRipsListing", () => {
     expect(items[0].title).toBe("Some Scene 1080p");
     expect(items[0].thumb).toBe("https://cdn.example.com/thumb42.jpg");
     expect(items[0].detailURL).toBe("https://pornrips.to/some-scene/");
-    expect(items[0].torrent).toBe("https://pornrips.to/download.php?id=42&type=torrent");
-    expect(items[0].magnet).toBe("https://pornrips.to/download.php?id=42&type=magnet");
+    // torrent and magnet are no longer synthesized from postID —
+    // the download.php endpoint is 404. They are populated from
+    // the detail page during enrichPornRipsItem.
+    expect(items[0].torrent).toBe("");
+    expect(items[0].magnet).toBe("");
+    expect(items[0].fileSize).toBe("");
     expect(items[0].tags).toEqual(["1080p", "MILF"]);
     expect(items[0].images).toEqual([]);
   });
@@ -162,12 +166,64 @@ describe("enrichPornRipsItem", () => {
       magnet: "mg",
       tags: [],
       detailURL: "",
+      fileSize: "",
     };
     const enriched = await enrichPornRipsItem({ ...item, detailURL: "https://pornrips.to/x" });
     expect(enriched.images).toEqual([
       "https://cdn.example.com/screen1.jpg",
       "https://cdn.example.com/screen2.jpg",
     ]);
+  });
+
+  test("extracts the .torrent URL from the detail page", async () => {
+    const detailHtml = `<html><body>
+      <div class="entry-content">
+        <strong>File Size:</strong> 457 MB<br>
+        <a href="https://pornrips.to/torrents/Scene.Title.XXX.1080p.HEVC.x265.PRT.torrent">
+          <img src="https://cdn.example.com/dl-btn.jpg" />
+        </a>
+      </div>
+    </body></html>`;
+
+    globalThis.fetch = mock(async () => new Response(detailHtml, { status: 200 })) as unknown as typeof fetch;
+
+    const item: ParsedItem = {
+      title: "Scene Title",
+      thumb: "t",
+      images: [],
+      torrent: "", // empty — will be populated from detail page
+      magnet: "",
+      tags: [],
+      detailURL: "",
+      fileSize: "",
+    };
+    const enriched = await enrichPornRipsItem({ ...item, detailURL: "https://pornrips.to/scene-title/" });
+    expect(enriched.torrent).toBe("https://pornrips.to/torrents/Scene.Title.XXX.1080p.HEVC.x265.PRT.torrent");
+    expect(enriched.fileSize).toBe("457 MB");
+  });
+
+  test("leaves torrent empty when detail page has no .torrent link", async () => {
+    const detailHtml = `<html><body>
+      <div class="entry-content">
+        <p>No download links here</p>
+      </div>
+    </body></html>`;
+
+    globalThis.fetch = mock(async () => new Response(detailHtml, { status: 200 })) as unknown as typeof fetch;
+
+    const item: ParsedItem = {
+      title: "X",
+      thumb: "t",
+      images: [],
+      torrent: "",
+      magnet: "",
+      tags: [],
+      detailURL: "",
+      fileSize: "",
+    };
+    const enriched = await enrichPornRipsItem({ ...item, detailURL: "https://pornrips.to/x/" });
+    expect(enriched.torrent).toBe("");
+    expect(enriched.fileSize).toBe("");
   });
 
   test("skips fallback <img> tags that are nested inside a PixHost anchor", async () => {
@@ -197,6 +253,7 @@ describe("enrichPornRipsItem", () => {
       magnet: "mg",
       tags: [],
       detailURL: "",
+      fileSize: "",
     };
     const enriched = await enrichPornRipsItem({ ...item, detailURL: "https://pornrips.to/x" });
     // The PixHost branch added the direct image once. The fallback branch
