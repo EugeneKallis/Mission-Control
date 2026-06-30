@@ -28,6 +28,7 @@ export function BlFinderPage() {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [status, setStatus] = useState<BlFinderStatus | null>(null);
   const [config, setConfig] = useState<BlFinderConfig | null>(null);
+  const [envInfo, setEnvInfo] = useState<{ mediaBasePath: string; mediaDirectories: string[] } | null>(null);
   const [mediaDirs, setMediaDirs] = useState<string[]>([]);
 
   const [statusFilter, setStatusFilter] = useState<string>("");
@@ -77,13 +78,13 @@ export function BlFinderPage() {
     try {
       const res = await fetch("/api/bl-finder/config");
       if (!res.ok) return;
-      const data = (await res.json()) as { config: BlFinderConfig; defaults: BlFinderConfig };
+      const data = (await res.json()) as {
+        config: BlFinderConfig;
+        defaults: BlFinderConfig;
+        env: { mediaBasePath: string; mediaDirectories: string[] };
+      };
       setConfig(data.config);
-      // Build the media-dir filter list from the config; if mediaDirs is
-      // empty, the worker falls back to AppConfig's media directories.
-      // We don't know AppConfig from the client, so we just show the
-      // union of mediaDir values currently present in rows.
-      void data.defaults;
+      setEnvInfo(data.env);
     } catch { /* ignore */ }
   }, []);
 
@@ -210,6 +211,21 @@ export function BlFinderPage() {
     return `${Math.floor(ms / 3_600_000)}h ago`;
   }, [status?.lastPassAt]);
 
+  /**
+   * Effective media dirs — the override from config if non-empty,
+   * otherwise the env-var defaults from AppConfig.
+   */
+  const effectiveMediaDirs = useMemo(() => {
+    if (config?.mediaDirs && config.mediaDirs.length > 0) return config.mediaDirs;
+    if (envInfo) return envInfo.mediaDirectories;
+    return [];
+  }, [config?.mediaDirs, envInfo]);
+
+  /** True if the resolved directories come from env rather than config override. */
+  const usingEnvDirs = useMemo(() => {
+    return (!config?.mediaDirs || config.mediaDirs.length === 0) && !!envInfo;
+  }, [config?.mediaDirs, envInfo]);
+
   return (
     <div
       className="max-w-[1400px] mx-auto relative flex flex-col h-full overflow-y-auto"
@@ -228,39 +244,98 @@ export function BlFinderPage() {
               Media file readability checks. Configured at the top; the worker runs in the background.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            {status?.running ? (
-              <span
-                className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-none"
-                style={{ background: "rgba(86, 255, 167, 0.15)", color: "#56FFA7" }}
-              >
-                <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-                Checking…
+        </div>
+
+        {/* ── Status bar ────────────────────────────────────────── */}
+        {status && config && envInfo && (
+          <div
+            className="flex flex-wrap items-start gap-x-6 gap-y-1 px-4 py-2 mb-3 text-[11px] font-mono"
+            style={{
+              background: "#1A1919",
+              border: "1px solid rgba(59, 75, 63, 0.3)",
+              color: "#849587",
+            }}
+          >
+            {/* Worker state */}
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+              {status.running ? (
+                <>
+                  <span className="inline-block w-2 h-2 rounded-full bg-[#56FFA7] animate-pulse" />
+                  <span style={{ color: "#56FFA7" }}>Checking…</span>
+                </>
+              ) : config.enabled ? (
+                <>
+                  <span className="inline-block w-2 h-2 rounded-full bg-[#56FFA7]" />
+                  <span style={{ color: "#56FFA7" }}>Enabled</span>
+                  <span className="text-[10px]">(idle)</span>
+                </>
+              ) : (
+                <>
+                  <span className="inline-block w-2 h-2 rounded-full" style={{ background: "#6B5B5B" }} />
+                  <span style={{ color: "#6B5B5B" }}>Disabled</span>
+                </>
+              )}
+            </span>
+
+            {/* Media root */}
+            <span className="inline-flex items-center gap-1 whitespace-nowrap">
+              <span className="material-symbols-outlined text-[12px]">folder</span>
+              <span>{envInfo.mediaBasePath}</span>
+              <span style={{ color: effectiveMediaDirs.length > 3 ? "#E5E2E1" : undefined }}>
+                {'{'}{effectiveMediaDirs.join(", ")}{'}'}
               </span>
-            ) : (
-              <span
-                className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-none"
-                style={{ background: "#201F1F", color: "#849587", border: "1px solid rgba(59, 75, 63, 0.3)" }}
-              >
-                <span className="material-symbols-outlined text-sm">schedule</span>
-                Last pass: {lastPassDisplay}
-              </span>
-            )}
-            {status && status.processed > 0 && (
-              <span
-                className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-mono rounded-none"
-                style={{ background: "#201F1F", color: "#849587", border: "1px solid rgba(59, 75, 63, 0.3)" }}
-                title="Last pass: ok / broken / total"
-              >
-                <span className="text-primary">{status.ok}</span>
-                <span>/</span>
-                <span className="text-error">{status.broken}</span>
-                <span>/</span>
-                <span>{status.processed}</span>
+              {usingEnvDirs && (
+                <span
+                  className="text-[10px] italic ml-1"
+                  style={{ color: "rgba(255, 180, 171, 0.7)" }}
+                  title="No media dirs configured in the config bar — using env MEDIA_DIRECTORIES"
+                >
+                  (env)
+                </span>
+              )}
+            </span>
+
+            {/* DB totals */}
+            <span className="inline-flex items-center gap-1 whitespace-nowrap">
+              <span className="material-symbols-outlined text-[12px]">database</span>
+              <span>{total.toLocaleString()} total</span>
+              {counts.broken > 0 && (
+                <span style={{ color: "#FFB4AB" }}>
+                  · {counts.broken.toLocaleString()} broken
+                </span>
+              )}
+              {counts.pending > 0 && (
+                <span>
+                  · {counts.pending.toLocaleString()} pending
+                </span>
+              )}
+              {counts.ok > 0 && (
+                <span style={{ color: "rgba(86, 255, 167, 0.7)" }}>
+                  · {counts.ok.toLocaleString()} ok
+                </span>
+              )}
+            </span>
+
+            {/* Last pass */}
+            <span className="inline-flex items-center gap-1 whitespace-nowrap">
+              <span className="material-symbols-outlined text-[12px]">schedule</span>
+              <span>pass: {lastPassDisplay}</span>
+              {status.processed > 0 && (
+                <span>
+                  · {status.ok} ok / {status.broken} broken
+                </span>
+              )}
+            </span>
+
+            {/* Error if any */}
+            {status.error && (
+              <span className="inline-flex items-center gap-1 whitespace-nowrap" style={{ color: "#FFB4AB" }}>
+                <span className="material-symbols-outlined text-[12px]">error</span>
+                <span>{status.error}</span>
               </span>
             )}
           </div>
-        </div>
+        )}
 
         {/* ── Config bar ────────────────────────────────────────── */}
         {config && (

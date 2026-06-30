@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { getConfig } from "@/lib/config";
 import {
   DEFAULT_BLFINDER_CONFIG,
   getBlFinderConfig,
@@ -24,7 +25,15 @@ const configSchema = z.object({
 export async function GET() {
   try {
     const config = await getBlFinderConfig();
-    return NextResponse.json({ config, defaults: DEFAULT_BLFINDER_CONFIG });
+    const appConfig = getConfig();
+    return NextResponse.json({
+      config,
+      defaults: DEFAULT_BLFINDER_CONFIG,
+      env: {
+        mediaBasePath: appConfig.mediaBasePath,
+        mediaDirectories: appConfig.mediaDirectories,
+      },
+    });
   } catch (err) {
     console.error("GET /api/bl-finder/config failed:", err);
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
