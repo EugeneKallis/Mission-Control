@@ -568,7 +568,7 @@ export function BlFinderPage() {
               }}
             >
               <span className="material-symbols-outlined text-sm">delete_sweep</span>
-              Delete all{mediaDirFilter ? ` in "${mediaDirFilter}" (${counts.broken ?? 0})` : ` (${counts.broken ?? 0})`}
+              Delete broken{mediaDirFilter ? ` in "${mediaDirFilter}" (${counts.broken ?? 0})` : ` (${counts.broken ?? 0})`}
             </button>
           )}
         </div>
@@ -634,9 +634,9 @@ export function BlFinderPage() {
         open={deleteAllOpen}
         onClose={() => setDeleteAllOpen(false)}
         onConfirm={() => void deleteAll()}
-        title="Delete all broken symlinks?"
+        title="Delete broken symlinks?"
         icon="delete_sweep"
-        confirmLabel={deletingAll ? "Deleting…" : "Delete all"}
+        confirmLabel={deletingAll ? "Deleting…" : "Delete broken"}
         variant="danger"
       >
         <div className="space-y-3 text-sm">
