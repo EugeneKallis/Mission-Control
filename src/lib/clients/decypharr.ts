@@ -34,6 +34,26 @@ export class DecypharrClient {
   }
 
   /**
+   * Parse the Decypharr /api/add response and throw if any result has
+   * status "error" — Decypharr returns HTTP 200 even for failures, so the
+   * caller's `if (!res.ok)` check alone won't catch it.
+   */
+  private async _checkAddResponse(res: Response): Promise<void> {
+    if (!res.ok) {
+      throw new Error(`Decypharr returned ${res.status}: ${await res.text()}`);
+    }
+    // Decypharr returns 200 with an error body on failure — check for it.
+    const body: unknown = await res.json();
+    if (Array.isArray(body)) {
+      const errors = body.filter((r: any) => r?.status === "error");
+      if (errors.length > 0) {
+        const msgs = errors.map((r: any) => r.error ?? "unknown error").join("; ");
+        throw new Error(`Decypharr rejected submission: ${msgs}`);
+      }
+    }
+  }
+
+  /**
    * Submit a magnet link to Decypharr.
    */
   async addMagnet(magnet: string): Promise<void> {
@@ -50,9 +70,7 @@ export class DecypharrClient {
       body: form,
     });
 
-    if (!res.ok) {
-      throw new Error(`Decypharr returned ${res.status}: ${await res.text()}`);
-    }
+    await this._checkAddResponse(res);
   }
 
   /**
@@ -99,8 +117,6 @@ export class DecypharrClient {
       body: form,
     });
 
-    if (!res.ok) {
-      throw new Error(`Decypharr returned ${res.status}: ${await res.text()}`);
-    }
+    await this._checkAddResponse(res);
   }
 }

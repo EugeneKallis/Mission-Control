@@ -95,9 +95,18 @@ export async function POST(request: NextRequest) {
     const cfg = getConfig();
     const decypharr = new DecypharrClient(cfg.decypharrUrl);
 
-    if (magnet) {
+    // Determine how to submit. Real magnets start with "magnet:".
+    // Some scrapers (e.g. pornrips.to) store a web redirect URL in the
+    // magnetLink column instead of an actual magnet — when the "magnet"
+    // is not a real magnet but we *do* have a torrentLink, fetch the
+    // .torrent file and submit the bytes directly.
+    const isRealMagnet = magnet ? magnet.startsWith("magnet:") : false;
+
+    if (magnet && isRealMagnet) {
+      // Real magnet link — submit directly to Decypharr.
       await decypharr.addMagnet(magnet);
     } else if (torrent) {
+      // Torrent file URL, or fallback when the "magnet" is a web URL.
       if (!isAllowedTorrentUrl(torrent)) {
         return NextResponse.json(
           { success: false, error: "Invalid torrent URL" },
@@ -115,6 +124,9 @@ export async function POST(request: NextRequest) {
       const data = await res.arrayBuffer();
       const filename = `${sanitizeFilename(item.title)}.torrent`;
       await decypharr.addTorrent(data, filename);
+    } else if (magnet) {
+      // Non-magnet URL with no torrent link — submit as-is.
+      await decypharr.addMagnet(magnet);
     }
 
     await markScrapeResultDownloaded(parsed.data.id);

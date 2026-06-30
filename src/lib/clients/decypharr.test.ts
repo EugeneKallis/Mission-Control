@@ -38,7 +38,7 @@ describe("DecypharrClient", () => {
   });
 
   test("addMagnet posts a multipart form with the right fields", async () => {
-    const get = installFetch(() => new Response("ok", { status: 200 }));
+    const get = installFetch(() => new Response(JSON.stringify([{ status: "success" }]), { status: 200 }));
     const client = new DecypharrClient("http://example.com:8282", "sonarr", "/downloads");
     await client.addMagnet("magnet:?xt=urn:btih:DEADBEEF");
     const call = get();
@@ -60,7 +60,7 @@ describe("DecypharrClient", () => {
   });
 
   test("addTorrent posts the file as a Blob with the right fields", async () => {
-    const get = installFetch(() => new Response("ok", { status: 200 }));
+    const get = installFetch(() => new Response(JSON.stringify([{ status: "success" }]), { status: 200 }));
     const client = new DecypharrClient("http://example.com:8282", "radarr", "/data");
     const data = new TextEncoder().encode("binary torrent bytes").buffer;
     await client.addTorrent(data, "release.torrent");
@@ -89,7 +89,7 @@ describe("DecypharrClient", () => {
   });
 
   test("uses default constructor values when no args are provided", async () => {
-    const get = installFetch(() => new Response("ok", { status: 200 }));
+    const get = installFetch(() => new Response(JSON.stringify([{ status: "success" }]), { status: 200 }));
     const client = new DecypharrClient();
     await client.addMagnet("magnet:?xt=urn:btih:X");
     const call = get();
@@ -129,7 +129,7 @@ describe("DecypharrClient", () => {
   });
 
   test("deleteTorrent DELETEs /api/torrents/<category>/<infohash>", async () => {
-    const get = installFetch(() => new Response("ok", { status: 200 }));
+    const get = installFetch(() => new Response(JSON.stringify({}), { status: 200 }));
     const client = new DecypharrClient("http://example.com:8282");
     await client.deleteTorrent("special", "abcd1234");
     const call = get();
@@ -138,7 +138,7 @@ describe("DecypharrClient", () => {
   });
 
   test("deleteTorrent encodes unsafe path segments", async () => {
-    const get = installFetch(() => new Response("ok", { status: 200 }));
+    const get = installFetch(() => new Response(JSON.stringify({}), { status: 200 }));
     const client = new DecypharrClient("http://example.com:8282");
     await client.deleteTorrent("my cat", "hash with spaces");
     const call = get();
