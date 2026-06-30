@@ -3,7 +3,9 @@ import { execFileSync } from "child_process";
 
 const SERVICE_MAP: Record<string, string> = {
   web: "mission-control",
-  "magnet-bridge": "magnet_bridge",
+  "magnet-bridge": "mission-control-magnet-bridge",
+  "broken-link-checker": "mission-control-broken-link-checker",
+  scraper: "mission-control-scraper",
 };
 
 export async function GET(request: NextRequest) {

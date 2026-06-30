@@ -80,7 +80,7 @@ describe("GET /api/logs", () => {
     );
     expect(status(res)).toBe(200);
     const journalCall = execCalls.find((c) => c.cmd === "journalctl");
-    expect(journalCall!.args).toContain("magnet_bridge.service");
+    expect(journalCall!.args).toContain("mission-control-magnet-bridge.service");
   });
 
   test("passes the lines count to journalctl when lines is numeric", async () => {
@@ -152,6 +152,8 @@ describe("GET /api/logs", () => {
     expect(text).toContain("Unknown service: unknown-svc");
     expect(text).toContain("web");
     expect(text).toContain("magnet-bridge");
+    expect(text).toContain("broken-link-checker");
+    expect(text).toContain("scraper");
   });
 
   test("returns 400 on invalid lines parameter", async () => {
@@ -162,6 +164,26 @@ describe("GET /api/logs", () => {
     expect(status(res)).toBe(400);
     const text = await res.text();
     expect(text).toContain("Invalid lines parameter");
+  });
+
+  test("uses the broken-link-checker service when service=broken-link-checker", async () => {
+    const { GET } = await loadRoute();
+    const res = await GET(
+      buildRequest("http://localhost/api/logs?service=broken-link-checker"),
+    );
+    expect(status(res)).toBe(200);
+    const journalCall = execCalls.find((c) => c.cmd === "journalctl");
+    expect(journalCall!.args).toContain("mission-control-broken-link-checker.service");
+  });
+
+  test("uses the scraper service when service=scraper", async () => {
+    const { GET } = await loadRoute();
+    const res = await GET(
+      buildRequest("http://localhost/api/logs?service=scraper"),
+    );
+    expect(status(res)).toBe(200);
+    const journalCall = execCalls.find((c) => c.cmd === "journalctl");
+    expect(journalCall!.args).toContain("mission-control-scraper.service");
   });
 
   test("returns 200 with fallback message when journalctl throws", async () => {

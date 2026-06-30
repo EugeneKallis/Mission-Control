@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 
-const SERVICES = ["web", "magnet-bridge"];
+const LABELS: Record<string, string> = {
+  web: "Web",
+  "magnet-bridge": "Magnet Bridge",
+  "broken-link-checker": "BL Finder",
+  scraper: "Scraper",
+};
+
+const SERVICES = Object.keys(LABELS);
 
 export default function LogsPage() {
   const [logs, setLogs] = useState<string>("Loading...");
@@ -128,7 +135,7 @@ export default function LogsPage() {
                   color: service === s ? "#E5E2E1" : "#849587",
                 }}
               >
-                {s === "web" ? "Web" : "Magnet Bridge"}
+                {LABELS[s]}
               </button>
             ))}
           </div>
