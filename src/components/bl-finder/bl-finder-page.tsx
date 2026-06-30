@@ -210,8 +210,9 @@ export function BlFinderPage() {
           "success",
         );
       } else {
+        const firstErr = errors[0]?.error ?? "unknown";
         toast.showToast(
-          `Deleted ${data.deleted}/${data.total} — ${errors.length} failed (check log)`,
+          `Deleted ${data.deleted}/${data.total} — ${errors.length} failed: ${firstErr}`,
           "error",
         );
         console.warn("Delete-all failures:", errors);

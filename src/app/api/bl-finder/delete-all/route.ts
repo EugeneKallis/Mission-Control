@@ -57,69 +57,56 @@ export async function POST(request: NextRequest) {
     try {
       const st = await lstat(row.filePath);
       if (!st.isSymbolicLink()) {
-        results.push({
-          id: row.id,
-          filePath: row.filePath,
-          deleted: false,
-          error: "Not a symlink",
-        });
+        const msg = "Not a symlink — refusing to delete";
+        console.error(`[bl-finder:delete-all] row ${row.id} ${row.filePath}: ${msg}`);
+        results.push({ id: row.id, filePath: row.filePath, deleted: false, error: msg });
         continue;
       }
 
       // If stat(follow) succeeds, the target is reachable — refuse.
       await stat(row.filePath);
-      results.push({
-        id: row.id,
-        filePath: row.filePath,
-        deleted: false,
-        error: "Symlink target is reachable (may have recovered)",
-      });
+      const msg = "Symlink target is reachable (may have recovered)";
+      console.error(`[bl-finder:delete-all] row ${row.id} ${row.filePath}: ${msg}`);
+      results.push({ id: row.id, filePath: row.filePath, deleted: false, error: msg });
       continue;
     } catch (err) {
       if (!(err as NodeJS.ErrnoException).code) {
-        // Some unexpected error (not a filesystem ENOENT/ENOTDIR etc.)
-        results.push({
-          id: row.id,
-          filePath: row.filePath,
-          deleted: false,
-          error: `Safety check failed: ${(err as Error).message}`,
-        });
+        const msg = `Safety check failed: ${(err as Error).message}`;
+        console.error(`[bl-finder:delete-all] row ${row.id} ${row.filePath}: ${msg}`);
+        results.push({ id: row.id, filePath: row.filePath, deleted: false, error: msg });
         continue;
       }
-      // Expected: lstat succeeded (it's a symlink) but stat(follow)
-      // threw (target missing). Proceed.
+      // Expected: lstat indicated a symlink but stat(follow) threw
+      // (target missing). Proceed with the delete.
     }
 
     // ── Delete the symlink and the row ───────────────────────
     try {
       await rm(row.filePath, { force: true });
     } catch (err) {
-      results.push({
-        id: row.id,
-        filePath: row.filePath,
-        deleted: false,
-        error: `Failed to remove symlink: ${(err as Error).message}`,
-      });
+      const msg = `Failed to remove symlink: ${(err as Error).message}`;
+      console.error(`[bl-finder:delete-all] row ${row.id} ${row.filePath}: ${msg}`);
+      results.push({ id: row.id, filePath: row.filePath, deleted: false, error: msg });
       continue;
     }
 
     try {
       await deleteFileCheckRow(row.id);
     } catch (err) {
-      console.error(
-        `Deleted symlink ${row.filePath} but failed to delete row ${row.id}: ${(err as Error).message}`,
-      );
-      results.push({
-        id: row.id,
-        filePath: row.filePath,
-        deleted: true,
-        error: `Symlink removed but row may remain: ${(err as Error).message}`,
-      });
+      const msg = `Symlink removed but DB row ${row.id} may remain: ${(err as Error).message}`;
+      console.error(`[bl-finder:delete-all] ${msg}`);
+      results.push({ id: row.id, filePath: row.filePath, deleted: true, error: msg });
       continue;
     }
 
     results.push({ id: row.id, filePath: row.filePath, deleted: true });
   }
+
+  const deleted = results.filter((r) => r.deleted).length;
+  const failed = results.filter((r) => !r.deleted).length;
+  console.error(
+    `[bl-finder:delete-all] done: ${deleted}/${rows.length} deleted, ${failed} failed`,
+  );
 
   return NextResponse.json({
     deleted: results.filter((r) => r.deleted).length,
