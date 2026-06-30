@@ -107,6 +107,10 @@ export function BlFinderConfigBar({
         onChange={(v) => update("discoverIntervalSec", v)}
         min={0}
       />
+      <MediaDirsField
+        dirs={draft.mediaDirs}
+        onChange={(v) => update("mediaDirs", v)}
+      />
       <div className="flex items-center gap-2 ml-auto">
         {/* Enable/disable toggle */}
         <label
@@ -165,6 +169,90 @@ export function BlFinderConfigBar({
         </button>
       </div>
     </div>
+  );
+}
+
+function MediaDirsField({
+  dirs,
+  onChange,
+}: {
+  dirs: string[];
+  onChange: (dirs: string[]) => void;
+}) {
+  const [input, setInput] = useState("");
+
+  const add = (raw: string) => {
+    const v = raw.trim().replace(/\/\/?$/, ""); // drop trailing slashes
+    if (!v) return;
+    if (dirs.includes(v)) return;
+    onChange([...dirs, v]);
+  };
+
+  const remove = (idx: number) => {
+    const next = dirs.filter((_, i) => i !== idx);
+    onChange(next);
+  };
+
+  return (
+    <label className="flex flex-col gap-0.5 min-w-[260px]">
+      <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: "#849587" }}>
+        Media Dirs
+      </span>
+      <div
+        className="flex flex-wrap items-center gap-1 px-2 py-1 min-h-[32px]"
+        style={{
+          background: "#201F1F",
+          color: "#E5E2E1",
+          border: "1px solid rgba(59, 75, 63, 0.3)",
+        }}
+      >
+        {dirs.map((d, i) => (
+          <span
+            key={d}
+            className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-mono"
+            style={{
+              background: "rgba(86, 255, 167, 0.12)",
+              color: "#56FFA7",
+              border: "1px solid rgba(86, 255, 167, 0.2)",
+            }}
+          >
+            {d}
+            <button
+              type="button"
+              onClick={() => remove(i)}
+              className="text-[10px] leading-none cursor-pointer hover:text-white transition-colors"
+              style={{ color: "rgba(255,255,255,0.4)" }}
+            >
+              ✕
+            </button>
+          </span>
+        ))}
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === ",") {
+              e.preventDefault();
+              add(input);
+              setInput("");
+            }
+            if (e.key === "Backspace" && input === "" && dirs.length > 0) {
+              remove(dirs.length - 1);
+            }
+          }}
+          onBlur={() => {
+            if (input.trim()) {
+              add(input);
+              setInput("");
+            }
+          }}
+          placeholder={dirs.length === 0 ? "empty → uses env MEDIA_DIRECTORIES" : "add dir…"}
+          className="flex-1 min-w-[80px] text-[11px] font-mono bg-transparent outline-none border-none"
+          style={{ color: "#E5E2E1" }}
+        />
+      </div>
+    </label>
   );
 }
 
