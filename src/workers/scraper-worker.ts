@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import "@/lib/logger";
 /**
  * Scraper task — called by external cron (systemd timer, crontab, etc.)
  *

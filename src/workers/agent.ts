@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import "@/lib/logger";
 /**
  * Mission Control Agent.
  *
@@ -37,9 +38,10 @@ const HEARTBEAT_MS = Number(arg("-heartbeat-ms", "5000"));
 
 // ── Logging ────────────────────────────────────────────────────────────────
 
+/** Timestamped log. The global console.log monkeypatch in @/lib/logger adds
+ *  the ISO timestamp, so this is just a clean pass-through. */
 function log(...parts: unknown[]): void {
-  const ts = new Date().toISOString();
-  console.log(`[${ts}]`, ...parts);
+  console.log(...parts);
 }
 
 // ── Network counters (sampled; not strictly monotonic) ────────────────────

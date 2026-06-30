@@ -26,7 +26,13 @@ function makeClient(): PrismaClient {
   const url = process.env.DATABASE_URL || DEFAULT_DB_URL;
   // The Prisma libsql adapter accepts a config object directly — it
   // instantiates the libsql client internally.
-  const adapter = new PrismaLibSql({ url });
+  //
+  // `timeout` sets SQLite's busy_timeout (ms) so concurrent requests don't
+  // immediately fail with SQLITE_BUSY. The Prisma adapter maps SQLITE_BUSY
+  // to SocketTimeout / P1008, which surfaces as "Operation has timed out".
+  // 10 seconds gives enough headroom for brief lock contention on a local
+  // SQLite file in a multi-request server environment.
+  const adapter = new PrismaLibSql({ url, timeout: 10_000 });
   return new PrismaClient({ adapter });
 }
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import "@/lib/logger";
 /**
  * File-tree scanner worker.
  *
