@@ -20,8 +20,14 @@ export function BlFinderRow({
 
   return (
     <div
-      className="flex items-center gap-3 px-3 py-2.5 rounded-none"
-      style={{ background: "#201F1F", border: "1px solid rgba(59, 75, 63, 0.3)" }}
+      className="flex items-center gap-3 px-3 py-2.5 rounded-none transition-all"
+      style={{
+        background: row.status === "checking" ? "rgba(86, 255, 167, 0.04)" : "#201F1F",
+        border: row.status === "checking"
+          ? "1px solid rgba(86, 255, 167, 0.4)"
+          : "1px solid rgba(59, 75, 63, 0.3)",
+        animation: row.status === "checking" ? "pulse-border 1.5s ease-in-out infinite" : undefined,
+      }}
     >
       <StatusBadge status={row.status} />
 
@@ -124,6 +130,20 @@ function StatusBadge({ status }: { status: string }) {
       {status}
     </span>
   );
+}
+
+// Inject the pulse-border keyframes once.
+const styleId = "bl-finder-pulse-keyframes";
+if (typeof document !== "undefined" && !document.getElementById(styleId)) {
+  const style = document.createElement("style");
+  style.id = styleId;
+  style.textContent = `
+    @keyframes pulse-border {
+      0%, 100% { border-color: rgba(86, 255, 167, 0.4); }
+      50% { border-color: rgba(86, 255, 167, 0.8); }
+    }
+  `;
+  document.head.appendChild(style);
 }
 
 function formatSize(bytes: number): string {

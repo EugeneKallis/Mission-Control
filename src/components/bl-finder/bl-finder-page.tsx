@@ -54,7 +54,13 @@ export function BlFinderPage() {
         total: number;
         counts: Record<string, number>;
       };
-      setRows(data.rows);
+      // Sort checking rows to the top so currently-scanned files are always visible.
+      const sorted = [...data.rows].sort((a, b) => {
+        if (a.status === "checking" && b.status !== "checking") return -1;
+        if (b.status === "checking" && a.status !== "checking") return 1;
+        return 0;
+      });
+      setRows(sorted);
       setTotal(data.total);
       setCounts(data.counts);
     } catch (err) {
@@ -108,14 +114,15 @@ export function BlFinderPage() {
     void fetchRowsRef.current();
   }, [statusFilter, mediaDirFilter, search]);
 
-  // ── Polling (rows every 5s, status every 3s) ────────────────────────
+  // ── Polling (2s while worker is running, 5s idle) ───────────────────
   useEffect(() => {
+    const interval = status?.running ? 2000 : 5000;
     let cancelled = false;
     const tick = async () => {
       if (document.hidden) return;
       await Promise.all([fetchRowsRef.current(), fetchStatus()]);
     };
-    const rowsId = setInterval(() => { void tick(); }, 5000);
+    const rowsId = setInterval(() => { void tick(); }, interval);
     const onVis = () => { if (!document.hidden) void tick(); };
     document.addEventListener("visibilitychange", onVis);
     return () => {
@@ -124,7 +131,7 @@ export function BlFinderPage() {
       document.removeEventListener("visibilitychange", onVis);
       void cancelled;
     };
-  }, [fetchStatus]);
+  }, [fetchStatus, status?.running]);
 
   // ── Actions ─────────────────────────────────────────────────────────
   const recheckAll = useCallback(async () => {
