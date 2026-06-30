@@ -5,7 +5,10 @@
  * For every non-ignored row with status `broken`, applies the same
  * safety checks as the individual delete endpoint:
  *   1. the path must still be a symlink (lstat),
- *   2. the symlink target must be unreachable (stat throws).
+ *   2. the symlink target must not be playable (probeFileReadable —
+ *      a file whose container header is intact but whose stream body
+ *      is corrupt is still treated as broken, so the user can clean
+ *      it up).
  *
  * Skips ignored rows. Optionally filters by mediaDir.
  *
@@ -17,11 +20,12 @@
  * why.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { lstat, rm, stat } from "fs/promises";
+import { lstat, rm } from "fs/promises";
 import {
   deleteFileCheckRow,
   listBrokenFileChecks,
 } from "@/lib/db/queries";
+import { probeFileReadable } from "@/lib/broken-link";
 
 interface DeleteResult {
   id: number;
@@ -63,21 +67,21 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      // If stat(follow) succeeds, the target is reachable — refuse.
-      await stat(row.filePath);
-      const msg = "Symlink target is reachable (may have recovered)";
-      console.error(`[bl-finder:delete-all] row ${row.id} ${row.filePath}: ${msg}`);
-      results.push({ id: row.id, filePath: row.filePath, deleted: false, error: msg });
-      continue;
-    } catch (err) {
-      if (!(err as NodeJS.ErrnoException).code) {
-        const msg = `Safety check failed: ${(err as Error).message}`;
+      // Probe with ffprobe — if the target returns packets, it's
+      // playable and we refuse. If it fails (missing, corrupt,
+      // mount returns headers but not bytes), proceed to delete.
+      const probe = await probeFileReadable(row.filePath, 10);
+      if (probe.ok) {
+        const msg = `Symlink target is playable (${probe.packets} packets); refusing to delete`;
         console.error(`[bl-finder:delete-all] row ${row.id} ${row.filePath}: ${msg}`);
         results.push({ id: row.id, filePath: row.filePath, deleted: false, error: msg });
         continue;
       }
-      // Expected: lstat indicated a symlink but stat(follow) threw
-      // (target missing). Proceed with the delete.
+    } catch (err) {
+      const msg = `Safety check failed: ${(err as Error).message}`;
+      console.error(`[bl-finder:delete-all] row ${row.id} ${row.filePath}: ${msg}`);
+      results.push({ id: row.id, filePath: row.filePath, deleted: false, error: msg });
+      continue;
     }
 
     // ── Delete the symlink and the row ───────────────────────

@@ -22,15 +22,30 @@ import { jsonBody, status } from "@/test-utils/route-helpers";
 
 let testDB: TestDB;
 let tmpDir: string;
+let mockProbeResult: {
+  ok: boolean;
+  packets: number;
+  error?: string;
+  elapsedMs: number;
+};
 
 beforeAll(async () => {
   testDB = await makeTestDB();
   mock.module("@/lib/db", () => ({ db: testDB.db }));
+  mock.module("@/lib/broken-link", () => ({
+    probeFileReadable: async () => mockProbeResult,
+  }));
 });
 
 beforeEach(async () => {
   await testDB.db.fileCheck.deleteMany();
   tmpDir = await mkdtemp(join(tmpdir(), "blf-delete-all-"));
+  mockProbeResult = {
+    ok: false,
+    packets: 0,
+    error: "no packets (mock)",
+    elapsedMs: 5,
+  };
 });
 
 afterEach(async () => {
@@ -204,7 +219,9 @@ describe("POST /api/bl-finder/delete-all", () => {
     expect(rows[0].isIgnored).toBe(true);
   });
 
-  test("refuses to delete a healthy (recovered) symlink", async () => {
+  test("refuses to delete a playable symlink", async () => {
+    mockProbeResult = { ok: true, packets: 5, elapsedMs: 10 };
+
     const recoveredLink = await createHealthySymlink("recovered.mkv");
     // We manually mark it broken in the DB to simulate a row that never
     // got re-checked after the target came back.
@@ -220,7 +237,7 @@ describe("POST /api/bl-finder/delete-all", () => {
     expect(body.deleted).toBe(0);
     expect(body.total).toBe(1);
     expect(body.results[0].deleted).toBe(false);
-    expect(body.results[0].error).toMatch(/recovered/);
+    expect(body.results[0].error).toMatch(/playable|packets/);
 
     // Symlink still there.
     expect((await lstat(recoveredLink)).isSymbolicLink()).toBe(true);
@@ -252,8 +269,6 @@ describe("POST /api/bl-finder/delete-all", () => {
     const recovered = await createHealthySymlink("recovered.mkv");
     const notSymlink = join(tmpDir, "regular.txt");
     await writeFile(notSymlink, "");
-    // Store a row pointing to a real file (not a symlink) — should be
-    // refused with "Not a symlink".
     const alsoGood = await createBrokenSymlink("also-good.mkv");
 
     await seed({ filePath: good });
@@ -261,6 +276,8 @@ describe("POST /api/bl-finder/delete-all", () => {
     await seed({ filePath: notSymlink });
     await seed({ filePath: alsoGood });
 
+    // Mock returns unplayable for all rows. The only non-deletable
+    // row is notSymlink (regular file, caught by lstat).
     const res = await callDeleteAll();
     expect(status(res)).toBe(200);
     const body = (await jsonBody(res)) as {
@@ -268,17 +285,10 @@ describe("POST /api/bl-finder/delete-all", () => {
       total: number;
       results: { deleted: boolean; error?: string }[];
     };
-    // All 4 rows have status "broken" in the DB, so all are processed.
-    // 2 succeed (good, also-good), 2 fail (recovered=healthy symlink,
-    // notSymlink=regular file).
-    expect(body.deleted).toBe(2);
+    // 3 symlinks deleted (all unplayable), 1 regular file refused.
+    expect(body.deleted).toBe(3);
     expect(body.total).toBe(4);
-    expect(body.results.filter((r) => !r.deleted).length).toBe(2);
-    // Both failures have distinct error messages.
-    const errMsgs = body.results
-      .filter((r) => !r.deleted)
-      .map((r) => r.error ?? "");
-    expect(errMsgs.some((m) => /recovered/i.test(m))).toBe(true);
-    expect(errMsgs.some((m) => /not a symlink/i.test(m))).toBe(true);
+    expect(body.results.filter((r) => !r.deleted).length).toBe(1);
+    expect(body.results.find((r) => !r.deleted)?.error).toMatch(/not a symlink/i);
   });
 });

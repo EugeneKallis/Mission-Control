@@ -9,17 +9,19 @@
  *   3. the path on disk is still a symlink (re-`lstat` to be sure —
  *      a TOCTOU race between listing and clicking delete is unlikely
  *      but cheap to guard against),
- *   4. the symlink target resolves to nothing (re-`stat` to follow —
- *      a non-broken symlink is rejected, even if the row says
- *      `broken`, so a recovered file isn't deleted).
+ *   4. the symlink target is not playable (re-`probeFileReadable` —
+ *      a file whose container header is intact but whose stream
+ *      body is corrupt or whose mount returns headers but not bytes
+ *      is treated as broken, so the user can clean it up).
  * We rm only the symlink path (never the target).
  */
 import { NextRequest, NextResponse } from "next/server";
-import { lstat, rm, stat } from "fs/promises";
+import { lstat, rm } from "fs/promises";
 import {
   deleteFileCheckRow,
   getFileCheck,
 } from "@/lib/db/queries";
+import { probeFileReadable } from "@/lib/broken-link";
 
 export async function POST(
   _request: NextRequest,
@@ -54,20 +56,21 @@ export async function POST(
         { status: 409 },
       );
     }
-    await stat(row.filePath); // follow — throws if target is missing
-    return NextResponse.json(
-      { error: "Symlink target is now reachable; refusing to delete (it may have recovered)" },
-      { status: 409 },
-    );
-  } catch (err) {
-    if (!(err as NodeJS.ErrnoException).code) {
+    // Probe the target with ffprobe — if it returns packets, the
+    // file is playable and we should NOT delete. If it fails (target
+    // missing, corrupt, mount returns headers but not bytes), proceed.
+    const probe = await probeFileReadable(row.filePath, 10);
+    if (probe.ok) {
       return NextResponse.json(
-        { error: `Safety check failed: ${(err as Error).message}` },
-        { status: 500 },
+        { error: `Symlink target is playable (${probe.packets} packets); refusing to delete` },
+        { status: 409 },
       );
     }
-    // Expected: lstat succeeded (it's a symlink) but stat (follow)
-    // failed (target missing). Proceed with the delete.
+  } catch (err) {
+    return NextResponse.json(
+      { error: `Safety check failed: ${(err as Error).message}` },
+      { status: 500 },
+    );
   }
 
   try {

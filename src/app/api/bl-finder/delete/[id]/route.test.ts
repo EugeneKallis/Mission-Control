@@ -23,10 +23,28 @@ import { jsonBody, status } from "@/test-utils/route-helpers";
 
 let testDB: TestDB;
 let tmpDir: string;
+let mockProbeResult: {
+  ok: boolean;
+  packets: number;
+  error?: string;
+  elapsedMs: number;
+};
 
 beforeAll(async () => {
   testDB = await makeTestDB();
   mock.module("@/lib/db", () => ({ db: testDB.db }));
+  mock.module("@/lib/broken-link", () => ({
+    probeFileReadable: async () => mockProbeResult,
+  }));
+});
+
+beforeEach(() => {
+  mockProbeResult = {
+    ok: false,
+    packets: 0,
+    error: "no packets (mock)",
+    elapsedMs: 5,
+  };
 });
 
 beforeEach(async () => {
@@ -80,15 +98,15 @@ describe("POST /api/bl-finder/delete/[id]", () => {
     expect(body.error).toMatch(/not 'broken'/);
   });
 
-  test("deletes a real broken symlink and removes the row", async () => {
+  test("deletes a symlink whose target is unplayable (probe fails)", async () => {
+    mockProbeResult = { ok: false, packets: 0, error: "empty file", elapsedMs: 5 };
+
     const target = join(tmpDir, "target.mkv");
     await writeFile(target, "");
     const link = join(tmpDir, "link.mkv");
-    // Symlink whose target is then removed = broken symlink.
     await symlink(target, link);
-    await rm(target, { force: true });
+    // Target exists but is empty/unplayable — probe says not ok.
 
-    // Sanity: confirm it's a broken symlink.
     const st = await lstat(link);
     expect(st.isSymbolicLink()).toBe(true);
 
@@ -108,7 +126,9 @@ describe("POST /api/bl-finder/delete/[id]", () => {
     expect(remaining).toBeNull();
   });
 
-  test("refuses to delete if the symlink target is now reachable (recovered)", async () => {
+  test("refuses to delete if the symlink target is playable (recovered)", async () => {
+    mockProbeResult = { ok: true, packets: 5, elapsedMs: 10 };
+
     const target = join(tmpDir, "target.mkv");
     await writeFile(target, "");
     const link = join(tmpDir, "link.mkv");
@@ -118,7 +138,7 @@ describe("POST /api/bl-finder/delete/[id]", () => {
     const res = await callDelete(row.id);
     expect(status(res)).toBe(409);
     const body = (await jsonBody(res)) as { error: string };
-    expect(body.error).toMatch(/recovered/);
+    expect(body.error).toMatch(/playable|packets/);
 
     // Symlink and row still present.
     expect((await lstat(link)).isSymbolicLink()).toBe(true);
