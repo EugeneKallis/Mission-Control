@@ -30,6 +30,8 @@ export function BlFinderPage() {
   const [config, setConfig] = useState<BlFinderConfig | null>(null);
   const [envInfo, setEnvInfo] = useState<{ mediaBasePath: string; mediaDirectories: string[] } | null>(null);
   const [mediaDirs, setMediaDirs] = useState<string[]>([]);
+  const [showLog, setShowLog] = useState(false);
+  const [logEntries, setLogEntries] = useState<{ t: number; level: string; msg: string }[]>([]);
 
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [mediaDirFilter, setMediaDirFilter] = useState<string>("");
@@ -94,6 +96,15 @@ export function BlFinderPage() {
     } catch { /* ignore */ }
   }, []);
 
+  const fetchLog = useCallback(async () => {
+    try {
+      const res = await fetch("/api/bl-finder/log?n=100");
+      if (!res.ok) return;
+      const data = (await res.json()) as { entries: { t: number; level: string; msg: string }[] };
+      setLogEntries(data.entries);
+    } catch { /* ignore */ }
+  }, []);
+
   // Derive the media-dir filter list from the row set so the dropdown
   // reflects what's actually in the DB.
   useEffect(() => {
@@ -108,6 +119,11 @@ export function BlFinderPage() {
     void fetchStatus();
     void fetchConfig();
   }, [fetchRows, fetchStatus, fetchConfig]);
+
+  // Fetch log when the panel is opened.
+  useEffect(() => {
+    if (showLog) void fetchLog();
+  }, [showLog, fetchLog]);
 
   // ── Re-fetch rows when filters change ───────────────────────────────
   useEffect(() => {
@@ -132,6 +148,13 @@ export function BlFinderPage() {
       void cancelled;
     };
   }, [fetchStatus, status?.running]);
+
+  // Poll log every 3s when panel is open.
+  useEffect(() => {
+    if (!showLog) return;
+    const id = setInterval(() => { void fetchLog(); }, 3000);
+    return () => clearInterval(id);
+  }, [showLog, fetchLog]);
 
   // ── Actions ─────────────────────────────────────────────────────────
   const recheckAll = useCallback(async () => {
@@ -232,6 +255,12 @@ export function BlFinderPage() {
   const usingEnvDirs = useMemo(() => {
     return (!config?.mediaDirs || config.mediaDirs.length === 0) && !!envInfo;
   }, [config?.mediaDirs, envInfo]);
+
+  /** Format a unix ms timestamp for the log. */
+  const formatLogTime = useCallback((t: number) => {
+    const d = new Date(t);
+    return d.toLocaleTimeString("en-US", { hour12: false });
+  }, []);
 
   return (
     <div
@@ -341,8 +370,56 @@ export function BlFinderPage() {
                 <span>{status.error}</span>
               </span>
             )}
+            {/* Log toggle */}
+            <button
+              type="button"
+              onClick={() => setShowLog((v) => !v)}
+              className="inline-flex items-center gap-1 whitespace-nowrap ml-auto cursor-pointer hover:text-[#E5E2E1] transition-colors"
+              style={{ color: showLog ? "#56FFA7" : "#849587" }}
+            >
+              <span className="material-symbols-outlined text-[12px]">
+                {showLog ? "expand_less" : "article"}
+              </span>
+              <span className="text-[10px] uppercase tracking-wider font-semibold">
+                {showLog ? "Hide log" : "Log" + (logEntries.length > 0 ? " (" + logEntries.length + ")" : "")}
+              </span>
+            </button>
           </div>
-        )}
+          )}
+
+          {showLog && (
+            <div
+              className="mt-2 px-3 py-2 max-h-[240px] overflow-y-auto"
+              style={{
+                background: "#151515",
+                border: "1px solid rgba(59, 75, 63, 0.3)",
+              }}
+            >
+              {logEntries.length === 0 ? (
+                <p className="text-[11px] italic" style={{ color: "#5A6B5E" }}>
+                  No log entries yet.
+                </p>
+              ) : (
+                <div className="space-y-0.5">
+                  {logEntries.map((e, i) => (
+                    <div
+                      key={i}
+                      className="flex items-start gap-2 text-[11px] font-mono leading-relaxed"
+                      style={{ color: e.level === "error" ? "#FFB4AB" : e.level === "warn" ? "#FFD680" : "#849587" }}
+                    >
+                      <span className="shrink-0" style={{ color: "#5A6B5E" }}>
+                        {formatLogTime(e.t)}
+                      </span>
+                      <span className="shrink-0 text-[10px] uppercase tracking-wider" style={{ opacity: 0.6 }}>
+                        [{e.level}]
+                      </span>
+                      <span className="break-all">{e.msg}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
         {/* ── Config bar ────────────────────────────────────────── */}
         {config && (

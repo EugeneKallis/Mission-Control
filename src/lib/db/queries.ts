@@ -795,6 +795,12 @@ export interface BlFinderStatus {
   ok: number;
   broken: number;
   error: string | null;
+  /**
+   * When set to a future timestamp, the worker will force a discovery
+   * on its next tick regardless of discoverIntervalSec. Set by
+   * trigger-scan so "Discover" takes effect immediately.
+   */
+  forceWakeAt: number | null;
 }
 
 const BLFINDER_STATUS_STALE_MS = 5 * 60 * 1000;
@@ -807,6 +813,7 @@ export const DEFAULT_BLFINDER_STATUS: BlFinderStatus = {
   ok: 0,
   broken: 0,
   error: null,
+  forceWakeAt: null,
 };
 
 export async function getBlFinderStatus(): Promise<BlFinderStatus> {
@@ -846,6 +853,49 @@ export async function setBlFinderStatus(status: Partial<BlFinderStatus>): Promis
     create: { key: BLFINDER_STATUS_KEY, value: JSON.stringify(merged) },
   });
   return merged;
+}
+
+// ── BL Finder log (rotating buffer, kept in the settings table) ─────────────
+
+export const BLFINDER_LOG_KEY = "blfinder_log";
+export const BLFINDER_LOG_MAX = 200;
+
+export interface BlFinderLogEntry {
+  t: number; // unix ms timestamp
+  level: string; // "info" | "warn" | "error"
+  msg: string;
+}
+
+/** Append a log entry to the rotating buffer (oldest entries dropped at the limit). */
+export async function logBlFinder(level: string, msg: string): Promise<void> {
+  try {
+    const row = await db.setting.findUnique({ where: { key: BLFINDER_LOG_KEY } });
+    let entries: BlFinderLogEntry[] = [];
+    if (row?.value) {
+      try { entries = JSON.parse(row.value) as BlFinderLogEntry[]; } catch { entries = []; }
+    }
+    entries.push({ t: Date.now(), level, msg });
+    if (entries.length > BLFINDER_LOG_MAX) entries = entries.slice(-BLFINDER_LOG_MAX);
+    await db.setting.upsert({
+      where: { key: BLFINDER_LOG_KEY },
+      update: { value: JSON.stringify(entries) },
+      create: { key: BLFINDER_LOG_KEY, value: JSON.stringify(entries) },
+    });
+  } catch {
+    // Best-effort — don't let logging crash anything.
+  }
+}
+
+/** Read the last N log entries (newest first). */
+export async function getBlFinderLog(n = 100): Promise<BlFinderLogEntry[]> {
+  try {
+    const row = await db.setting.findUnique({ where: { key: BLFINDER_LOG_KEY } });
+    if (!row?.value) return [];
+    const entries = JSON.parse(row.value) as BlFinderLogEntry[];
+    return entries.slice(-n).reverse();
+  } catch {
+    return [];
+  }
 }
 
 

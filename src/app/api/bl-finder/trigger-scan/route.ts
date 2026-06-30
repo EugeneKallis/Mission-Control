@@ -21,7 +21,11 @@ import {
 export async function POST(_request: NextRequest) {
   try {
     const result = await markAllFilesRecheck();
-    await setBlFinderStatus({ lastPassAt: null });
+    await setBlFinderStatus({
+      lastPassAt: null,
+      // Signal the worker to wake up and discover immediately on its next tick.
+      forceWakeAt: Date.now() + 1000,
+    });
     return NextResponse.json({ updated: result.count });
   } catch (err) {
     console.error("POST /api/bl-finder/trigger-scan failed:", err);

@@ -32,12 +32,14 @@
 import { discoverFiles, probeFileReadable } from "@/lib/broken-link";
 import {
   getBlFinderConfig,
+  getBlFinderStatus,
   pickFilesDueForCheck,
   resetStaleChecking,
   setBlFinderStatus,
   setFileCheckResult,
   upsertFileCheck,
   markFileChecking,
+  logBlFinder,
   type BlFinderConfig,
 } from "@/lib/db/queries";
 import { parseArgs } from "../../scripts/_lib/cli";
@@ -116,6 +118,19 @@ export async function main() {
     };
     const effective: BlFinderConfig = { ...config, ...cliOverrides };
 
+    // Check if the page signalled a forced wake (from trigger-scan).
+    let forceWake = false;
+    try {
+      const st = await getBlFinderStatus();
+      if (st.forceWakeAt && Date.now() < st.forceWakeAt) {
+        forceWake = true;
+        // Clear the flag so it only fires once.
+        await setBlFinderStatus({ forceWakeAt: null }).catch(() => {});
+      }
+    } catch { /* ignore */ }
+
+    const isDiscoverTime = forceWake || (Date.now() - lastDiscoverAt > effective.discoverIntervalSec * 1000);
+
     try {
       const result = await pollOnce({
         intervalSec: effective.intervalSec,
@@ -125,7 +140,7 @@ export async function main() {
         recheckAgeDays: effective.recheckAgeDays,
         discoverIntervalSec: effective.discoverIntervalSec,
         mediaDirs: effective.mediaDirs,
-        forceDiscover: Date.now() - lastDiscoverAt > effective.discoverIntervalSec * 1000,
+        forceDiscover: isDiscoverTime,
         scanOnly: args["scan-only"],
         checkOnly: args["check-only"],
       });
@@ -186,8 +201,10 @@ export async function pollOnce(opts: PollOnceOptions): Promise<BlFinderPassResul
         }
         result.discovered = seeds.length;
         info(`discovered ${seeds.length} media symlink(s)`);
+        void logBlFinder("info", `discovered ${seeds.length} media symlink(s)`);
       } catch (err) {
         warn(`Discovery failed: ${(err as Error).message}`);
+        void logBlFinder("warn", `Discovery failed: ${(err as Error).message}`);
         result.error = `discovery: ${(err as Error).message}`;
       }
     }
@@ -200,6 +217,7 @@ export async function pollOnce(opts: PollOnceOptions): Promise<BlFinderPassResul
     const graceMs = opts.timeoutSec * 1000 + 30_000;
     await resetStaleChecking(graceMs).catch((err) => {
       warn(`resetStaleChecking failed: ${(err as Error).message}`);
+      void logBlFinder("warn", `resetStaleChecking failed: ${(err as Error).message}`);
     });
 
     // 3. Pick + probe a batch.
@@ -208,6 +226,7 @@ export async function pollOnce(opts: PollOnceOptions): Promise<BlFinderPassResul
       info("no files due for check");
       return result;
     }
+    void logBlFinder("info", `checking ${due.length} file(s) (concurrency=${opts.concurrency}, timeout=${opts.timeoutSec}s)`);
     info(`checking ${due.length} file(s) (concurrency=${opts.concurrency}, timeout=${opts.timeoutSec}s)`);
 
     // Mark all as checking first. If the worker dies between the mark
@@ -241,8 +260,10 @@ export async function pollOnce(opts: PollOnceOptions): Promise<BlFinderPassResul
             result.checked++;
             if (probe.ok) result.ok++;
             else result.broken++;
+            void logBlFinder("info", `checked ${next.filePath} → ${probe.ok ? "ok" : "broken"} (${probe.elapsedMs}ms)`);
           } catch (err) {
             warn(`setFileCheckResult(${next.id}) failed: ${(err as Error).message}`);
+            void logBlFinder("warn", `setFileCheckResult(${next.id}) failed: ${(err as Error).message}`);
           }
         }
       },
@@ -251,6 +272,7 @@ export async function pollOnce(opts: PollOnceOptions): Promise<BlFinderPassResul
   } catch (err) {
     result.error = (err as Error).message;
     warn(`Pass error: ${result.error}`);
+    void logBlFinder("error", `Pass error: ${result.error}`);
   } finally {
     await setBlFinderStatus({
       running: false,
