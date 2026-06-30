@@ -192,11 +192,6 @@ export async function runPornRipsScrape(): Promise<{ pages: number; inserted: nu
 
       if (await scrapeResultExists(uniqueKey)) continue;
 
-      // Parse file size string to bytes if available
-      const fileSizeBytes = item.fileSize
-        ? (await import("./shared")).parseSize(item.fileSize)
-        : null;
-
       try {
         await createScrapeResult({
           source: "pornrips",
@@ -206,7 +201,7 @@ export async function runPornRipsScrape(): Promise<{ pages: number; inserted: nu
           torrentLink: torrentURL,
           uniqueKey,
           infoHash: null,
-          fileSize: fileSizeBytes,
+          fileSize: item.fileSize || null,
           tags: tagsStr || null,
         });
         inserted++;
