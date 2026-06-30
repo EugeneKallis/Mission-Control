@@ -100,16 +100,20 @@ lint:
     bun next lint
 
 # Run unit tests (bun:test, co-located *.test.ts / *.test.tsx)
+# --isolate runs each test file in a fresh global object, which prevents
+# the happy-dom DOM from leaking between files (the alternative is
+# brittle per-test `cleanup()` calls that happy-dom can leave behind
+# stale elements from).
 test:
-    bun test
+    bun test --isolate
 
 # Run unit tests in watch mode
 test-watch:
-    bun test --watch
+    bun test --isolate --watch
 
 # Run unit tests with coverage report
 test-coverage:
-    bun test --coverage
+    bun test --isolate --coverage
 
 # Type-check test files only
 typecheck-tests:

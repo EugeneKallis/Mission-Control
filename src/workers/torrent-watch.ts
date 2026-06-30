@@ -126,27 +126,31 @@ async function submitMagnet(path: string, client: DecypharrClient) {
 }
 
 /** Returns true when the file size is the same across two reads. */
-async function sizeStable(path: string): Promise<boolean> {
+export async function sizeStable(path: string): Promise<boolean> {
   const size1 = (await stat(path)).size;
   await sleep(SIZE_STABILITY_DELAY_MS);
   const size2 = (await stat(path)).size;
   return size1 === size2;
 }
 
-async function retry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
+export async function retry<T>(
+  fn: () => Promise<T>,
+  attempts = 3,
+  delayMs: number = RETRY_DELAY_MS,
+): Promise<T> {
   let lastErr: unknown;
   for (let i = 0; i < attempts; i++) {
     try {
       return await fn();
     } catch (err) {
       lastErr = err;
-      if (i < attempts - 1) await sleep(RETRY_DELAY_MS);
+      if (i < attempts - 1) await sleep(delayMs);
     }
   }
   throw lastErr;
 }
 
-function sleep(ms: number): Promise<void> {
+export function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 

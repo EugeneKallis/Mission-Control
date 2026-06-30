@@ -25,7 +25,7 @@ import { getConfig } from "@/lib/config";
 import { parseArgs } from "../_lib/cli";
 import { banner, error, info, summary, warn } from "../_lib/log";
 
-const MEDIA_EXTS = new Set([".mkv", ".mp4", ".avi", ".mov", ".wmv", ".flv", ".webm", ".ts", ".m2ts"]);
+export const MEDIA_EXTS = new Set([".mkv", ".mp4", ".avi", ".mov", ".wmv", ".flv", ".webm", ".ts", ".m2ts"]);
 
 async function main() {
   const args = parseArgs({
@@ -116,12 +116,12 @@ async function walk(
   }
 }
 
-function extOf(p: string): string {
+export function extOf(p: string): string {
   const m = p.match(/\.[^./]+$/);
   return m ? m[0].toLowerCase() : "";
 }
 
-async function isMedia(target: string): Promise<boolean> {
+export function isMedia(target: string): boolean {
   return MEDIA_EXTS.has(extOf(target));
 }
 

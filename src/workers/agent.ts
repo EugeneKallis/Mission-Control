@@ -46,7 +46,7 @@ function log(...parts: unknown[]): void {
 
 let lastNetSample: { sent: number; recv: number; ts: number } | null = null;
 
-function getIpAddress(): string {
+export function getIpAddress(): string {
   const ifaces = networkInterfaces();
   for (const list of Object.values(ifaces)) {
     if (!list) continue;
@@ -57,7 +57,7 @@ function getIpAddress(): string {
   return "0.0.0.0";
 }
 
-function getNetworkCounters(): { sent: number; recv: number } {
+export function getNetworkCounters(): { sent: number; recv: number } {
   // We can't easily get cumulative network bytes in pure JS without
   // /proc/net/dev. Return cumulative-zero and let the server interpret
   // these as "current rate" if it wants. A future improvement is to
@@ -71,7 +71,7 @@ function getNetworkCounters(): { sent: number; recv: number } {
 
 // ── System stats ───────────────────────────────────────────────────────────
 
-function getCpuUsage(): number {
+export function getCpuUsage(): number {
   // Synchronous CPU usage in pure JS is tricky. Use a small sample:
   const samples = cpus();
   let total = 0;
@@ -83,10 +83,62 @@ function getCpuUsage(): number {
   return total > 0 ? Math.round(((total - idle) / total) * 100) : 0;
 }
 
-function getMemory(): { total: number; used: number } {
+export function getMemory(): { total: number; used: number } {
   const total = totalmem();
   const used = total - freemem();
   return { total, used };
+}
+
+// ── SSE wire format parser (pure) ──────────────────────────────────────────
+
+export interface SseEvent {
+  /** The event name from "event: foo" — undefined if no event line was present. */
+  name?: string;
+  /** The data payload (joined "data:" lines). */
+  data: string;
+}
+
+export interface ParsedSseChunk {
+  events: SseEvent[];
+  /** Trailing bytes that didn't yet contain a full "\n\n" delimiter. */
+  remainder: string;
+}
+
+/**
+ * Parse a SSE message stream buffer. The wire format is one or more
+ * records separated by "\n\n", where each record may contain:
+ *   - "event: <name>"     (optional)
+ *   - "data: <text>"      (one or more, joined with "\n")
+ *   - ": <comment>"       (ignored)
+ * Returns the complete events and the trailing remainder that should
+ * be prepended to the next chunk.
+ *
+ * Extracted from `connectEvents` for unit testing.
+ */
+export function parseSseChunk(buffer: string): ParsedSseChunk {
+  const events: SseEvent[] = [];
+  let idx: number;
+  while ((idx = buffer.indexOf("\n\n")) !== -1) {
+    const raw = buffer.slice(0, idx);
+    buffer = buffer.slice(idx + 2);
+
+    const lines = raw.split("\n");
+    let eventName: string | null = null;
+    const dataLines: string[] = [];
+    for (const line of lines) {
+      if (line.startsWith(":")) continue; // comment / keep-alive
+      if (line.startsWith("event:")) {
+        eventName = line.slice(6).trim();
+      } else if (line.startsWith("data:")) {
+        dataLines.push(line.slice(5).trim());
+      }
+    }
+    const data = dataLines.join("\n");
+    // Drop records that contain only comments or are empty.
+    if (!eventName && !data) continue;
+    events.push({ name: eventName ?? undefined, data });
+  }
+  return { events, remainder: buffer };
 }
 
 // ── Command execution ─────────────────────────────────────────────────────
@@ -254,37 +306,23 @@ async function connectEvents(): Promise<void> {
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
 
-      // Parse SSE messages: "data: <json>\n\n" or "event: <name>\ndata: ..."
-      let idx: number;
-      while ((idx = buffer.indexOf("\n\n")) !== -1) {
-        const raw = buffer.slice(0, idx);
-        buffer = buffer.slice(idx + 2);
+      const { events, remainder } = parseSseChunk(buffer);
+      buffer = remainder;
 
-        const lines = raw.split("\n");
-        let eventName: string | null = null;
-        const dataLines: string[] = [];
-        for (const line of lines) {
-          if (line.startsWith(":")) continue; // comment / keep-alive
-          if (line.startsWith("event:")) {
-            eventName = line.slice(6).trim();
-          } else if (line.startsWith("data:")) {
-            dataLines.push(line.slice(5).trim());
-          }
-        }
-        const data = dataLines.join("\n");
-        if (eventName === "hello") {
+      for (const evt of events) {
+        if (evt.name === "hello") {
           log("received hello from server");
           continue;
         }
-        if (!data) continue;
+        if (!evt.data) continue;
 
         try {
-          const parsed = JSON.parse(data) as AgentCommand;
+          const parsed = JSON.parse(evt.data) as AgentCommand;
           if (parsed.type === "exec") {
             void executeCommand(parsed.commandID, parsed.command, parsed.dir);
           }
         } catch (err) {
-          log("malformed event:", err, "raw:", data.slice(0, 200));
+          log("malformed event:", err, "raw:", evt.data.slice(0, 200));
         }
       }
     }
@@ -354,6 +392,8 @@ process.on("SIGTERM", () => shutdown("SIGTERM"));
 
 // ── Main ──────────────────────────────────────────────────────────────────
 
-log(`agent starting — host=${HOSTNAME}, server=${SERVER_URL}, heartbeat=${HEARTBEAT_MS}ms`);
-void connectEvents();
-void heartbeatLoop();
+if (import.meta.main) {
+  log(`agent starting — host=${HOSTNAME}, server=${SERVER_URL}, heartbeat=${HEARTBEAT_MS}ms`);
+  void connectEvents();
+  void heartbeatLoop();
+}

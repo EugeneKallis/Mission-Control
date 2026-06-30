@@ -24,7 +24,23 @@ import { parseArgs } from "../_lib/cli";
 import { humanBytes } from "../_lib/format";
 import { banner, error, info, summary, warn } from "../_lib/log";
 
-const DEFAULT_THRESHOLD_MB = 75;
+export const DEFAULT_THRESHOLD_MB = 75;
+
+/**
+ * Pure helpers — exported for unit testing.
+ *
+ * The cleanup logic boils down to: a file is "small" if its size is
+ * strictly between 0 and the threshold. Zero-byte files are skipped
+ * (they're usually placeholder symlinks, handled by broken-link-finder)
+ * and the threshold is exclusive.
+ */
+export function mbToBytes(thresholdMB: number): number {
+  return thresholdMB * 1024 * 1024;
+}
+
+export function isSmallFile(size: number, cutoff: number): boolean {
+  return size > 0 && size < cutoff;
+}
 
 async function main() {
   const args = parseArgs({
@@ -40,7 +56,7 @@ async function main() {
   info(`Threshold: ${args.threshold} MB`);
   info(`Workers: ${args.workers}`);
 
-  const cutoff = args.threshold * 1024 * 1024;
+  const cutoff = mbToBytes(args.threshold);
   const candidates: string[] = [];
   try {
     await walk(root, cutoff, candidates);
@@ -120,7 +136,7 @@ async function walk(dir: string, cutoff: number, out: string[]) {
     } else if (e.isFile()) {
       try {
         const st = await lstat(full);
-        if (st.size > 0 && st.size < cutoff) out.push(full);
+        if (isSmallFile(st.size, cutoff)) out.push(full);
       } catch {
         // ignore
       }

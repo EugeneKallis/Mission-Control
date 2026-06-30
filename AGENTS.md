@@ -144,6 +144,7 @@ This tells the next agent exactly where to pick up.
 | Phase 7 — Scripts Migration | 18 (One-off scripts → TS) | ✅ Done |
 | Phase 8 — ServerTool Migration | 19 (Import from existing ServerTool DB) | ✅ Done |
 | Phase 9 — Live history polling | 20 (Incremental output + DB-driven history pages) | ✅ Done |
+| Phase 10 — Test coverage gaps | 21 (Component + route + script + worker tests) | ✅ Done |
 
 **Convention:** After completing a phase, update:
 1. This table (set Status to ✅ Done, add next phase as ⏳ In progress)
@@ -179,15 +180,27 @@ src/lib/cron.ts            # Cron expression builder + parser + validator
 ## Testing
 
 Unit tests use **bun:test** (built into Bun, no extra install). They
-are co-located with source files as `*.test.ts` and follow the
-project's exclusion in `tsconfig.json`; `tsconfig.test.json` is a
-dedicated project for type-checking the tests and is what
-`just typecheck` runs.
+are co-located with source files as `*.test.ts` / `*.test.tsx` and
+follow the project's exclusion in `tsconfig.json`; `tsconfig.test.json`
+is a dedicated project for type-checking the tests and is what
+`just typecheck` runs. **`just test` runs with `--isolate`** so
+`mock.module` state and the happy-dom global DOM do not leak between
+test files.
+
+### Test infrastructure (`src/test-utils/`)
+
+| File | Purpose |
+| ---- | ------- |
+| `preload.ts` | bunfig.toml preload: registers jest-dom matchers globally |
+| `render.tsx` | `render` / `screen` / `userEvent` re-exports + lazy happy-dom registration (so `.ts` tests keep Bun's native Blob/File) |
+| `route-helpers.ts` | `getRequest` / `jsonRequest` / `deleteRequest` / `jsonBody` / `status` for calling Next.js route handlers directly |
+| `jest-dom.d.ts` | module augmentation so `.toBeInTheDocument` etc. type-check against bun:test's `Matchers` |
 
 ### What is covered
 
 - All pure functions in `src/lib/` (`format`, `cron`, `live-bus`,
-  `agents/event-stream`, `agents/registry`, `arr-map`, `config`).
+  `agents/event-stream`, `agents/registry`, `arr-map`, `config`,
+  `migrate`, `runner`, `cron-scheduler`).
 - Every HTTP client in `src/lib/clients/` with `fetch` mocked
   (decypharr, real-debrid, arr, plex, trakt, tvmaze).
 - All three HTML parsers in `src/workers/scrapers/` plus the shared
@@ -207,20 +220,37 @@ dedicated project for type-checking the tests and is what
 - The file scanner's pure helpers (`classifyTarget`, `toPosix`,
   `parentOf`, `emptyToEmpty`, `pMap`, `computeFileCounts`).
 - The scraper runner's `parseTargets` argv parser.
+- The magnet-bridge worker's pure helpers (`resolvePath`,
+  `getDirSize`, `cleanupSmallSymlinks`, `moveToLibrary`).
+- **React components** in `src/components/ui/`, `src/components/layout/`,
+  `src/components/toast-provider.tsx`, `src/components/agent-modal.tsx`,
+  `src/components/macro-log-panel.tsx`, `src/components/browse-scripts.tsx`,
+  `src/components/file-tree-viewer.tsx`, `src/components/schedules/*`,
+  `src/components/scraper/*`, and `src/components/migrate/migrate-page.tsx`
+  (1039 tests total as of Phase 10).
+- **Next.js API routes** under `src/app/api/` — every `route.ts` is
+  tested by importing the exported `GET`/`POST`/`PUT`/`DELETE` and
+  calling them with `NextRequest` from `route-helpers.ts`. DB is
+  injected via `makeTestDB()` + `mock.module("@/lib/db", ...)`.
+- The `use-live-stream` hook with a stubbed `EventSource`.
+- Pure helpers extracted from `scripts/media/*`,
+  `scripts/util/command-runner.ts`, and the three worker main loops
+  (`agent.ts`, `scraper-worker.ts`, `torrent-watch.ts`).
 
 ### What is NOT covered (and why)
 
-- **React components** (`src/components/**`, `src/app/**/page.tsx`,
-  `src/hooks/*`) — would need `react-testing-library` and DOM
-  emulation. Not currently installed; add it if/when component tests
-  become valuable.
-- **Next.js API routes** (`src/app/api/**/route.ts`) — need the
-  Next.js test harness. Most routes are thin wrappers over the
-  queries module, which is already covered.
-- **The scraper / file-scanner / agent worker main loops** — these
-  are integration scripts that need real HTTP, real symlinks, or a
-  live agent. The pure logic they call is covered.
-- **`use-live-stream.ts`** — browser EventSource; needs JSDOM.
+- **App Router `page.tsx` files** (`src/app/**/page.tsx`) — most
+  are server components that call `db` directly; would need
+  Next.js test harness + RSC rendering. The components they render
+  *are* covered, so the logic is tested in isolation.
+- **Worker main-loop bodies** (`agent.ts`, `scraper-worker.ts`,
+  `torrent-watch.ts`, `magnet-bridge.ts` I/O loop) — integration
+  scripts that need real HTTP, real symlinks, or a live agent. The
+  pure helpers they call are covered; the loop bodies are smoke-tested
+  to assert `main()` exists.
+- **`scripts/util/icon-gen.ts`** — sharp + image I/O, low value.
+- **Scripts that perform live OAuth** (`plex-token-extractor.ts`,
+  `trakt-exporter.ts`) — interactive, not unit-testable.
 
 ### DB testing infrastructure
 
@@ -240,9 +270,9 @@ mocked `@/lib/db` is used.
 
 ### Test conventions
 
-- Test files are `*.test.ts` next to the source they cover. The main
-  `tsconfig.json` excludes them; `tsconfig.test.json` includes them
-  (and is what `just typecheck` runs).
+- Test files are `*.test.ts` or `*.test.tsx` next to the source they
+  cover. The main `tsconfig.json` excludes them; `tsconfig.test.json`
+  includes them (and is what `just typecheck` runs).
 - Use `describe`/`test`/`expect`/`mock` from `bun:test`.
 - `mock.module("@/lib/db", ...)` is process-global; tests that mock
   the same module should be in their own files so the mock doesn't
@@ -252,6 +282,16 @@ mocked `@/lib/db` is used.
   rather than replacing the module.
 - For `fetch` mocking, save the original `globalThis.fetch` in a
   module-level constant and restore it in `afterEach`.
+- For component tests, import `render` / `screen` / `userEvent` from
+  `@/test-utils/render` (NOT from `@testing-library/react` directly —
+  the helper registers happy-dom lazily).
+- For API route tests, import `GET` / `POST` / etc. directly from
+  the route file and call them with `NextRequest` from
+  `@/test-utils/route-helpers`. Re-import the route module after
+  mocking the DB with `import(\`./route.ts?bust=${Date.now()}-${Math.random()}\`)`
+  to bypass the module cache.
+- For DB tests, use `makeTestDB()` from `@/lib/db/test-helpers` and
+  clean up in `afterEach`.
 
 ## Phase 5 schedule form pattern
 

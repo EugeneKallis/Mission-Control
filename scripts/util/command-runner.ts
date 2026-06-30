@@ -21,6 +21,28 @@ import { spawn } from "bun";
 import { parseArgs } from "../_lib/cli";
 import { error, info } from "../_lib/log";
 
+/**
+ * Build the ssh argv that `main` passes to `spawn`. Exported for unit
+ * testing — the order of flags and the StrictHostKeyChecking policy
+ * matter and previously were only verifiable by running ssh for real.
+ */
+export function buildSshCommand(
+  host: string,
+  key: string,
+  port: number,
+  cmd: string,
+): string[] {
+  return [
+    "ssh",
+    "-i", key,
+    "-p", String(port),
+    "-o", "BatchMode=yes",
+    "-o", "StrictHostKeyChecking=accept-new",
+    host,
+    cmd,
+  ];
+}
+
 async function main() {
   const args = parseArgs({
     host: { type: "string", default: process.env.SSH_HOST || "root@mission-control.local" },
@@ -37,15 +59,7 @@ async function main() {
   info(`ssh ${args.host} (port ${args.port}) :: ${cmd}`);
 
   const proc = spawn({
-    cmd: [
-      "ssh",
-      "-i", args.key,
-      "-p", String(args.port),
-      "-o", "BatchMode=yes",
-      "-o", "StrictHostKeyChecking=accept-new",
-      args.host,
-      cmd,
-    ],
+    cmd: buildSshCommand(args.host, args.key, args.port, cmd),
     stdout: "inherit",
     stderr: "inherit",
     stdin: "inherit",

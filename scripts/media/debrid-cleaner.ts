@@ -56,7 +56,7 @@ export async function main(argv?: string[]) {
   }
   // Guard against unexpected entries (path traversal via "/" in a folder
   // name, or the . / .. sentinels).
-  const debridFolders = rawFolders.filter((f) => f.length > 0 && !f.includes("/") && f !== ".." && f !== ".");
+  const debridFolders = safeDebridFolders(rawFolders);
   info(`Found ${debridFolders.length} debrid folder(s) in rclone mount`);
 
   // 2. Walk media dirs to find every symlink target. The rclone mount
@@ -74,7 +74,7 @@ export async function main(argv?: string[]) {
   info(`Referenced debrid folders: ${referenced.size}`);
 
   // 3. Orphans = entries in rclone mount that are not referenced.
-  const orphans = debridFolders.filter((f) => !referenced.has(f));
+  const orphans = computeOrphans(debridFolders, referenced);
   info(`Orphan folders: ${orphans.length}`);
 
   let removed = 0;
@@ -122,8 +122,7 @@ async function walkSymlinks(dir: string, out: Set<string>) {
     if (entry.isSymbolicLink()) {
       try {
         const target = await readlink(full);
-        const parts = target.split("/").filter(Boolean);
-        const folder = parts.length >= 2 ? parts[parts.length - 2] : undefined;
+        const folder = rcloneFolderName(target);
         if (folder) out.add(folder);
       } catch {
         // broken symlink — ignore
@@ -163,5 +162,41 @@ if (import.meta.main) {
     error("debrid-cleaner failed", err);
     process.exit(1);
   });
+}
+
+/**
+ * Pure helpers — exported for unit testing.
+ *
+ * The rclone mount layout is `__all__/<FolderName>/<file>`, so a
+ * symlink target's "folder" is the segment immediately before the
+ * last path component. Returns `undefined` when the path doesn't
+ * have at least two segments (i.e. a stray root-level link).
+ */
+export function rcloneFolderName(target: string): string | undefined {
+  const parts = target.split("/").filter(Boolean);
+  return parts.length >= 2 ? parts[parts.length - 2] : undefined;
+}
+
+/**
+ * Filter out the readdir noise and anything that looks like a
+ * path-traversal payload (a folder name containing "/" would let a
+ * caller slip a path in via the rclone mount).
+ */
+export function safeDebridFolders(raw: string[]): string[] {
+  return raw.filter(
+    (f) => f.length > 0 && !f.includes("/") && f !== ".." && f !== ".",
+  );
+}
+
+/**
+ * Orphan = a folder in the rclone mount that no symlink target
+ * points to. Pure: same inputs ⇒ same output, no I/O.
+ */
+export function computeOrphans(
+  debridFolders: string[],
+  referenced: Iterable<string>,
+): string[] {
+  const ref = referenced instanceof Set ? referenced : new Set(referenced);
+  return debridFolders.filter((f) => !ref.has(f));
 }
 

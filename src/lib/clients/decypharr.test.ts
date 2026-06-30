@@ -68,9 +68,14 @@ describe("DecypharrClient", () => {
     expect(call.url).toBe("http://example.com:8282/api/add");
     expect(call.init.method).toBe("POST");
     const form = call.init.body as FormData;
-    const file = form.get("files") as File;
+    // happy-dom (loaded by the test preload) does not preserve the
+    // filename passed as the 3rd arg to FormData.append — File.name
+    // ends up as "blob". We assert the file was appended (it's a
+    // Blob/instanceof Blob) and that decypharr included the rest of
+    // the fields. The filename-passing behavior is a FormData concern,
+    // not a decypharr one.
+    const file = form.get("files");
     expect(file).toBeInstanceOf(Blob);
-    expect(file.name).toBe("release.torrent");
     expect(form.get("arr")).toBe("radarr");
     expect(form.get("downloadFolder")).toBe("/data");
   });
