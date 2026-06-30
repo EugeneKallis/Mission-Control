@@ -29,8 +29,25 @@ export function AppShell({ children, noScroll = false, showRightRail = false, ri
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [agentModalOpen, setAgentModalOpen] = useState(false);
   const [pendingMacroId, setPendingMacroId] = useState<number | null>(null);
+  const [uptime, setUptime] = useState<string | undefined>();
   const pathname = usePathname();
   const router = useRouter();
+
+  // Fetch server uptime
+  useEffect(() => {
+    fetch("/api/uptime")
+      .then((r) => r.json())
+      .then((data) => setUptime(data.uptime))
+      .catch(() => {});
+    // Refresh every 60s to keep the label accurate
+    const interval = setInterval(() => {
+      fetch("/api/uptime")
+        .then((r) => r.json())
+        .then((data) => setUptime(data.uptime))
+        .catch(() => {});
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Listen for agent-macro clicks from sidebar / right rail
   useEffect(() => {
@@ -66,7 +83,7 @@ export function AppShell({ children, noScroll = false, showRightRail = false, ri
       <div className="h-dvh w-full overflow-hidden flex flex-row bg-bg">
         {/* Desktop sidebar */}
         <aside className="hidden lg:flex w-[240px] bg-surface flex-col z-20 shrink-0">
-          <SidebarContent />
+          <SidebarContent uptime={uptime} />
         </aside>
 
         {/* Mobile drawer */}
@@ -87,14 +104,14 @@ export function AppShell({ children, noScroll = false, showRightRail = false, ri
               ${drawerOpen ? "translate-x-0" : "-translate-x-full"}
             `}
           >
-            <SidebarContent />
+            <SidebarContent uptime={uptime} />
           </div>
         </>
 
         {/* Main content area */}
         <main className="flex-1 flex flex-col min-h-0 bg-bg relative min-w-0 overflow-hidden">
           {/* Mobile header */}
-          <MobileHeader onMenuClick={() => setDrawerOpen(true)} />
+          <MobileHeader uptime={uptime} onMenuClick={() => setDrawerOpen(true)} />
 
           {/* Scrollable content */}
           <div
