@@ -558,6 +558,297 @@ export async function deleteDebridByPaths(paths: string[]) {
   return db.debridFile.deleteMany({ where: { path: { in: paths } } });
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+//  FILE CHECKS (broken-link finder)
+// ══════════════════════════════════════════════════════════════════════════
+
+export type FileCheckStatus = "pending" | "checking" | "ok" | "broken";
+
+export interface FileCheckRow {
+  id: number;
+  filePath: string;
+  lastChecked: Date | null;
+  brokenCount: number;
+  isIgnored: boolean;
+  errorMessage: string | null;
+  status: string;
+  checkCount: number;
+  mediaDir: string | null;
+  fileSize: number | null;
+  createdAt: Date;
+}
+
+/**
+ * Upsert by filePath. Only writes `mediaDir` and `fileSize` on create — on
+ * update we leave the existing values alone so a probe's later `fileSize`
+ * write (via `setFileCheckResult`) isn't clobbered by a stale discovery
+ * walk that runs between checks.
+ */
+export async function upsertFileCheck(data: {
+  filePath: string;
+  mediaDir: string;
+  fileSize?: number | null;
+}) {
+  return db.fileCheck.upsert({
+    where: { filePath: data.filePath },
+    update: {},
+    create: {
+      filePath: data.filePath,
+      mediaDir: data.mediaDir,
+      fileSize: data.fileSize ?? null,
+      status: "pending",
+    },
+  });
+}
+
+export interface ListFileChecksOptions {
+  status?: string;
+  mediaDir?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export async function listFileChecks(opts: ListFileChecksOptions = {}) {
+  const where: Record<string, unknown> = { isIgnored: false };
+  if (opts.status) where.status = opts.status;
+  if (opts.mediaDir) where.mediaDir = opts.mediaDir;
+  if (opts.search) where.filePath = { contains: opts.search };
+  return db.fileCheck.findMany({
+    where,
+    orderBy: [{ lastChecked: "asc" }],
+    take: opts.limit ?? 100,
+    skip: opts.offset ?? 0,
+  });
+}
+
+export async function countFileChecks(opts: ListFileChecksOptions = {}) {
+  const where: Record<string, unknown> = { isIgnored: false };
+  if (opts.status) where.status = opts.status;
+  if (opts.mediaDir) where.mediaDir = opts.mediaDir;
+  if (opts.search) where.filePath = { contains: opts.search };
+  return db.fileCheck.count({ where });
+}
+
+export async function getFileCheck(id: number) {
+  return db.fileCheck.findUniqueOrThrow({ where: { id } });
+}
+
+export async function getFileCheckByPath(filePath: string) {
+  return db.fileCheck.findUnique({ where: { filePath } });
+}
+
+/**
+ * Pick the next batch of files to probe. A row is due if:
+ *  - `isIgnored = false`
+ *  - AND (`status = 'pending'` OR `lastChecked IS NULL` OR
+ *    `lastChecked < now - recheckAgeDays`)
+ *  - AND `status != 'checking'` (we never probe a row another worker has in
+ *    flight). `resetStaleChecking` is expected to have already flipped
+ *    timed-out `checking` rows back to `pending`.
+ *
+ * Ordered by oldest `lastChecked` first (NULLs sort first in SQLite), so
+ * never-checked files are probed before recently-ok ones.
+ */
+export async function pickFilesDueForCheck(
+  limit: number,
+  recheckAgeDays: number,
+) {
+  const cutoff = new Date(Date.now() - recheckAgeDays * 24 * 60 * 60 * 1000);
+  return db.fileCheck.findMany({
+    where: {
+      isIgnored: false,
+      OR: [
+        { status: "pending" },
+        { lastChecked: null },
+        { lastChecked: { lt: cutoff } },
+      ],
+      NOT: { status: "checking" },
+    },
+    orderBy: [{ lastChecked: "asc" }],
+    take: limit,
+  });
+}
+
+/** Mark a row as in-flight. */
+export async function markFileChecking(id: number) {
+  return db.fileCheck.update({
+    where: { id },
+    data: { status: "checking" },
+  });
+}
+
+/** Write the result of a probe. Increments checkCount always; brokenCount
+ *  only on failure. */
+export async function setFileCheckResult(
+  id: number,
+  result: { ok: boolean; error?: string | null; fileSize?: number | null },
+) {
+  return db.fileCheck.update({
+    where: { id },
+    data: {
+      status: result.ok ? "ok" : "broken",
+      lastChecked: new Date(),
+      errorMessage: result.ok ? null : (result.error ?? "unknown error"),
+      fileSize: result.fileSize ?? undefined,
+      checkCount: { increment: 1 },
+      ...(result.ok ? {} : { brokenCount: { increment: 1 } }),
+    },
+  });
+}
+
+/**
+ * Reset rows that are stuck in `checking` (i.e. the worker crashed mid-probe)
+ * back to `pending` so the next tick can pick them up.
+ */
+export async function resetStaleChecking(graceMs: number) {
+  const cutoff = new Date(Date.now() - graceMs);
+  return db.fileCheck.updateMany({
+    where: { status: "checking", lastChecked: { lt: cutoff } },
+    data: { status: "pending" },
+  });
+}
+
+export async function markFileRecheck(id: number) {
+  return db.fileCheck.update({
+    where: { id },
+    data: { status: "pending" },
+  });
+}
+
+export async function markAllFilesRecheck(opts: { mediaDir?: string } = {}) {
+  return db.fileCheck.updateMany({
+    where: {
+      isIgnored: false,
+      ...(opts.mediaDir ? { mediaDir: opts.mediaDir } : {}),
+    },
+    data: { status: "pending" },
+  });
+}
+
+export async function deleteFileCheckRow(id: number) {
+  return db.fileCheck.delete({ where: { id } });
+}
+
+export async function toggleFileCheckIgnore(id: number) {
+  const row = await db.fileCheck.findUniqueOrThrow({ where: { id } });
+  return db.fileCheck.update({
+    where: { id },
+    data: { isIgnored: !row.isIgnored },
+  });
+}
+
+// ── BL Finder config + status (settings table) ──────────────────────────
+
+export const BLFINDER_CONFIG_KEY = "blfinder_config";
+export const BLFINDER_STATUS_KEY = "blfinder_status";
+
+export interface BlFinderConfig {
+  enabled: boolean;
+  intervalSec: number;
+  batchSize: number;
+  concurrency: number;
+  timeoutSec: number;
+  recheckAgeDays: number;
+  discoverIntervalSec: number;
+  mediaDirs: string[];
+}
+
+export const DEFAULT_BLFINDER_CONFIG: BlFinderConfig = {
+  enabled: true,
+  intervalSec: 60,
+  batchSize: 5,
+  concurrency: 2,
+  timeoutSec: 30,
+  recheckAgeDays: 7,
+  discoverIntervalSec: 30 * 60,
+  mediaDirs: [],
+};
+
+export async function getBlFinderConfig(): Promise<BlFinderConfig> {
+  const row = await db.setting.findUnique({ where: { key: BLFINDER_CONFIG_KEY } });
+  if (!row?.value) return { ...DEFAULT_BLFINDER_CONFIG };
+  try {
+    const parsed = JSON.parse(row.value) as Partial<BlFinderConfig>;
+    return { ...DEFAULT_BLFINDER_CONFIG, ...parsed };
+  } catch {
+    return { ...DEFAULT_BLFINDER_CONFIG };
+  }
+}
+
+export async function setBlFinderConfig(config: Partial<BlFinderConfig>): Promise<BlFinderConfig> {
+  const current = await getBlFinderConfig();
+  const merged: BlFinderConfig = { ...current, ...config };
+  await db.setting.upsert({
+    where: { key: BLFINDER_CONFIG_KEY },
+    update: { value: JSON.stringify(merged) },
+    create: { key: BLFINDER_CONFIG_KEY, value: JSON.stringify(merged) },
+  });
+  return merged;
+}
+
+export interface BlFinderStatus {
+  running: boolean;
+  setAt: number;
+  lastPassAt: number | null;
+  processed: number;
+  ok: number;
+  broken: number;
+  error: string | null;
+}
+
+const BLFINDER_STATUS_STALE_MS = 5 * 60 * 1000;
+
+export const DEFAULT_BLFINDER_STATUS: BlFinderStatus = {
+  running: false,
+  setAt: 0,
+  lastPassAt: null,
+  processed: 0,
+  ok: 0,
+  broken: 0,
+  error: null,
+};
+
+export async function getBlFinderStatus(): Promise<BlFinderStatus> {
+  const row = await db.setting.findUnique({ where: { key: BLFINDER_STATUS_KEY } });
+  if (!row?.value) return { ...DEFAULT_BLFINDER_STATUS };
+  try {
+    const parsed = JSON.parse(row.value) as BlFinderStatus;
+    if (parsed.running && Date.now() - parsed.setAt > BLFINDER_STATUS_STALE_MS) {
+      const cleared: BlFinderStatus = { ...parsed, running: false };
+      await setBlFinderStatus(cleared).catch(() => {});
+      return cleared;
+    }
+    return parsed;
+  } catch {
+    return { ...DEFAULT_BLFINDER_STATUS };
+  }
+}
+
+export async function setBlFinderStatus(status: Partial<BlFinderStatus>): Promise<BlFinderStatus> {
+  // Read the current row directly (bypass getBlFinderStatus to avoid
+  // recursion — getBlFinderStatus calls setBlFinderStatus for stale flags).
+  let current: BlFinderStatus;
+  const row = await db.setting.findUnique({ where: { key: BLFINDER_STATUS_KEY } });
+  if (row?.value) {
+    try {
+      current = JSON.parse(row.value) as BlFinderStatus;
+    } catch {
+      current = { ...DEFAULT_BLFINDER_STATUS };
+    }
+  } else {
+    current = { ...DEFAULT_BLFINDER_STATUS };
+  }
+  const merged: BlFinderStatus = { ...current, ...status, setAt: Date.now() };
+  await db.setting.upsert({
+    where: { key: BLFINDER_STATUS_KEY },
+    update: { value: JSON.stringify(merged) },
+    create: { key: BLFINDER_STATUS_KEY, value: JSON.stringify(merged) },
+  });
+  return merged;
+}
+
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  DATABASE METADATA (for the Database viewer page)
 // ═══════════════════════════════════════════════════════════════════════════

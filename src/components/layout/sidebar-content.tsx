@@ -171,6 +171,7 @@ export function SidebarContent({
         <NavItem label="Server Status" icon="dns" href="/status" color="green" />
         <NavItem label="Log Viewer" icon="terminal" href="/logs" color="primary" />
         <NavItem label="Database" icon="table_chart" href="/database" color="violet" />
+        <NavItem label="BL Finder" icon="broken_image" href="/database/bl-finder" color="amber" />
 
         {/* Divider */}
         <div className="my-3 mx-4 h-px" style={{ background: "rgba(59, 75, 63, 0.4)" }} />

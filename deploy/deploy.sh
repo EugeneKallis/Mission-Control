@@ -67,5 +67,6 @@ bunx prisma migrate deploy
 echo "→ Restarting services..."
 systemctl restart mission-control.service
 systemctl restart mission-control-magnet-bridge.service
+systemctl restart mission-control-broken-link-checker.service
 
 echo "=== Deploy complete ==="

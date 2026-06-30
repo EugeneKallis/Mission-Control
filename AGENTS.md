@@ -105,13 +105,15 @@ The script just does one job and exits; the scheduler calls it on the desired in
 
 ## Long-running workers (systemd service, `Restart=always`)
 
-Some workers (e.g. `src/workers/magnet-bridge.ts`, `src/workers/torrent-watch.ts`)
-are **always-on pollers**, not cron jobs. For these, ship a persistent
+Some workers (e.g. `src/workers/magnet-bridge.ts`, `src/workers/torrent-watch.ts`,
+`src/workers/broken-link-checker.ts`) are **always-on pollers**, not cron jobs. For these, ship a persistent
 `mission-control-<name>.service` unit alongside the code, install it from
 `deploy/install.sh`, and restart it from `deploy/deploy.sh` so it picks up
 new code on every push. The `just magnet-bridge`, `just magnet-bridge-logs`,
 `just magnet-bridge-restart`, and `just magnet-bridge-stop` recipes are
-the per-service management surface. Mirror this pattern for any new
+the per-service management surface. `bl-finder`, `bl-finder-logs`,
+`bl-finder-restart`, and `bl-finder-stop` mirror the same pattern. Mirror
+this pattern for any new
 long-running worker — do **not** schedule it via systemd timer; it would
 exit before the next tick and lose its in-memory state.
 
@@ -145,6 +147,7 @@ This tells the next agent exactly where to pick up.
 | Phase 8 — ServerTool Migration | 19 (Import from existing ServerTool DB) | ✅ Done |
 | Phase 9 — Live history polling | 20 (Incremental output + DB-driven history pages) | ✅ Done |
 | Phase 10 — Test coverage gaps | 21 (Component + route + script + worker tests) | ✅ Done |
+| Phase 11 — BL Finder | 22 (Broken-link checker: page + worker + API + deploy) | ✅ Done |
 
 **Convention:** After completing a phase, update:
 1. This table (set Status to ✅ Done, add next phase as ⏳ In progress)
@@ -628,6 +631,38 @@ Phase 9 makes the history tab a true database-driven view:
   true real-time output. History pages are deliberately DB-only.
 - Manual `Refresh` buttons on both history pages force an immediate
   fetch; the detail page shows a "Last updated: HH:MM:SS" label.
+
+## Phase 11 — BL Finder API surface
+
+| Method | Path | Purpose |
+| ------ | ------------------------------------------ | --------------------------------------------- |
+| GET | `/api/bl-finder` | List FileCheck rows with filters (status, mediaDir, search, limit, offset) + per-status counts |
+| GET | `/api/bl-finder/status` | Worker status (running, lastPassAt, processed/ok/broken counts) |
+| GET | `/api/bl-finder/config` | Read checker config |
+| PUT | `/api/bl-finder/config` | Update config (batch size, interval, concurrency, timeout, recheck age, discover interval) |
+| POST | `/api/bl-finder/recheck` | Mark all (or filtered by mediaDir) rows `pending` for recheck |
+| POST | `/api/bl-finder/recheck/[id]` | Recheck one file inline, returns result immediately |
+| POST | `/api/bl-finder/delete/[id]` | Delete broken symlink (safety-checked) + remove row |
+| POST | `/api/bl-finder/ignore/[id]` | Toggle `isIgnored` on a row |
+| POST | `/api/bl-finder/trigger-scan` | Mark all rows pending + clear worker's lastPassAt to trigger immediate discovery |
+
+## New directories added in Phase 11
+
+```
+src/components/bl-finder/
+  bl-finder-config-bar.tsx  # Editable config bar at the top of the page
+  bl-finder-page.tsx        # Main client component
+  bl-finder-row.tsx         # Single row in the file list
+  bl-finder-types.ts        # Shared TS types
+src/lib/broken-link.ts      # Pure helpers + probeFileReadable + discoverFiles + isBrokenSymlink
+src/lib/broken-link.test.ts # 15 tests (extOf, isMedia, discoverFiles, isBrokenSymlink, probeFileReadable)
+src/lib/p-map.ts            # Shared concurrency-limited parallel map (moved from file-scanner)
+src/workers/broken-link-checker.ts       # Long-running poller
+src/workers/broken-link-checker.test.ts  # 10 tests (pollOnce with mocked DB + mocked probe)
+src/app/database/bl-finder/page.tsx      # Page shell
+src/app/api/bl-finder/                   # 8 route files + tests (list, status, config, recheck, delete, ignore, trigger-scan)
+deploy/mission-control-broken-link-checker.service  # systemd unit
+```
 
 If the runner process dies mid-run, the `output` column reflects the
 last successful flush and the row stays in `status: "running"` until a

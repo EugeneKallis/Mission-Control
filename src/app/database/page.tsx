@@ -22,6 +22,30 @@ export default async function DatabasePage() {
         <h1 className="text-2xl font-bold mb-8 tracking-tight text-[#E5E2E1]" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
           Database Tables
         </h1>
+
+        {/* Pinned feature card — also linked from the sidebar. */}
+        <Link
+          href="/database/bl-finder"
+          className="block mb-6 p-4 rounded-lg transition-all duration-200 hover:scale-[1.01]"
+          style={{
+            background: "linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.02))",
+            border: "1px solid rgba(245, 158, 11, 0.3)",
+            color: "#E5E2E1",
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-amber-400">broken_image</span>
+            <div className="flex-1">
+              <div className="font-semibold">BL Finder</div>
+              <div className="text-xs italic mt-0.5" style={{ color: "#849587" }}>
+                Media file readability checks — broken symlinks, corrupt files, webdav unreadable
+              </div>
+            </div>
+            <span className="material-symbols-outlined" style={{ color: "#849587" }}>
+              chevron_right
+            </span>
+          </div>
+        </Link>
         {tables.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-[#849587] gap-3">
             <span className="material-symbols-outlined text-4xl">database</span>

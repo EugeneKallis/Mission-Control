@@ -28,6 +28,7 @@ import {
   deleteDebridFilesOlderThan,
 } from "@/lib/db/queries";
 import { getConfig } from "@/lib/config";
+import { pMap } from "@/lib/p-map";
 
 // ── Constants (mirror scanner.go) ─────────────────────────────────────────
 
@@ -85,21 +86,6 @@ export function parentOf(p: string): string {
 export function emptyToEmpty(p: string): string {
   // Go converts filepath.Dir's "." to "" when storing in DB.
   return p === "." ? "" : p;
-}
-
-/** Concurrency-limited parallel map. */
-export async function pMap<T, U>(items: T[], fn: (item: T) => Promise<U>, concurrency: number): Promise<U[]> {
-  const results: U[] = new Array(items.length);
-  let next = 0;
-  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
-    while (true) {
-      const i = next++;
-      if (i >= items.length) return;
-      results[i] = await fn(items[i]);
-    }
-  });
-  await Promise.all(workers);
-  return results;
 }
 
 // ── Walk ────────────────────────────────────────────────────────────────

@@ -108,8 +108,15 @@ model FileCheck {
   brokenCount  Int       @default(0) @map("broken_count")
   isIgnored    Boolean   @default(false) @map("is_ignored")
   errorMessage String?   @map("error_message")
+  status       String    @default("pending")
+  checkCount   Int       @default(0) @map("check_count")
+  mediaDir     String?   @map("media_dir")
+  fileSize     Int?      @map("file_size")
   createdAt    DateTime  @default(now()) @map("created_at")
 
+  @@index([status])
+  @@index([mediaDir])
+  @@index([lastChecked])
   @@map("file_checks")
 }
 

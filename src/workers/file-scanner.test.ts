@@ -21,9 +21,9 @@ import {
   toPosix,
   parentOf,
   emptyToEmpty,
-  pMap,
   computeFileCounts,
 } from "./file-scanner";
+import { pMap } from "@/lib/p-map";
 
 describe("classifyTarget", () => {
   test("classifies an NZB target", () => {

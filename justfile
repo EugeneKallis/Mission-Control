@@ -73,6 +73,24 @@ magnet-bridge-restart:
 magnet-bridge-stop:
     systemctl stop mission-control-magnet-bridge.service
 
+# ── BL Finder (long-running media readability poller) ─────────────────────────
+
+# Run the broken-link checker in the foreground (for local dev / debugging)
+bl-finder:
+    bun run src/workers/broken-link-checker.ts
+
+# Tail bl-finder logs
+bl-finder-logs:
+    journalctl -u mission-control-broken-link-checker.service -f
+
+# Restart the bl-finder service (picks up new code after deploy)
+bl-finder-restart:
+    systemctl restart mission-control-broken-link-checker.service
+
+# Stop the bl-finder service
+bl-finder-stop:
+    systemctl stop mission-control-broken-link-checker.service
+
 # ── One-off Scripts ──────────────────────────────────────────────────────────
 
 # Run a one-off TypeScript script:  just script scripts/foo.ts

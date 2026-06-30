@@ -1,0 +1,16 @@
+[Unit]
+Description=Mission Control — broken-link checker (long-running media readability poller)
+After=network.target
+
+[Service]
+Type=exec
+WorkingDirectory=/opt/mission-control
+ExecStart=/usr/local/bin/bun run src/workers/broken-link-checker.ts
+Environment=NODE_ENV=production
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

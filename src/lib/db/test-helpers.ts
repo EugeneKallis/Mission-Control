@@ -16,10 +16,9 @@
 
 import { PrismaClient } from "@prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
-import { readFile } from "fs/promises";
+import { readFile, readdir, unlink } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
-import { unlink } from "fs/promises";
 import { createHash } from "crypto";
 
 let counter = 0;
@@ -42,32 +41,45 @@ export async function makeTestDB(): Promise<TestDB> {
 
   const db = new PrismaClient({ adapter: new PrismaLibSql({ url }) });
 
-  // Apply the migration. We read the latest migration file from the
-  // project's prisma/migrations directory. The init migration in this
-  // repo uses simple `;\n\n` separation (no Prisma `--> statement-breakpoint`
-  // markers), so we split on `;` and drop pure-comment chunks. We also
-  // strip `-- ...` line comments because libsql doesn't always accept
-  // them in the middle of multi-statement scripts.
-  const migrationPath = join(
-    process.cwd(),
-    "prisma",
-    "migrations",
-    "20260621000306_init",
-    "migration.sql",
-  );
-  const raw = await readFile(migrationPath, "utf8");
-  // Strip line comments, then split on `;`.
-  const noComments = raw
-    .split("\n")
-    .filter((line) => !line.trim().startsWith("--"))
-    .join("\n");
-  const statements = noComments
-    .split(";")
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
+  // Apply ALL migrations in order, not just the init one. New migrations
+  // (e.g. the blfinder fields on file_checks) would otherwise be invisible
+  // to test DBs and the columns would be missing when tests run.
+  const migrationsRoot = join(process.cwd(), "prisma", "migrations");
+  let migrationDirs: string[];
+  try {
+    migrationDirs = (await readdir(migrationsRoot, { withFileTypes: true }))
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name)
+      .sort();
+  } catch {
+    migrationDirs = [];
+  }
 
-  for (const stmt of statements) {
-    await db.$executeRawUnsafe(stmt);
+  for (const dir of migrationDirs) {
+    const migrationPath = join(migrationsRoot, dir, "migration.sql");
+    let raw: string;
+    try {
+      raw = await readFile(migrationPath, "utf8");
+    } catch {
+      continue;
+    }
+    // Strip line comments, then split on `;`. Migrations in this repo use
+    // simple `;\n\n` separation (no Prisma `--> statement-breakpoint`
+    // markers), so splitting on `;` is sufficient. We also strip `-- ...`
+    // line comments because libsql doesn't always accept them in the
+    // middle of multi-statement scripts.
+    const noComments = raw
+      .split("\n")
+      .filter((line) => !line.trim().startsWith("--"))
+      .join("\n");
+    const statements = noComments
+      .split(";")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+
+    for (const stmt of statements) {
+      await db.$executeRawUnsafe(stmt);
+    }
   }
 
   return {
