@@ -8,7 +8,7 @@
  * Response: { ok: true }
  */
 import { NextResponse } from "next/server";
-import { setAcknowledgedAt } from "@/lib/log-alerts";
+import { setAcknowledgedAt } from "@/lib/log-alerts-server";
 
 export async function POST() {
   const now = Date.now();

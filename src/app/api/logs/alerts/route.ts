@@ -18,7 +18,7 @@
  * polls return 0 until new errors arrive.
  */
 import { NextResponse } from "next/server";
-import { getAllLogAlertCounts } from "@/lib/log-alerts";
+import { getAllLogAlertCounts } from "@/lib/log-alerts-server";
 
 export async function GET() {
   const counts = await getAllLogAlertCounts();

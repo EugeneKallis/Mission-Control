@@ -126,7 +126,7 @@ describe("GET /api/logs/alerts", () => {
     // Set watermark via the lib directly (no cache-bust — we need the
     // same module instance the route uses so the in-process cache is
     // invalidated properly).
-    const { setAcknowledgedAt } = await import("@/lib/log-alerts");
+    const { setAcknowledgedAt } = await import("@/lib/log-alerts-server");
     await setAcknowledgedAt(123456);
 
     const { GET } = await loadRoute();
@@ -137,7 +137,7 @@ describe("GET /api/logs/alerts", () => {
 
   test("passes --since to journalctl for each service", async () => {
     // Clear the in-process cache so getAllLogAlertCounts re-runs journalctl
-    const { clearCountsCache } = await import("@/lib/log-alerts");
+    const { clearCountsCache } = await import("@/lib/log-alerts-server");
     clearCountsCache();
 
     const prevCalls = execCalls.length;

@@ -58,7 +58,7 @@ describe("POST /api/logs/alerts/acknowledge", () => {
 
     // Read back via the lib
     const { getAcknowledgedAt } = await import(
-      `@/lib/log-alerts?bust=${Date.now()}-${Math.random()}`
+      `@/lib/log-alerts-server?bust=${Date.now()}-${Math.random()}`
     );
     const value = await getAcknowledgedAt();
     expect(value).toBeGreaterThan(before);
@@ -68,7 +68,7 @@ describe("POST /api/logs/alerts/acknowledge", () => {
   test("can be called multiple times — each call updates the watermark", async () => {
     const { POST } = await loadRoute();
     const { getAcknowledgedAt } = await import(
-      `@/lib/log-alerts?bust=${Date.now()}-${Math.random()}`
+      `@/lib/log-alerts-server?bust=${Date.now()}-${Math.random()}`
     );
 
     const req1 = jsonRequest("http://localhost/api/logs/alerts/acknowledge", {});

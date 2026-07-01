@@ -114,7 +114,7 @@ describe("DB watermark (getAcknowledgedAt / setAcknowledgedAt)", () => {
 
   test("returns null when no watermark exists", async () => {
     const { getAcknowledgedAt } = await import(
-      `./log-alerts?bust=${Date.now()}-${Math.random()}`
+      `./log-alerts-server?bust=${Date.now()}-${Math.random()}`
     );
     const result = await getAcknowledgedAt();
     expect(result).toBeNull();
@@ -122,7 +122,7 @@ describe("DB watermark (getAcknowledgedAt / setAcknowledgedAt)", () => {
 
   test("returns the stored epoch ms", async () => {
     const { setAcknowledgedAt, getAcknowledgedAt } = await import(
-      `./log-alerts?bust=${Date.now()}-${Math.random()}`
+      `./log-alerts-server?bust=${Date.now()}-${Math.random()}`
     );
     const now = Date.now();
     await setAcknowledgedAt(now);
@@ -132,7 +132,7 @@ describe("DB watermark (getAcknowledgedAt / setAcknowledgedAt)", () => {
 
   test("overwrites a previous watermark", async () => {
     const { setAcknowledgedAt, getAcknowledgedAt } = await import(
-      `./log-alerts?bust=${Date.now()}-${Math.random()}`
+      `./log-alerts-server?bust=${Date.now()}-${Math.random()}`
     );
     await setAcknowledgedAt(1000);
     await setAcknowledgedAt(2000);
@@ -142,7 +142,7 @@ describe("DB watermark (getAcknowledgedAt / setAcknowledgedAt)", () => {
 
   test("setAcknowledgedAt clears the in-memory cache", async () => {
     const mod = await import(
-      `./log-alerts?bust=${Date.now()}-${Math.random()}`
+      `./log-alerts-server?bust=${Date.now()}-${Math.random()}`
     );
     // Prime cache by calling getAllLogAlertCounts
     await mod.getAllLogAlertCounts();
@@ -186,11 +186,8 @@ describe("getAllLogAlertCounts", () => {
   });
 
   test("aggregates counts from mocked journalctl output", async () => {
-    // Re-mock for this test to return clean output
-    // Since mock.module is process-global, we just use the existing
-    // mock and test behavior. The mock above has error for scraper.
     const { getAllLogAlertCounts } = await import(
-      `./log-alerts?bust=${Date.now()}-${Math.random()}`
+      `./log-alerts-server?bust=${Date.now()}-${Math.random()}`
     );
     const result = await getAllLogAlertCounts();
     expect(typeof result.total).toBe("number");
@@ -201,7 +198,7 @@ describe("getAllLogAlertCounts", () => {
 
   test("per-service breakdown matches mock output", async () => {
     const { getAllLogAlertCounts } = await import(
-      `./log-alerts?bust=${Date.now()}-${Math.random()}`
+      `./log-alerts-server?bust=${Date.now()}-${Math.random()}`
     );
     const result = await getAllLogAlertCounts();
     // scraper: 2 errors ("Error:" + "FATAL:")
@@ -212,7 +209,7 @@ describe("getAllLogAlertCounts", () => {
 
   test("acknowledgedAt is null when no watermark set", async () => {
     const { getAllLogAlertCounts } = await import(
-      `./log-alerts?bust=${Date.now()}-${Math.random()}`
+      `./log-alerts-server?bust=${Date.now()}-${Math.random()}`
     );
     const result = await getAllLogAlertCounts();
     expect(result.acknowledgedAt).toBeNull();
@@ -220,12 +217,12 @@ describe("getAllLogAlertCounts", () => {
 
   test("acknowledgedAt reflects the stored watermark", async () => {
     const setMod = await import(
-      `./log-alerts?bust=${Date.now()}-${Math.random()}`
+      `./log-alerts-server?bust=${Date.now()}-${Math.random()}`
     );
     await setMod.setAcknowledgedAt(5000);
 
     const { getAllLogAlertCounts } = await import(
-      `./log-alerts?bust=${Date.now()}-${Math.random()}`
+      `./log-alerts-server?bust=${Date.now()}-${Math.random()}`
     );
     const result = await getAllLogAlertCounts();
     expect(result.acknowledgedAt).toBe(5000);
