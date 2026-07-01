@@ -44,6 +44,7 @@ export function SidebarContent({
   const [groupedMacros, setGroupedMacros] = useState<GroupWithMacros[]>([]);
   const [macrosLoading, setMacrosLoading] = useState(true);
   const [brokenCount, setBrokenCount] = useState<number | null>(null);
+  const [logErrorCount, setLogErrorCount] = useState<number | null>(null);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -85,6 +86,30 @@ export function SidebarContent({
     fetchBroken();
     const interval = setInterval(fetchBroken, 60_000);
     const onVis = () => { if (!document.hidden) fetchBroken(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
+
+  // Poll the Log Viewer error-alert count so the nav badge stays fresh.
+  // 60s interval + visibilitychange matches the BL Finder pattern.
+  useEffect(() => {
+    let cancelled = false;
+    const fetchLogAlerts = () => {
+      fetch("/api/logs/alerts")
+        .then((r) => r.json())
+        .then((data: { total?: number }) => {
+          if (cancelled) return;
+          if (typeof data.total === "number") setLogErrorCount(data.total);
+        })
+        .catch(() => { /* leave previous value */ });
+    };
+    fetchLogAlerts();
+    const interval = setInterval(fetchLogAlerts, 60_000);
+    const onVis = () => { if (!document.hidden) fetchLogAlerts(); };
     document.addEventListener("visibilitychange", onVis);
     return () => {
       cancelled = true;
@@ -195,7 +220,14 @@ export function SidebarContent({
         <div className="my-3 mx-4 h-px" style={{ background: "rgba(59, 75, 63, 0.4)" }} />
 
         <NavItem label="Server Status" icon="dns" href="/status" color="green" />
-        <NavItem label="Log Viewer" icon="terminal" href="/logs" color="primary" />
+        <NavItem
+          label="Log Viewer"
+          icon="terminal"
+          href="/logs"
+          color="primary"
+          badge={logErrorCount ?? undefined}
+          badgeTitle="errors"
+        />
         <NavItem label="Database" icon="table_chart" href="/database" color="violet" />
         <NavItem
           label="BL Finder"

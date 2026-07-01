@@ -14,6 +14,11 @@ interface NavItemProps {
    * need attention (e.g. broken-link files).
    */
   badge?: number;
+  /**
+   * Text for the badge's title/aria-label (default "broken").
+   * E.g. "errors" → title="5 errors".
+   */
+  badgeTitle?: string;
 }
 
 const accentColors: Record<string, string> = {
@@ -26,7 +31,7 @@ const accentColors: Record<string, string> = {
   rose: "hover:bg-rose-500/10",
 };
 
-export function NavItem({ label, icon, href, color = "primary", badge }: NavItemProps) {
+export function NavItem({ label, icon, href, color = "primary", badge, badgeTitle = "broken" }: NavItemProps) {
   const pathname = usePathname();
   const isActive = pathname === href;
   const showBadge = typeof badge === "number" && badge > 0;
@@ -50,7 +55,7 @@ export function NavItem({ label, icon, href, color = "primary", badge }: NavItem
             color: "#FFB4AB",
             border: "1px solid rgba(255, 180, 171, 0.35)",
           }}
-          title={`${badge} broken`}
+          title={`${badge} ${badgeTitle}`}
         >
           {badge > 99 ? "99+" : badge}
         </span>

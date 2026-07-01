@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
+import { useToast } from "@/components/toast-provider";
+import { isErrorLine } from "@/lib/log-alerts";
 
 const LABELS: Record<string, string> = {
   web: "Web",
@@ -19,7 +21,11 @@ export default function LogsPage() {
   const [excludeWeb, setExcludeWeb] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [errorCount, setErrorCount] = useState(0);
+  const [acknowledgedAt, setAcknowledgedAt] = useState<number | null>(null);
+  const [acknowledging, setAcknowledging] = useState(false);
   const terminalRef = useRef<HTMLPreElement>(null);
+  const toast = useToast();
   const userScrolledRef = useRef(false);
   const prevLogsRef = useRef<string>("");
 
@@ -74,6 +80,27 @@ export default function LogsPage() {
     return () => clearInterval(interval);
   }, [autoRefresh, service, fetchLogs]);
 
+  // ── Fetch alert counts (poll every 30s) ──────────────────────
+  const fetchAlerts = useCallback(async () => {
+    try {
+      const res = await fetch("/api/logs/alerts");
+      const data = await res.json();
+      setErrorCount(data.total ?? 0);
+      setAcknowledgedAt(data.acknowledgedAt ?? null);
+    } catch { /* leave previous values */ }
+  }, []);
+
+  useEffect(() => {
+    void fetchAlerts();
+    const interval = setInterval(() => { void fetchAlerts(); }, 30_000);
+    const onVis = () => { if (!document.hidden) void fetchAlerts(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [fetchAlerts]);
+
   // Track scroll position
   useEffect(() => {
     const el = terminalRef.current;
@@ -107,6 +134,39 @@ export default function LogsPage() {
       return true;
     })
     .join("\n");
+
+  // ── Per-line rendering (with highlight for errors) ────────────
+  const MAX_HIGHLIGHT_LINES = 8_000;
+  const lines = filteredLogs ? filteredLogs.split("\n") : [];
+  const useLineHighlight = lines.length <= MAX_HIGHLIGHT_LINES;
+
+  function renderLines() {
+    if (!filteredLogs) return "No logs available.";
+    if (!useLineHighlight) return filteredLogs;
+    const lineEls = lines.map((line, i) => {
+      const isError = line.trim() && isErrorLine(line);
+      return (
+        <span
+          key={i}
+          style={{
+            display: "block",
+            ...(isError
+              ? {
+                  color: "#FFB4AB",
+                  background: "rgba(255, 180, 171, 0.10)",
+                  borderLeft: "2px solid rgba(255, 180, 171, 0.45)",
+                  paddingLeft: "4px",
+                }
+              : {}),
+          }}
+        >
+          {line || "\u00A0"}
+        </span>
+      );
+    });
+    // Return a fragment so the pre renders it directly
+    return <>{lineEls}</>;
+  }
 
   return (
     <AppShell>
@@ -170,6 +230,58 @@ export default function LogsPage() {
             Auto-refresh
           </label>
 
+          {/* Error alert summary + Mark Resolved */}
+          {errorCount > 0 && (
+            <>
+              <span
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-mono rounded-none"
+                style={{
+                  background: "#3D1F1F",
+                  color: "#FFB4AB",
+                  border: "1px solid rgba(255, 180, 171, 0.25)",
+                }}
+              >
+                <span className="material-symbols-outlined text-sm">error</span>
+                {errorCount} error{errorCount !== 1 ? "s" : ""}
+                {acknowledgedAt
+                  ? ` since ${new Date(acknowledgedAt).toLocaleTimeString()}`
+                  : " in past 7d"}
+              </span>
+              <button
+                onClick={async () => {
+                  setAcknowledging(true);
+                  const ackTs = Date.now();
+                  try {
+                    const res = await fetch("/api/logs/alerts/acknowledge", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({}),
+                    });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    setErrorCount(0);
+                    setAcknowledgedAt(ackTs);
+                    toast.showToast("Alerts acknowledged", "success");
+                  } catch {
+                    toast.showToast("Failed to acknowledge alerts", "error");
+                    await fetchAlerts();
+                  } finally {
+                    setAcknowledging(false);
+                  }
+                }}
+                disabled={acknowledging}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-none disabled:opacity-50"
+                style={{
+                  background: "#3D1F1F",
+                  color: "#FFB4AB",
+                  border: "1px solid rgba(255, 180, 171, 0.25)",
+                }}
+              >
+                <span className="material-symbols-outlined text-sm">check_circle</span>
+                {acknowledging ? "Acknowledging…" : `Mark Resolved (${errorCount})`}
+              </button>
+            </>
+          )}
+
           {/* Manual refresh */}
           <button
             onClick={() => fetchLogs(service, false)}
@@ -201,7 +313,7 @@ export default function LogsPage() {
               scrollbarColor: "#3B4B3F transparent",
             }}
           >
-            {filteredLogs || "No logs available."}
+            {renderLines()}
           </pre>
         </div>
       </div>

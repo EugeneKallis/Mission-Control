@@ -670,3 +670,63 @@ If the runner process dies mid-run, the `output` column reflects the
 last successful flush and the row stays in `status: "running"` until a
 manual `updateHistory` (or a future "stale run" cleaner) finalises it.
 
+## Log Viewer alerts (error-count badge + Mark Resolved)
+
+The Log Viewer tab shows a red error-count badge on the sidebar nav item
+(matching the BL Finder badge) and highlights error lines in the terminal
+panel. A "Mark Resolved" button at the top clears all alerts at once using
+a **timestamp watermark** stored in the `settings` table.
+
+### Architecture
+
+- **Watermark model**: A single `Setting` row with key
+  `log_alerts:acknowledged_at` stores the epoch-ms timestamp of the last
+  "Mark Resolved" action. The error count always reflects lines logged
+  **after** this watermark.
+- **7-day bound**: Errors older than 7 days are never counted, even if no
+  watermark exists yet. Effective `--since` =
+  `max(acknowledgedAt, now − 7d)`.
+- **Error definition**: The shared regex `ERROR_RE` =
+  `\b(error|fatal|panic|crash|exception|failed)\b` (case-insensitive).
+  Web request lines (GET / POST / …) are excluded to avoid path-based
+  false positives.
+- **In-process cache**: `getAllLogAlertCounts()` caches results for 20s
+  so overlapping sidebar (60s poll) + logs-page (30s poll) fetches share
+  the same journalctl work. The cache is invalidated on acknowledge.
+
+### API surface
+
+| Method | Path | Purpose |
+| ------ | ------------------------------------------ | --------------------------------------------- |
+| GET | `/api/logs/alerts` | Count errors across all 4 services since watermark/7d. Returns `{ perService, total, acknowledgedAt }` |
+| POST | `/api/logs/alerts/acknowledge` | Acknowledge all alerts — sets watermark to now, clears badge until new errors appear |
+
+### Shared module (`src/lib/log-alerts.ts`)
+
+| Export | Purpose |
+| ------ | ------- |
+| `ERROR_RE` | Case-insensitive error regex for matching log lines |
+| `REQUEST_LINE_RE` | Regex to exclude web request noise |
+| `SERVICE_MAP` | Maps UI service keys to systemd unit names |
+| `isErrorLine(line)` | Pure: true if line is an error and not a request |
+| `countErrorsInText(text)` | Pure: count error lines in journal output |
+| `getAcknowledgedAt()` | Read watermark from settings table (null = never) |
+| `setAcknowledgedAt(ms)` | Write watermark + invalidate cache |
+| `runJournalctl(unit, sinceMs)` | Shell out to journalctl, returns text or "" on failure |
+| `getAllLogAlertCounts()` | Aggregate error counts across all services (cached 20s) |
+| `clearCountsCache()` | Invalidate the in-process cache (for tests) |
+
+### New/modified files
+
+```
+src/lib/log-alerts.ts                  # NEW — shared helpers + DB watermarks + journalctl
+src/lib/log-alerts.test.ts             # NEW — 17 tests (pure + DB + aggregation)
+src/app/api/logs/alerts/route.ts       # NEW — GET /api/logs/alerts
+src/app/api/logs/alerts/route.test.ts  # NEW — 5 tests
+src/app/api/logs/alerts/acknowledge/route.ts      # NEW — POST /api/logs/alerts/acknowledge
+src/app/api/logs/alerts/acknowledge/route.test.ts # NEW — 3 tests
+src/components/layout/nav-item.tsx     # MODIFIED — added badgeTitle prop
+src/components/layout/sidebar-content.tsx  # MODIFIED — polls /api/logs/alerts for badge
+src/app/logs/page.tsx                  # MODIFIED — error highlighting + Mark Resolved
+```
+
