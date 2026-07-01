@@ -61,7 +61,7 @@ export function AccessGate() {
       accept();
     }
 
-    const activityEvents = ["mousedown", "mousemove", "keypress", "scroll", "click", "touchstart"];
+    const activityEvents = ["mousedown", "mousemove", "keydown", "scroll", "click", "touchstart"];
     activityEvents.forEach((ev) => {
       document.addEventListener(ev, noteActivity, true);
     });
