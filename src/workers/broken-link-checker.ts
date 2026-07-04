@@ -226,7 +226,6 @@ export async function pollOnce(opts: PollOnceOptions): Promise<BlFinderPassResul
     // 3. Pick + probe a batch.
     const due = await pickFilesDueForCheck(opts.batchSize, opts.recheckAgeDays);
     if (due.length === 0) {
-      info("no files due for check");
       return result;
     }
     void logBlFinder("info", `checking ${due.length} file(s) (concurrency=${opts.concurrency}, timeout=${opts.timeoutSec}s)`);
