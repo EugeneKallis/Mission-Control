@@ -17,7 +17,7 @@ export function humanReadableSize(bytes: number): string {
     i++;
   }
   const isInt = Math.abs(v - Math.round(v)) < 0.05;
-  const decimals = i === 0 || isInt || v >= 100 ? 0 : 1;
+  const decimals = isInt || v >= 100 ? 0 : 1;
   return `${v.toFixed(decimals)} ${units[i]}`;
 }
 
@@ -54,8 +54,8 @@ export function formatSeconds(totalSeconds: number): string {
   const h = Math.floor((sec % 86400) / 3600);
   const m = Math.floor((sec % 3600) / 60);
   const s = sec % 60;
-  if (d > 0) return `${d}d ${h}h`;
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m ${s}s`;
+  if (d > 0) return h > 0 ? `${d}d ${h}h` : `${d}d`;
+  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  if (m > 0) return s > 0 ? `${m}m ${s}s` : `${m}m`;
   return `${s}s`;
 }

@@ -33,8 +33,12 @@ describe("humanReadableSize", () => {
     expect(humanReadableSize(500)).toBe("500 B");
   });
 
-  test("formats kilobytes", () => {
+  test("formats kilobytes round", () => {
     expect(humanReadableSize(1024)).toBe("1 KB");
+  });
+
+  test("formats kilobytes with one decimal", () => {
+    expect(humanReadableSize(1536)).toBe("1.5 KB");
   });
 
   test("formats megabytes with one decimal", () => {
@@ -45,18 +49,22 @@ describe("humanReadableSize", () => {
     expect(humanReadableSize(2.5 * 1024 ** 3)).toBe("2.5 GB");
   });
 
-  test("formats terabytes", () => {
+  test("formats terabytes round", () => {
     expect(humanReadableSize(3 * 1024 ** 4)).toBe("3 TB");
   });
 
   test("formats petabytes with one decimal", () => {
     expect(humanReadableSize(1.25 * 1024 ** 5)).toBe("1.3 PB");
   });
+
+  test("large sizes without decimals when >= 100", () => {
+    expect(humanReadableSize(100 * 1024 * 1024)).toBe("100 MB");
+  });
 });
 
 describe("formatDateTime", () => {
   test("produces 'Mon DD, HH:MM:SS' with zero-padded values", () => {
-    const d = new Date(2026, 5, 7, 9, 5, 3); // Jun 7, 2026 09:05:03 local
+    const d = new Date(2026, 5, 7, 9, 5, 3);
     expect(formatDateTime(d)).toBe("Jun 07, 09:05:03");
   });
 
@@ -96,18 +104,28 @@ describe("formatSeconds", () => {
   });
 
   test("minutes and seconds", () => {
-    expect(formatSeconds(60)).toBe("1m 0s");
+    expect(formatSeconds(60)).toBe("1m");
     expect(formatSeconds(125)).toBe("2m 5s");
   });
 
-  test("hours", () => {
-    expect(formatSeconds(3600)).toBe("1h 0m");
+  test("exact minutes", () => {
+    expect(formatSeconds(300)).toBe("5m");
+  });
+
+  test("hours with minutes", () => {
     expect(formatSeconds(3600 + 23 * 60)).toBe("1h 23m");
   });
 
-  test("days", () => {
-    expect(formatSeconds(86400)).toBe("1d 0h");
+  test("exact hours", () => {
+    expect(formatSeconds(3600)).toBe("1h");
+  });
+
+  test("days with hours", () => {
     expect(formatSeconds(90000)).toBe("1d 1h");
+  });
+
+  test("exact days", () => {
+    expect(formatSeconds(86400)).toBe("1d");
   });
 
   test("handles negative and non-finite", () => {

@@ -31,7 +31,7 @@ describe("humanDuration", () => {
   });
 
   test("minutes and seconds", () => {
-    expect(humanDuration(60)).toBe("1m 0s");
+    expect(humanDuration(60)).toBe("1m");
     expect(humanDuration(125)).toBe("2m 5s");
   });
 

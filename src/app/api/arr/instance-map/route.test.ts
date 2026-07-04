@@ -1,20 +1,28 @@
 /**
  * Unit tests for /api/arr/instance-map (GET)
  *
- * The route is a one-liner that returns getArrInstanceMap(). We mock
- * @/lib/arr-map directly so the test is hermetic.
+ * The route calls getConfig().arrInstances. We mock @/lib/config
+ * to return controlled test data.
  */
 
 import { describe, test, expect, mock, beforeEach } from "bun:test";
 import { jsonBody, status } from "@/test-utils/route-helpers";
 
-let getArrInstanceMapMock: ReturnType<typeof mock>;
+const DEFAULT_INSTANCES = [
+  { type: "radarr", name: "Radarr", url: "http://192.168.1.111:7878", apiKey: "" },
+  { type: "sonarr", name: "Sonarr", url: "http://192.168.1.111:8989", apiKey: "" },
+];
+
+function mockConfig(instances: typeof DEFAULT_INSTANCES) {
+  mock.module("@/lib/config", () => ({
+    getConfig: () => ({
+      arrInstances: instances,
+    }),
+  }));
+}
 
 beforeEach(() => {
-  getArrInstanceMapMock = mock(() => ({}));
-  mock.module("@/lib/arr-map", () => ({
-    getArrInstanceMap: getArrInstanceMapMock,
-  }));
+  mockConfig(DEFAULT_INSTANCES);
 });
 
 async function loadRoute() {
@@ -22,15 +30,7 @@ async function loadRoute() {
 }
 
 describe("GET /api/arr/instance-map", () => {
-  test("returns the map produced by getArrInstanceMap", async () => {
-    getArrInstanceMapMock = mock(() => ({
-      Radarr: "http://192.168.1.111:7878",
-      Sonarr: "http://192.168.1.111:8989",
-    }));
-    mock.module("@/lib/arr-map", () => ({
-      getArrInstanceMap: getArrInstanceMapMock,
-    }));
-
+  test("returns the map produced by getConfig", async () => {
     const { GET } = await loadRoute();
     const res = await GET();
     expect(status(res)).toBe(200);
@@ -41,10 +41,7 @@ describe("GET /api/arr/instance-map", () => {
   });
 
   test("returns an empty object when there are no Arr instances", async () => {
-    getArrInstanceMapMock = mock(() => ({}));
-    mock.module("@/lib/arr-map", () => ({
-      getArrInstanceMap: getArrInstanceMapMock,
-    }));
+    mockConfig([]);
 
     const { GET } = await loadRoute();
     const res = await GET();
@@ -52,12 +49,9 @@ describe("GET /api/arr/instance-map", () => {
     expect(await jsonBody(res)).toEqual({});
   });
 
-  test("returns 500 when getArrInstanceMap throws", async () => {
-    getArrInstanceMapMock = mock(() => {
-      throw new Error("config boom");
-    });
-    mock.module("@/lib/arr-map", () => ({
-      getArrInstanceMap: getArrInstanceMapMock,
+  test("returns 500 when getConfig throws", async () => {
+    mock.module("@/lib/config", () => ({
+      getConfig: () => { throw new Error("config boom"); },
     }));
 
     const { GET } = await loadRoute();
