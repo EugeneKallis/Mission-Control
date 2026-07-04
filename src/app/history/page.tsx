@@ -5,6 +5,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/toast-provider";
+import { formatSeconds } from "@/lib/format";
 
 interface HistoryItem {
   id: number;
@@ -37,10 +38,8 @@ function statusPill(status: string) {
 
 function formatDuration(start: string, end: string | null): string {
   if (!end) return "—";
-  const s = new Date(start).getTime();
-  const e = new Date(end).getTime();
-  const sec = Math.round((e - s) / 1000);
-  return `${sec}s`;
+  const sec = Math.round((new Date(end).getTime() - new Date(start).getTime()) / 1000);
+  return formatSeconds(sec);
 }
 
 function formatTime(iso: string): string {

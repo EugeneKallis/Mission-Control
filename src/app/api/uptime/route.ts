@@ -4,12 +4,12 @@
  */
 
 import { NextResponse } from "next/server";
-import { formatUptime } from "@/lib/uptime";
+import { formatSeconds } from "@/lib/format";
 
 export async function GET() {
   const seconds = process.uptime();
   return NextResponse.json({
-    uptime: formatUptime(seconds),
+    uptime: formatSeconds(seconds),
     seconds: Math.floor(seconds),
   });
 }

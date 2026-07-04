@@ -5,8 +5,7 @@
  *  - humanReadableSize: unit selection, zero/negative, large sizes
  *  - formatDateTime:    fixed date string formatting
  *  - formatDuration:    sub-minute vs minute+ durations
- *  - fakeSessionId:     shape + uniqueness
- *  - extractYear:       (YYYY) suffix, no suffix, embedded numbers
+ *  - formatSeconds:     seconds-based duration formatting
  */
 
 import { describe, test, expect } from "bun:test";
@@ -14,8 +13,7 @@ import {
   humanReadableSize,
   formatDateTime,
   formatDuration,
-  fakeSessionId,
-  extractYear,
+  formatSeconds,
 } from "./format";
 
 describe("humanReadableSize", () => {
@@ -23,12 +21,20 @@ describe("humanReadableSize", () => {
     expect(humanReadableSize(0)).toBe("0 B");
   });
 
+  test("returns 0 B for negative", () => {
+    expect(humanReadableSize(-1)).toBe("0 B");
+  });
+
+  test("returns 0 B for NaN", () => {
+    expect(humanReadableSize(NaN)).toBe("0 B");
+  });
+
   test("formats bytes without decimals", () => {
     expect(humanReadableSize(500)).toBe("500 B");
   });
 
-  test("formats kilobytes with one decimal", () => {
-    expect(humanReadableSize(1024)).toBe("1.0 KB");
+  test("formats kilobytes", () => {
+    expect(humanReadableSize(1024)).toBe("1 KB");
   });
 
   test("formats megabytes with one decimal", () => {
@@ -39,8 +45,8 @@ describe("humanReadableSize", () => {
     expect(humanReadableSize(2.5 * 1024 ** 3)).toBe("2.5 GB");
   });
 
-  test("formats terabytes with one decimal", () => {
-    expect(humanReadableSize(3 * 1024 ** 4)).toBe("3.0 TB");
+  test("formats terabytes", () => {
+    expect(humanReadableSize(3 * 1024 ** 4)).toBe("3 TB");
   });
 
   test("formats petabytes with one decimal", () => {
@@ -64,7 +70,7 @@ describe("formatDateTime", () => {
 });
 
 describe("formatDuration", () => {
-  test("sub-minute durations are reported in seconds", () => {
+  test("delegates to formatSeconds", () => {
     const start = new Date(2026, 0, 1, 0, 0, 0);
     const end = new Date(2026, 0, 1, 0, 0, 45);
     expect(formatDuration(end, start)).toBe("45s");
@@ -81,51 +87,31 @@ describe("formatDuration", () => {
     const end = new Date(2026, 0, 1, 0, 2, 33);
     expect(formatDuration(end, start)).toBe("2m 33s");
   });
-
-  test("exact minutes have no trailing seconds", () => {
-    const start = new Date(2026, 0, 1, 0, 0, 0);
-    const end = new Date(2026, 0, 1, 0, 5, 0);
-    expect(formatDuration(end, start)).toBe("5m 0s");
-  });
-
-  test("exactly 60 seconds becomes 1m 0s", () => {
-    const start = new Date(2026, 0, 1, 0, 0, 0);
-    const end = new Date(2026, 0, 1, 0, 1, 0);
-    expect(formatDuration(end, start)).toBe("1m 0s");
-  });
 });
 
-describe("fakeSessionId", () => {
-  test("returns three 4-char alphanumeric groups separated by dashes", () => {
-    const id = fakeSessionId();
-    expect(id).toMatch(/^[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}$/);
+describe("formatSeconds", () => {
+  test("sub-minute", () => {
+    expect(formatSeconds(0)).toBe("0s");
+    expect(formatSeconds(45)).toBe("45s");
   });
 
-  test("returns 100 unique values in a row", () => {
-    const ids = new Set(Array.from({ length: 100 }, () => fakeSessionId()));
-    expect(ids.size).toBe(100);
-  });
-});
-
-describe("extractYear", () => {
-  test("extracts a (YYYY) suffix", () => {
-    expect(extractYear("The Matrix (1999)")).toBe("1999");
+  test("minutes and seconds", () => {
+    expect(formatSeconds(60)).toBe("1m 0s");
+    expect(formatSeconds(125)).toBe("2m 5s");
   });
 
-  test("returns null for names without a year", () => {
-    expect(extractYear("Some Show")).toBeNull();
+  test("hours", () => {
+    expect(formatSeconds(3600)).toBe("1h 0m");
+    expect(formatSeconds(3600 + 23 * 60)).toBe("1h 23m");
   });
 
-  test("ignores year-like numbers that aren't at the end", () => {
-    expect(extractYear("2024 Movies")).toBeNull();
+  test("days", () => {
+    expect(formatSeconds(86400)).toBe("1d 0h");
+    expect(formatSeconds(90000)).toBe("1d 1h");
   });
 
-  test("only matches 4-digit years in parens at end", () => {
-    expect(extractYear("Movie (19999)")).toBeNull();
-  });
-
-  test("handles a single-digit year gracefully (still 1+ digits, so 4 not required)", () => {
-    // The regex only requires 4 digits wrapped in (); anything else returns null.
-    expect(extractYear("Movie (8)")).toBeNull();
+  test("handles negative and non-finite", () => {
+    expect(formatSeconds(-1)).toBe("0s");
+    expect(formatSeconds(NaN)).toBe("0s");
   });
 });

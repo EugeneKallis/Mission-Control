@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
+import { formatSeconds } from "@/lib/format";
 
 interface HistoryDetail {
   id: number;
@@ -30,10 +31,8 @@ function formatTime(iso: string): string {
 
 function formatDuration(start: string, end: string | null): string {
   if (!end) return "Running...";
-  const s = new Date(start).getTime();
-  const e = new Date(end).getTime();
-  const sec = Math.round((e - s) / 1000);
-  return `${sec}s`;
+  const sec = Math.round((new Date(end).getTime() - new Date(start).getTime()) / 1000);
+  return formatSeconds(sec);
 }
 
 function statusPill(status: string) {

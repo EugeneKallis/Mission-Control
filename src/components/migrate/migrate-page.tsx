@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { humanReadableSize as humanBytes } from "@/lib/format";
 import { useToast } from "@/components/toast-provider";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
@@ -79,19 +80,7 @@ const TABLE_LABELS: Record<TableKey, { label: string; description: string }> = {
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
-function humanBytes(n: number): string {
-  if (!Number.isFinite(n) || n < 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let i = 0;
-  let v = n;
-  while (v >= 1024 && i < units.length - 1) {
-    v /= 1024;
-    i++;
-  }
-  const isInt = Math.abs(v - Math.round(v)) < 0.05;
-  const decimals = i === 0 || isInt || v >= 100 ? 0 : 1;
-  return v.toFixed(decimals) + " " + units[i];
-}
+
 
 // ── Sub-components ───────────────────────────────────────────────────────
 

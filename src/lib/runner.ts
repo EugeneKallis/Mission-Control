@@ -22,11 +22,6 @@ const FLUSH_INTERVAL_MS = 1500;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-/** Encode text as UTF-8 bytes for streaming. */
-function encodeText(text: string): Uint8Array {
-  return new TextEncoder().encode(text);
-}
-
 /** Decode a Uint8Array chunk to string. */
 function decodeChunk(chunk: Uint8Array): string {
   return new TextDecoder().decode(chunk);

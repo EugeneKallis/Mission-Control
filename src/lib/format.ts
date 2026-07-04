@@ -7,12 +7,18 @@
  * Convert bytes to a human-readable string (e.g. "1.2 GB", "845 KB").
  */
 export function humanReadableSize(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB", "PB"];
-  const k = 1024;
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  const val = bytes / Math.pow(k, i);
-  return `${val.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+  if (!Number.isFinite(bytes) || bytes < 0) return "0 B";
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB", "TB", "PB"];
+  let i = 0;
+  let v = bytes / 1024;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  const isInt = Math.abs(v - Math.round(v)) < 0.05;
+  const decimals = i === 0 || isInt || v >= 100 ? 0 : 1;
+  return `${v.toFixed(decimals)} ${units[i]}`;
 }
 
 /**
@@ -34,25 +40,22 @@ export function formatDateTime(date: Date): string {
 export function formatDuration(end: Date, start: Date): string {
   const ms = end.getTime() - start.getTime();
   const totalSeconds = Math.round(ms / 1000);
-  if (totalSeconds < 60) return `${totalSeconds}s`;
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}m ${seconds}s`;
+  return formatSeconds(totalSeconds);
 }
 
 /**
- * Generate a fake session ID string (like "f82k-91ns-00xa").
+ * Format a duration in seconds as "1d 2h" / "3h 45m" / "12m 34s" / "5s".
+ * Shows the two most significant units.
  */
-export function fakeSessionId(): string {
-  const rand = (len: number) =>
-    Array.from({ length: len }, () => Math.random().toString(36)[2]).join("");
-  return `${rand(4)}-${rand(4)}-${rand(4)}`;
-}
-
-/**
- * Extract the (Year) suffix from a media folder name, if present.
- */
-export function extractYear(name: string): string | null {
-  const match = name.match(/\((\d{4})\)$/);
-  return match ? match[1] : null;
+export function formatSeconds(totalSeconds: number): string {
+  if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return "0s";
+  const sec = Math.round(totalSeconds);
+  const d = Math.floor(sec / 86400);
+  const h = Math.floor((sec % 86400) / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
 }

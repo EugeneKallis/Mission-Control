@@ -20,9 +20,9 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { createHash } from "crypto";
 import { makeTestDB, type TestDB } from "@/lib/db/test-helpers";
+import { humanReadableSize as humanBytes } from "@/lib/format";
 import {
   applySnapshot,
-  humanBytes,
   previewSource,
   readSourceSnapshot,
   resolveSourcePath,

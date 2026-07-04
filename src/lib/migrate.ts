@@ -30,6 +30,7 @@ import { createClient, type Client } from "@libsql/client";
 import { readFile, stat } from "fs/promises";
 import { resolve, isAbsolute } from "path";
 import type { PrismaClient } from "@prisma/client";
+import { humanReadableSize as humanBytes } from "@/lib/format";
 
 // ── Public types ─────────────────────────────────────────────────────────
 
@@ -615,21 +616,4 @@ export async function applySnapshot(
   return result;
 }
 
-// ── Helper: bytes → human ────────────────────────────────────────────────
 
-/** Format a byte count for display (e.g. 47 MB). */
-export function humanBytes(n: number): string {
-  if (!Number.isFinite(n) || n < 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let i = 0;
-  let v = n;
-  while (v >= 1024 && i < units.length - 1) {
-    v /= 1024;
-    i++;
-  }
-  // Integer values get no decimals, non-integer values get 1 decimal.
-  // Exception: bytes (< 1 KB) always show whole numbers.
-  const isInt = Math.abs(v - Math.round(v)) < 0.05;
-  const decimals = i === 0 || isInt || v >= 100 ? 0 : 1;
-  return v.toFixed(decimals) + " " + units[i];
-}

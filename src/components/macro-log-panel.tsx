@@ -3,6 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useLiveStream } from "@/hooks/use-live-stream";
+import { formatSeconds } from "@/lib/format";
+
+function formatDuration(start: string, end: string | null): string {
+  if (!end) return "running…";
+  return formatSeconds(Math.round((new Date(end).getTime() - new Date(start).getTime()) / 1000));
+}
 import { useToast } from "@/components/toast-provider";
 
 interface HistoryItem {
@@ -46,16 +52,7 @@ function formatTime(iso: string): string {
   });
 }
 
-function formatDuration(start: string, end: string | null): string {
-  if (!end) return "running…";
-  const s = new Date(start).getTime();
-  const e = new Date(end).getTime();
-  const sec = Math.round((e - s) / 1000);
-  if (sec < 60) return `${sec}s`;
-  const min = Math.floor(sec / 60);
-  const remSec = sec % 60;
-  return remSec > 0 ? `${min}m ${remSec}s` : `${min}m`;
-}
+
 
 /**
  * MacroLogPanel — live terminal + history list for the admin page.

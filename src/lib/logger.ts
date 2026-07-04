@@ -18,15 +18,23 @@ function pad(n: number): string {
   return n < 10 ? "0" + n : String(n);
 }
 
+function pad2(n: number): string {
+  const abs = Math.abs(n);
+  return (n < 0 ? "-" : "+") + (abs < 10 ? "0" + abs : String(abs));
+}
+
 function formatTimestamp(date: Date): string {
-  const y = date.getUTCFullYear();
-  const mo = pad(date.getUTCMonth() + 1);
-  const d = pad(date.getUTCDate());
-  const h = pad(date.getUTCHours());
-  const mi = pad(date.getUTCMinutes());
-  const s = pad(date.getUTCSeconds());
-  const ms = pad(date.getUTCMilliseconds());
-  return `${y}-${mo}-${d}T${h}:${mi}:${s}.${ms}Z`;
+  const y = date.getFullYear();
+  const mo = pad(date.getMonth() + 1);
+  const d = pad(date.getDate());
+  const h = pad(date.getHours());
+  const mi = pad(date.getMinutes());
+  const s = pad(date.getSeconds());
+  const ms = pad(date.getMilliseconds());
+  const off = -date.getTimezoneOffset();
+  const tzH = pad2(Math.floor(off / 60));
+  const tzM = pad(Math.abs(off % 60));
+  return `${y}-${mo}-${d}T${h}:${mi}:${s}.${ms}${tzH}:${tzM}`;
 }
 
 const IS_BROWSER =
