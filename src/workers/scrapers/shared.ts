@@ -51,7 +51,7 @@ export function parseSize(sizeStr: string): number {
 
 // ── HTTP fetch with User-Agent ────────────────────────────────────────────
 
-const DEFAULT_UA = "Mozilla/5.0";
+const DEFAULT_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
 const FETCH_TIMEOUT_MS = 30_000;
 
 /**
