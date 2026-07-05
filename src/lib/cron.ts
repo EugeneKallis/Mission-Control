@@ -106,6 +106,22 @@ export function parseCronToForm(cronExpr: string): ScheduleFormValues {
   };
 }
 
+/**
+ * Validate a 5-field cron expression. Returns an error string or null.
+ * Lightweight check (we don't re-implement full cron grammar; the `cron`
+ * npm package will also validate at registration time).
+ */
+export function validateCronExpression(expr: string): string | null {
+  const parts = expr.trim().split(/\s+/);
+  if (parts.length !== 5) return `Expected 5 fields, got ${parts.length}`;
+  for (const p of parts) {
+    if (!/^[\d*\/,\-]+$/.test(p)) {
+      return `Invalid field: "${p}"`;
+    }
+  }
+  return null;
+}
+
 function parseHHMM(time: string): { hh: string; mm: string } {
   const trimmed = time.trim();
   if (!trimmed) throw new Error("Time is required for daily/weekly schedule");

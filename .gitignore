@@ -45,6 +45,9 @@ next-env.d.ts
 # scripts build output
 /dist/scripts
 
+# pi-subagents artifacts
+.pi-subagents
+
 # SQLite databases — main file, WAL, and rollback journal
 # (do not commit; created/updated by `prisma migrate deploy` in deploy.sh)
 prisma/*.db
