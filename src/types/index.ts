@@ -158,6 +158,15 @@ export interface DecypharrClientConfig {
   downloadFolder: string;
 }
 
+// ── Chat Types ────────────────────────────────────────────────────────────
+
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp: number;
+}
+
 // ── Plex Types ────────────────────────────────────────────────────────────
 
 export interface PlexConfig {

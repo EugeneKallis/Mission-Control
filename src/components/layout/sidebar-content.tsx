@@ -211,6 +211,7 @@ export function SidebarContent({
         <div className="my-3 mx-4 h-px" style={{ background: "rgba(59, 75, 63, 0.4)" }} />
 
         {/* Nav items — exact matches from original */}
+        <NavItem label="Chat" icon="chat" href="/chat" color="primary" />
         <NavItem label="History" icon="history" href="/history" color="amber" />
         <NavItem label="Schedules" icon="schedule" href="/schedules" color="cyan" />
         <NavItem label="NZB Viewer" icon="folder_open" href="/nzb" color="teal" />
