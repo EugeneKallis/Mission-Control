@@ -4,10 +4,11 @@ available models/providers from the local PI agent configuration.
 """
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
+from typing import List, Dict, Any
 import json
 import os
 import httpx
+import base64
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -118,6 +119,18 @@ OPENCODE_API_BASE = "https://opencode.ai/zen/go/v1"
 OPENCODE_CHAT_URL = f"{OPENCODE_API_BASE}/chat/completions"
 REQUEST_TIMEOUT = 60.0
 
+# ─── Attachment validation limits ───────────────────────────────────────
+MAX_ATTACHMENTS = 5
+MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024  # 10MB
+ALLOWED_ATTACHMENT_PREFIXES = ("image/", "text/", "application/pdf")
+
+# ─── Provider display names ─────────────────────────────────────────────
+PROVIDER_NAMES = {
+    "opencode-go": "OpenCode Zen Go",
+    "deepseek": "DeepSeek",
+    "fireworks": "Fireworks AI",
+}
+
 
 def _load_json(path: str) -> dict:
     """Load and return JSON from a file path, returning {} on failure."""
@@ -187,25 +200,62 @@ async def chat(payload: ChatRequest):
     """Send a message to the PI agent LLM and return the assistant response."""
     api_key = _get_opencode_api_key()
 
-    # Strip provider prefix from model ID if present
+    # ── Validate attachments (server-side limits prevent cost/DoS abuse) ──
+    attachments = payload.attachments or []
+    if len(attachments) > MAX_ATTACHMENTS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Too many attachments: {len(attachments)} (max {MAX_ATTACHMENTS}).",
+        )
+    for att in attachments:
+        att_type = (att.get("type") or "").lower()
+        if not att_type.startswith(ALLOWED_ATTACHMENT_PREFIXES):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Unsupported attachment type '{att_type}' for '{att.get('name', 'file')}'. "
+                       f"Allowed: image/*, text/*, application/pdf.",
+            )
+        att_data = att.get("data", "") or ""
+        # Decode base64 to measure true byte size; guard against malformed data.
+        try:
+            decoded_size = len(base64.b64decode(att_data, validate=True))
+        except Exception:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Attachment '{att.get('name', 'file')}' has invalid base64 data.",
+            )
+        if decoded_size > MAX_ATTACHMENT_BYTES:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Attachment '{att.get('name', 'file')}' is too large "
+                       f"({decoded_size} bytes, max {MAX_ATTACHMENT_BYTES}).",
+            )
+
+    # Strip provider prefix from model ID if present — the model ID already
+    # encodes the provider, so the request `provider` field is cosmetic.
     model_id = payload.model
     if "/" in model_id:
         model_id = model_id.split("/", 1)[1]
 
-    # Build messages array from history + current message
-    messages = list(payload.history)
+    # Build messages array from history + current message.
+    # Validate history roles: only "user" and "assistant" are allowed to
+    # prevent system-prompt injection from direct API callers.
+    ALLOWED_HISTORY_ROLES = {"user", "assistant"}
+    messages = []
+    for entry in payload.history:
+        role = entry.get("role")
+        if role not in ALLOWED_HISTORY_ROLES:
+            continue
+        messages.append({"role": role, "content": entry.get("content", "")})
     user_message: Dict[str, Any] = {"role": "user", "content": payload.message}
 
     # If there are file attachments, build a multi-part content array
-    attachments = payload.attachments or []
     if attachments:
         content_parts: List[Dict[str, Any]] = [{"type": "text", "text": payload.message}]
         for att in attachments:
             att_type = (att.get("type") or "").lower()
             att_data = att.get("data", "")
             if att_type.startswith("image/"):
-                # Determine image format from mime type
-                fmt = att_type.split("/")[-1] if "/" in att_type else "png"
                 content_parts.append({
                     "type": "image_url",
                     "image_url": {"url": f"data:{att_type};base64,{att_data}"},
@@ -292,13 +342,6 @@ async def list_models():
 async def list_providers():
     """Return available providers from auth.json keys."""
     auth = _load_json(_AUTH_PATH)
-
-    # Map provider keys to display names
-    PROVIDER_NAMES = {
-        "opencode-go": "OpenCode Zen Go",
-        "deepseek": "DeepSeek",
-        "fireworks": "Fireworks AI",
-    }
 
     providers_list = []
     for key in auth:

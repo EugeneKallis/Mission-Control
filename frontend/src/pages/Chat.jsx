@@ -81,7 +81,6 @@ export default function Chat() {
   const [sending, setSending] = useState(false);
   const [mediaWarning, setMediaWarning] = useState("");
 
-  const inputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -164,7 +163,9 @@ export default function Chat() {
 
   // ── Conversation helpers ─────────────────────────────────────────────
   function ensureActiveConv() {
-    if (activeConvId) return activeConvId;
+    if (activeConvId) {
+      return { id: activeConvId, updatedConvs: conversations };
+    }
     const id = makeId();
     const conv = {
       id,
@@ -174,20 +175,20 @@ export default function Chat() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    const next = [conv, ...conversations];
-    setConversations(next);
-    saveConversations(next);
+    const updatedConvs = [conv, ...conversations];
+    setConversations(updatedConvs);
+    saveConversations(updatedConvs);
     setActiveConvId(id);
-    return id;
+    return { id, updatedConvs };
   }
 
-  function updateConv(messages, model, provider) {
-    const id = ensureActiveConv();
-    const next = conversations.map((c) => {
+  function updateConv(convMessages, model, provider) {
+    const { id, updatedConvs } = ensureActiveConv();
+    const next = updatedConvs.map((c) => {
       if (c.id !== id) return c;
       return {
         ...c,
-        messages,
+        messages: convMessages,
         model: model || c.model,
         provider: provider || c.provider,
         updatedAt: new Date().toISOString(),
@@ -263,7 +264,7 @@ export default function Chat() {
     Promise.all(
       newAttachments.map(
         (file) =>
-          new Promise((resolve) => {
+          new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => {
               resolve({
@@ -273,11 +274,8 @@ export default function Chat() {
                 data: reader.result.split(",")[1] || "",
               });
             };
-            if (file.type.startsWith("text/") || file.type === "application/pdf") {
-              reader.readAsDataURL(file);
-            } else {
-              reader.readAsDataURL(file);
-            }
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
           }),
       ),
     ).then((processed) => {
@@ -308,8 +306,7 @@ export default function Chat() {
       attachments: attachments.length > 0 ? attachments : undefined,
     };
 
-    const updatedMessages = [...messages, userMsg];
-    setMessages(updatedMessages);
+    setMessages([...messages, userMsg]);
     setInput("");
     setSending(true);
 
@@ -397,8 +394,6 @@ export default function Chat() {
   const filteredModels = models.filter(
     (m) => m.provider === selectedProvider,
   );
-
-  const activeConv = conversations.find((c) => c.id === activeConvId);
 
   // ── Render ───────────────────────────────────────────────────────────
   return (
@@ -585,7 +580,6 @@ export default function Chat() {
               <div className="flex items-end gap-2">
                 <div className="flex-1 flex items-end gap-2 bg-slate-800/50 border border-slate-700 rounded-lg px-3 py-2">
                   <textarea
-                    ref={inputRef}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
