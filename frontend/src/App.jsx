@@ -4,6 +4,7 @@ import Crons from './pages/Crons'
 import Kanban from './pages/Kanban'
 import Settings from './pages/Settings'
 import AgentGuide from './pages/AgentGuide'
+import Chat from './pages/Chat'
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
         <Route path="/crons" element={<Crons />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/agent-guide" element={<AgentGuide />} />
+        <Route path="/chat" element={<Chat />} />
       </Routes>
     </BrowserRouter>
   )
