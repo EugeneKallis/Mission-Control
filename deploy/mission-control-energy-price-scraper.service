@@ -1,0 +1,12 @@
+[Unit]
+Description=Mission Control — energy-price scraper (runs once per timer trigger)
+After=network.target
+
+[Service]
+Type=exec
+WorkingDirectory=/opt/mission-control
+ExecStart=/usr/local/bin/bun run src/workers/energy-price-scraper.ts
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=timers.target

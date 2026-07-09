@@ -48,6 +48,10 @@ Run via `just <command>`:
 | `just test`           | Run unit tests (bun:test)                       |
 | `just test-watch`     | Run unit tests in watch mode                    |
 | `just test-coverage`  | Run unit tests with coverage report             |
+| `just energy-prices` | Run the energy-price scraper once (foreground) |
+| `just energy-prices-logs` | Tail energy-price scraper logs |
+| `just energy-prices-restart` | Restart the energy-price scraper timer |
+| `just energy-prices-stop` | Stop the energy-price scraper timer |
 | `just run-worker path` | Run a cron task once (default: scraper)       |
 | `just install-service` | One-time: install systemd service on server   |
 | `just deploy`          | Full deploy: pull → build → restart (N8N)     |
@@ -73,6 +77,8 @@ This sets up:
 - `mission-control-scraper.timer` — runs the scraper task every 30 minutes
 - `mission-control-scraper.service` — the scraper task (called by the timer)
 - `mission-control-magnet-bridge.service` — long-running Decypharr poller (auto-restart)
+- `mission-control-energy-price-scraper.service` — daily (9 AM) EnergizeCT rate scraper (timer)
+- `mission-control-energy-price-scraper.timer` — triggers the scraper at 9:00 AM daily
 
 ### Deploy on push (N8N workflow)
 
@@ -89,6 +95,8 @@ The `deploy/` directory contains the production system:
 - `mission-control-scraper.service` — systemd unit for the scraper task (runs once and exits)
 - `mission-control-scraper.timer` — triggers the scraper every 30 minutes
 - `mission-control-magnet-bridge.service` — systemd unit for the magnet bridge worker (long-running, `Restart=always`)
+- `mission-control-energy-price-scraper.service` — systemd unit for the EnergizeCT rate scraper (runs once per timer, daily at 9 AM)
+- `mission-control-energy-price-scraper.timer` — triggers the scraper at 9:00 AM daily
 
 ## Cron Tasks (External Scheduling)
 
@@ -310,6 +318,38 @@ The Go original only supports three shapes. We follow that: no
 arbitrary cron strings, no advanced recurrence. The `validateCronExpression`
 helper is only used to reject obvious garbage in the unlikely event a
 caller bypasses `buildCronExpression`.
+
+## Energy Prices page (`/energy-prices`)
+
+| Method | Path | Purpose |
+| ------ | ------------------------------------------ | --------------------------------------------- |
+| GET | `/api/energy-prices` | Latest offers + target rate + `hasBetter` flag |
+| PUT | `/api/energy-prices/target` | Set user's target rate (body: `{ rate: number }`) |
+| POST | `/api/energy-prices/refresh` | Trigger immediate scrape (synchronous, ~20-40s) |
+
+### DB model
+
+`EnergyPrice` table stores one row per offer per scrape. Old rows are
+marked `isActive=false` on each new scrape. The API always returns active
+rows sorted by rate (cheapest first).
+
+### Target rate + badge
+
+The sidebar polls `/api/energy-prices` every 60s. If the user has set a
+target rate and any offer beats it, a badge appears on the "Energy Prices"
+nav link showing the count of better offers.
+
+The target rate is stored in the `settings` table under
+`energy_price:target_rate` (¢/kWh). Set/reset from the page's top card.
+
+### Data source
+
+Scraped from [EnergizeCT.com](https://www.energizect.com/rate-board/compare-energy-supplier-rates)
+using Playwright headless Chromium. The site uses Cloudflare Turnstile, so
+stealth techniques are needed:
+- Realistic Chrome UA + viewport
+- `navigator.webdriver` override
+- `navigator.plugins` + `navigator.languages` + `chrome.runtime` polyfill
 
 ## Phase 5 — Schedules page
 

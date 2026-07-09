@@ -91,6 +91,24 @@ bl-finder-restart:
 bl-finder-stop:
     systemctl stop mission-control-broken-link-checker.service
 
+# ── Energy Price Scraper (daily, 9 AM timer) ─────────────────────────────────
+
+# Run the energy-price scraper in the foreground (for local dev / testing)
+energy-prices:
+    bun run src/workers/energy-price-scraper.ts
+
+# Tail energy-price scraper logs
+energy-prices-logs:
+    journalctl -u mission-control-energy-price-scraper.service -f
+
+# Restart the energy-price scraper timer
+energy-prices-restart:
+    systemctl restart mission-control-energy-price-scraper.timer
+
+# Stop the energy-price scraper timer
+energy-prices-stop:
+    systemctl stop mission-control-energy-price-scraper.timer
+
 # ── One-off Scripts ──────────────────────────────────────────────────────────
 
 # Run a one-off TypeScript script:  just script scripts/foo.ts

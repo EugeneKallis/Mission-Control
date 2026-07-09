@@ -56,6 +56,11 @@ echo "→ Installing production dependencies..."
 cd "$DEPLOY_DIR"
 bun install --production
 
+# 4a. Ensure Playwright browser is available for the energy-price scraper.
+#     Idempotent — skips if already installed.
+echo "→ Ensuring Playwright browser..."
+npx playwright install chromium 2>/dev/null || echo "  (Playwright chromium install skipped)"
+
 # 4b. Apply any new migrations. Idempotent — no-op if already at latest.
 #     This avoids the SQLITE_READONLY crash caused by `git pull`
 #     overwriting a tracked dev.db while its -wal file is live.
@@ -68,5 +73,8 @@ echo "→ Restarting services..."
 systemctl restart mission-control.service
 systemctl restart mission-control-magnet-bridge.service
 systemctl restart mission-control-broken-link-checker.service
+# The energy-price scraper runs on a timer (once daily), but restarting
+# the timer ensures the next scheduled tick uses the new code.
+systemctl restart mission-control-energy-price-scraper.timer 2>/dev/null || true
 
 echo "=== Deploy complete ==="

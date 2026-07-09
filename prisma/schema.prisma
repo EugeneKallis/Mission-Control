@@ -200,6 +200,24 @@ model ChatMessage {
   @@map("chat_messages")
 }
 
+model EnergyPrice {
+  id             Int       @id @default(autoincrement())
+  supplier       String
+  rate           Float     // ¢/kWh
+  monthlyCost    Float     @map("monthly_cost") // $
+  savings        Float?    // $ vs standard service (negative = cheaper)
+  plan           String    @default("")
+  billingCycles  Int?      @map("billing_cycles")
+  recs           Float?
+  phone          String    @default("")
+  isActive       Boolean   @default(true) @map("is_active")
+  fetchedAt      DateTime  @default(now()) @map("fetched_at")
+
+  @@index([isActive])
+  @@index([fetchedAt])
+  @@map("energy_prices")
+}
+
 model Config {
   id         Int      @id @default(autoincrement())
   configJson String   @default("{}") @map("config_json")

@@ -29,6 +29,7 @@ const accentColors: Record<string, string> = {
   primary: "hover:bg-primary/10",
   violet: "hover:bg-violet-500/10",
   rose: "hover:bg-rose-500/10",
+  lime: "hover:bg-lime-500/10",
 };
 
 export function NavItem({ label, icon, href, color = "primary", badge, badgeTitle = "broken" }: NavItemProps) {

@@ -45,6 +45,7 @@ export function SidebarContent({
   const [macrosLoading, setMacrosLoading] = useState(true);
   const [brokenCount, setBrokenCount] = useState<number | null>(null);
   const [logErrorCount, setLogErrorCount] = useState<number | null>(null);
+  const [energyBetterCount, setEnergyBetterCount] = useState<number | null>(null);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -86,6 +87,32 @@ export function SidebarContent({
     fetchBroken();
     const interval = setInterval(fetchBroken, 60_000);
     const onVis = () => { if (!document.hidden) fetchBroken(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
+
+  // Poll the energy-prices better-offer count so the nav badge stays fresh.
+  // Only polls when the user has set a target rate (otherwise no badge to show).
+  useEffect(() => {
+    let cancelled = false;
+    const fetchEnergy = () => {
+      fetch("/api/energy-prices")
+        .then((r) => r.json())
+        .then((data: { targetRate?: number | null; betterCount?: number }) => {
+          if (cancelled) return;
+          if (data.targetRate != null && typeof data.betterCount === "number") {
+            setEnergyBetterCount(data.betterCount);
+          }
+        })
+        .catch(() => { /* leave previous value */ });
+    };
+    fetchEnergy();
+    const interval = setInterval(fetchEnergy, 60_000);
+    const onVis = () => { if (!document.hidden) fetchEnergy(); };
     document.addEventListener("visibilitychange", onVis);
     return () => {
       cancelled = true;
@@ -208,6 +235,14 @@ export function SidebarContent({
         </details>
 
         <NavItem label="Chat" icon="chat" href="/chat" color="primary" />
+        <NavItem
+          label="Energy Prices"
+          icon="bolt"
+          href="/energy-prices"
+          color="lime"
+          badge={energyBetterCount ?? undefined}
+          badgeTitle="better rates"
+        />
 
         {/* Divider */}
         <div className="my-3 mx-4 h-px" style={{ background: "rgba(59, 75, 63, 0.4)" }} />
