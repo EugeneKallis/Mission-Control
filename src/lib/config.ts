@@ -36,6 +36,12 @@ const envSchema = z.object({
   TRAKT_CLIENT_ID: z.string().default(""),
   TRAKT_CLIENT_SECRET: z.string().default(""),
 
+  // Chat / LLM provider API keys (used by /chat). Empty = provider unavailable.
+  OPENCODE_GO_API_KEY: z.string().default(""),
+  OPENAI_API_KEY: z.string().default(""),
+  ANTHROPIC_API_KEY: z.string().default(""),
+  GEMINI_API_KEY: z.string().default(""),
+
   // Arr instance API keys (override hardcoded defaults per instance)
   ARR__RADARR__API_KEY: z.string().default(""),
   ARR__RADARR4K__API_KEY: z.string().default(""),
@@ -94,6 +100,10 @@ export class AppConfig {
   readonly plexWatchlistRss: string;
   readonly traktClientId: string;
   readonly traktClientSecret: string;
+  readonly opencodeGoApiKey: string;
+  readonly openaiApiKey: string;
+  readonly anthropicApiKey: string;
+  readonly geminiApiKey: string;
   readonly arrInstances: ArrInstance[];
 
   constructor(env: EnvConfig) {
@@ -109,6 +119,10 @@ export class AppConfig {
     this.plexWatchlistRss = env.PLEX_WATCHLIST_RSS;
     this.traktClientId = env.TRAKT_CLIENT_ID;
     this.traktClientSecret = env.TRAKT_CLIENT_SECRET;
+    this.opencodeGoApiKey = env.OPENCODE_GO_API_KEY;
+    this.openaiApiKey = env.OPENAI_API_KEY;
+    this.anthropicApiKey = env.ANTHROPIC_API_KEY;
+    this.geminiApiKey = env.GEMINI_API_KEY;
     this.arrInstances = resolveArrInstances(env);
   }
 

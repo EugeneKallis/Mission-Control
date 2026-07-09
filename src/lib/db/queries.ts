@@ -949,3 +949,73 @@ export async function queryTable(
 
   return db.$queryRawUnsafe<Record<string, unknown>[]>(sql, ...params);
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  CHAT — sessions + messages (each session remembers its model)
+// ═══════════════════════════════════════════════════════════════════════════
+
+import { DEFAULT_MODEL_ID } from "@/lib/chat/models";
+
+export interface ChatAttachmentMeta {
+  name: string;
+  mimeType: string;
+  size: number;
+  /** "text" | "image" | "unsupported" — only metadata is persisted. */
+  category: string;
+}
+
+/** Lightweight session row used by the sidebar list. */
+export async function listChatSessions() {
+  return db.chatSession.findMany({
+    orderBy: { updatedAt: "desc" },
+    select: { id: true, title: true, model: true, createdAt: true, updatedAt: true },
+  });
+}
+
+export async function getChatSession(id: number) {
+  return db.chatSession.findUnique({
+    where: { id },
+    include: { messages: { orderBy: { id: "asc" } } },
+  });
+}
+
+export async function createChatSession(data: { title?: string; model?: string }) {
+  return db.chatSession.create({
+    data: {
+      title: data.title ?? "New conversation",
+      model: data.model ?? DEFAULT_MODEL_ID,
+    },
+  });
+}
+
+export async function updateChatSession(
+  id: number,
+  data: { title?: string; model?: string },
+) {
+  return db.chatSession.update({ where: { id }, data });
+}
+
+/** Bump updatedAt so the session floats to the top of the sidebar. */
+export async function touchChatSession(id: number) {
+  return db.chatSession.update({ where: { id }, data: { updatedAt: new Date() } });
+}
+
+export async function deleteChatSession(id: number) {
+  return db.chatSession.delete({ where: { id } });
+}
+
+export async function addChatMessage(data: {
+  sessionId: number;
+  role: "user" | "assistant";
+  content: string;
+  attachments?: ChatAttachmentMeta[];
+}) {
+  return db.chatMessage.create({
+    data: {
+      sessionId: data.sessionId,
+      role: data.role,
+      content: data.content,
+      attachmentsJson: JSON.stringify(data.attachments ?? []),
+    },
+  });
+}

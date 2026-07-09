@@ -176,6 +176,30 @@ model Setting {
   @@map("settings")
 }
 
+model ChatSession {
+  id        Int           @id @default(autoincrement())
+  title     String         @default("New conversation")
+  model     String         @default("opencode-go/deepseek-v4-flash")
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @default(now()) @updatedAt @map("updated_at")
+  messages  ChatMessage[]
+
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id              Int      @id @default(autoincrement())
+  sessionId       Int      @map("session_id")
+  role            String
+  content         String
+  attachmentsJson String   @default("[]") @map("attachments_json")
+  createdAt       DateTime @default(now()) @map("created_at")
+  session         ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("chat_messages")
+}
+
 model Config {
   id         Int      @id @default(autoincrement())
   configJson String   @default("{}") @map("config_json")
