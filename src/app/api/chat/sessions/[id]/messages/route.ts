@@ -28,6 +28,18 @@ import {
   touchChatSession,
   type ChatAttachmentMeta,
 } from "@/lib/db/queries";
+import type { ChatMessage as PrismaMessage } from "@prisma/client";
+
+/** Map a raw Prisma ChatMessage to the shape the frontend expects. */
+function toMsgShape(m: PrismaMessage) {
+  return {
+    id: m.id,
+    role: m.role,
+    content: m.content,
+    attachments: JSON.parse(m.attachmentsJson) as ChatAttachmentMeta[],
+    createdAt: m.createdAt.toISOString(),
+  };
+}
 import {
   getModel,
   categorizeAttachment,
@@ -167,8 +179,8 @@ export async function POST(
       });
       await touchChatSession(sid);
       return NextResponse.json({
-        userMessage: userMsg,
-        assistantMessage: assistantMsg,
+        userMessage: toMsgShape(userMsg),
+        assistantMessage: toMsgShape(assistantMsg),
         error: msg,
       });
     }
@@ -181,7 +193,7 @@ export async function POST(
     await touchChatSession(sid);
 
     return NextResponse.json(
-      { userMessage: userMsg, assistantMessage: assistantMsg },
+      { userMessage: toMsgShape(userMsg), assistantMessage: toMsgShape(assistantMsg) },
       { status: 201 },
     );
   } catch (error) {
