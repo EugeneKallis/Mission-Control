@@ -1,3 +1,6 @@
+# pi-subagents artifacts (subagent run logs, transcripts, plans)
+.pi-subagents/
+
 frontend/node_modules
 frontend/dist
 backend/__pycache__
