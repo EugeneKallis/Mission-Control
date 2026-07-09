@@ -29,6 +29,9 @@ export function Nav({ rightContent = null }) {
         <Link to="/agent-guide" className={navClasses(location.pathname === '/agent-guide')}>
           Guide
         </Link>
+        <Link to="/chat" className={navClasses(location.pathname === '/chat')}>
+          Chat
+        </Link>
       </div>
       {rightContent ? <div className="shrink-0">{rightContent}</div> : null}
     </nav>
