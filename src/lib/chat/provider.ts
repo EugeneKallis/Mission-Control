@@ -9,7 +9,8 @@
 
 import { NextResponse } from "next/server";
 import type { ApiStyle, ChatModel } from "./models";
-import { getProvider, resolveApiKey } from "./models";
+import { getProvider } from "./models";
+import { resolveApiKey } from "./keys";
 
 /** Minimal fetch shape used by callProvider (avoids undici's `preconnect`). */
 export type ChatFetch = (url: string, init?: RequestInit) => Promise<Response>;

@@ -380,65 +380,22 @@ export function priceSummary(model: ChatModel): string {
   return `${formatPrice(model.inputPricePerM)} in · ${formatPrice(model.outputPricePerM)} out /M`;
 }
 
-// ── Pi auth file fallback ──────────────────────────────────────────────────
-
-import { readFileSync, existsSync } from "fs";
-import { homedir } from "os";
-import { join } from "path";
-
-const PI_AUTH_PATH = join(homedir(), ".pi", "agent", "auth.json");
-
-let _piAuth: Record<string, { type: string; key: string }> | null | undefined;
+// ── API key resolution (client-safe: env only) ───────────────────────────
 
 /**
- * Read pi's provider auth file (~/.pi/agent/auth.json) once and cache it.
- * Returns a map of providerId → {key} or null if missing/invalid.
- */
-function readPiAuth(): Record<string, { key: string }> | null {
-  if (_piAuth !== undefined) return _piAuth as Record<string, { key: string }> | null;
-  try {
-    if (!existsSync(PI_AUTH_PATH)) {
-      _piAuth = null;
-      return null;
-    }
-    const raw = readFileSync(PI_AUTH_PATH, "utf8");
-    _piAuth = JSON.parse(raw) as Record<string, { type: string; key: string }>;
-    return _piAuth!;
-  } catch {
-    _piAuth = null;
-    return null;
-  }
-}
-
-// ── API key resolution ─────────────────────────────────────────────────────
-
-/**
- * Resolve the API key for a model's provider.
+ * Resolve the API key for a model's provider from env.
  *
- * Priority:
- *  1. The provider's env var (e.g. OPENCODE_GO_API_KEY)
- *  2. Pi's auth file (~/.pi/agent/auth.json) under the provider id
- *
- * Returns empty string if neither source has a key.
+ * Server-side code that also checks pi's auth file should import
+ * `resolveApiKey` from `./keys` instead — this function only reads
+ * process.env so it's safe to import from client components.
  */
 export function resolveApiKey(model: ChatModel): string {
   const provider = getProvider(model.provider);
   if (!provider) return "";
-
-  // 1. Env var
-  const envKey = process.env[provider.apiKeyEnv];
-  if (envKey && envKey.length > 0) return envKey;
-
-  // 2. Pi auth file fallback
-  const piAuth = readPiAuth();
-  if (piAuth && piAuth[model.provider]?.key) {
-    return piAuth[model.provider].key;
-  }
-
-  return "";
+  return process.env[provider.apiKeyEnv] ?? "";
 }
 
-/** Whether the provider of a model has an API key configured. */
+/** Whether the provider of a model has an API key configured (env-only). */
 export function isProviderConfigured(model: ChatModel): boolean {
   return resolveApiKey(model).length > 0;
 }

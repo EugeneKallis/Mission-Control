@@ -11,11 +11,11 @@ import {
   modelsSortedByPrice,
   capabilityChips,
   priceSummary,
-  isProviderConfigured,
   getProvider,
   DEFAULT_MODEL_ID,
   type ChatModel,
 } from "@/lib/chat/models";
+import { isProviderConfigured } from "@/lib/chat/keys";
 
 interface ModelEntry {
   id: string;
