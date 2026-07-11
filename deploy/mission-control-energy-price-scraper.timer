@@ -1,8 +1,8 @@
 [Unit]
-Description=Run energy-price scraper daily at 9:00 AM
+Description=Run energy-price scraper daily at 8:00 AM
 
 [Timer]
-OnCalendar=*-*-* 09:00:00
+OnCalendar=*-*-* 08:00:00
 Persistent=true
 RandomizedDelaySec=120
 
