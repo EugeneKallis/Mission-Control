@@ -234,6 +234,8 @@ export function SidebarContent({
           </div>
         </details>
 
+        <div className="my-3 mx-4 h-px" style={{ background: "rgba(59, 75, 63, 0.4)" }} />
+
         <NavItem label="Chat" icon="chat" href="/chat" color="primary" />
         <NavItem
           label="Energy Prices"
