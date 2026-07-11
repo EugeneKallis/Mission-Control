@@ -48,32 +48,27 @@ bunx prisma migrate deploy
 # 2. Write service files with the correct bun path
 echo "→ Writing systemd units..."
 sed "s|/usr/local/bin/bun|$BUN_PATH|g" "$SERVICES_DIR/mission-control.service" > /etc/systemd/system/mission-control.service
-sed "s|/usr/local/bin/bun|$BUN_PATH|g" "$SERVICES_DIR/mission-control-scraper.service" > /etc/systemd/system/mission-control-scraper.service
 sed "s|/usr/local/bin/bun|$BUN_PATH|g" "$SERVICES_DIR/mission-control-magnet-bridge.service" > /etc/systemd/system/mission-control-magnet-bridge.service
 sed "s|/usr/local/bin/bun|$BUN_PATH|g" "$SERVICES_DIR/mission-control-broken-link-checker.service" > /etc/systemd/system/mission-control-broken-link-checker.service
-sed "s|/usr/local/bin/bun|$BUN_PATH|g" "$SERVICES_DIR/mission-control-energy-price-scraper.service" > /etc/systemd/system/mission-control-energy-price-scraper.service
-cp "$SERVICES_DIR/mission-control-scraper.timer" /etc/systemd/system/
-cp "$SERVICES_DIR/mission-control-energy-price-scraper.timer" /etc/systemd/system/
 
 # 3. Reload systemd and enable services
+# Note: scraper and energy-price scrapers are now run in-process via the
+# worker timer scheduler (configured in the web UI at /schedules).
 echo "→ Enabling services..."
 systemctl daemon-reload
 systemctl enable --now mission-control.service
-systemctl enable --now mission-control-scraper.timer
 systemctl enable --now mission-control-magnet-bridge.service
 systemctl enable --now mission-control-broken-link-checker.service
-systemctl enable --now mission-control-energy-price-scraper.timer
 
 # 4. Show status
 echo ""
 echo "=== Install complete ==="
 systemctl status mission-control.service --no-pager
-systemctl status mission-control-scraper.timer --no-pager
 systemctl status mission-control-magnet-bridge.service --no-pager
 systemctl status mission-control-broken-link-checker.service --no-pager
-systemctl status mission-control-energy-price-scraper.timer --no-pager
 echo ""
 echo "Logs:  journalctl -u mission-control.service -f"
 echo "       journalctl -u mission-control-magnet-bridge.service -f"
 echo "       journalctl -u mission-control-broken-link-checker.service -f"
-echo "       journalctl -u mission-control-energy-price-scraper.service -f"
+echo ""
+echo "Worker Timers: http://your-server:3000/schedules"

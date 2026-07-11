@@ -30,14 +30,16 @@ model MacroGroup {
 }
 
 model History {
-  id          Int       @id @default(autoincrement())
-  macroId     Int       @map("macro_id")
-  startTime   DateTime  @map("start_time")
-  endTime     DateTime? @map("end_time")
-  status      String
-  output      String?
-  triggeredBy String?   @default("user") @map("triggered_by")
-  macro       Macro     @relation(fields: [macroId], references: [id])
+  id             Int       @id @default(autoincrement())
+  macroId        Int?      @map("macro_id")
+  workerTimerId  Int?      @map("worker_timer_id")
+  startTime      DateTime  @map("start_time")
+  endTime        DateTime? @map("end_time")
+  status         String
+  output         String?
+  triggeredBy    String?   @default("user") @map("triggered_by")
+  macro          Macro?    @relation(fields: [macroId], references: [id])
+  workerTimer    WorkerTimer? @relation(fields: [workerTimerId], references: [id])
 
   @@map("history")
 }
@@ -198,6 +200,20 @@ model ChatMessage {
 
   @@index([sessionId])
   @@map("chat_messages")
+}
+
+model WorkerTimer {
+  id             Int       @id @default(autoincrement())
+  name           String
+  workerPath     String    @map("worker_path")
+  cronExpression String    @map("cron_expression")
+  enabled        Boolean   @default(true)
+  lastRunAt      DateTime? @map("last_run_at")
+  lastStatus     String?   @map("last_status")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  history        History[]
+
+  @@map("worker_timers")
 }
 
 model EnergyPrice {

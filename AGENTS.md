@@ -50,11 +50,12 @@ Run via `just <command>`:
 | `just test-coverage`  | Run unit tests with coverage report             |
 | `just energy-prices` | Run the energy-price scraper once (foreground) |
 | `just energy-prices-logs` | Tail energy-price scraper logs |
-| `just energy-prices-restart` | Restart the energy-price scraper timer |
-| `just energy-prices-stop` | Stop the energy-price scraper timer |
-| `just run-worker path` | Run a cron task once (default: scraper)       |
+| `just energy-prices-restart` | Restart the energy-price scraper service |
+| `just energy-prices-stop` | Stop the energy-price scraper service |
+| `just run-worker path` | Run a worker task once (default: scraper)     |
 | `just install-service` | One-time: install systemd service on server   |
 | `just deploy`          | Full deploy: pull → build → restart (N8N)     |
+| `just cleanup`         | Remove old systemd services (dry run)         |
 | `just stop`            | Stop systemd service                           |
 | `just restart`         | Restart systemd service                        |
 | `just logs`            | Tail service logs                              |
@@ -74,11 +75,14 @@ cd /opt/mission-control && just install-service
 
 This sets up:
 - `mission-control.service` — the Next.js app (React frontend + API routes)
-- `mission-control-scraper.timer` — runs the scraper task every 30 minutes
-- `mission-control-scraper.service` — the scraper task (called by the timer)
 - `mission-control-magnet-bridge.service` — long-running Decypharr poller (auto-restart)
-- `mission-control-energy-price-scraper.service` — daily (9 AM) EnergizeCT rate scraper (timer)
-- `mission-control-energy-price-scraper.timer` — triggers the scraper at 9:00 AM daily
+- `mission-control-broken-link-checker.service` — long-running broken link checker (auto-restart)
+- `mission-control-scraper.service` — one-off scraper task (manual runs only)
+- `mission-control-energy-price-scraper.service` — one-off energy price scraper (manual runs only)
+
+**Note:** The scraper and energy price scraper are now scheduled via the in-process
+Worker Timer scheduler (configured in the web UI at `/timers`). The systemd `.service`
+units are kept for manual one-off runs but the `.timer` units are no longer installed.
 
 ### Deploy on push (N8N workflow)
 
@@ -91,20 +95,24 @@ This sets up:
 The `deploy/` directory contains the production system:
 - `install.sh` — one-time setup: copies service files, enables + starts systemd units
 - `deploy.sh` — pull → build → copy to `/opt/mission-control` → restart (called by N8N)
+- `cleanup.sh` — remove old systemd services replaced by in-process worker timer scheduler
 - `mission-control.service` — systemd unit for the Next.js app (frontend + API routes)
 - `mission-control-scraper.service` — systemd unit for the scraper task (runs once and exits)
-- `mission-control-scraper.timer` — triggers the scraper every 30 minutes
 - `mission-control-magnet-bridge.service` — systemd unit for the magnet bridge worker (long-running, `Restart=always`)
-- `mission-control-energy-price-scraper.service` — systemd unit for the EnergizeCT rate scraper (runs once per timer, daily at 9 AM)
-- `mission-control-energy-price-scraper.timer` — triggers the scraper at 9:00 AM daily
+- `mission-control-broken-link-checker.service` — systemd unit for the broken link checker (long-running, `Restart=always`)
+- `mission-control-energy-price-scraper.service` — systemd unit for the EnergizeCT rate scraper (runs once and exits)
 
-## Cron Tasks (External Scheduling)
+## Cron Tasks (Worker Timer Scheduler)
 
 Tasks live in `src/workers/` and are standalone TypeScript files that **run once and exit**.
 They can import from `@/lib/` to share code with the rest of the app.
 
+**Scheduling is now handled in-process** via the Worker Timer scheduler at `/timers`.
+Each timer stores a cron expression and worker path in the database, and the scheduler
+runs them automatically. No external systemd timers are needed.
+
 ```bash
-just run-worker                          # run scraper task
+just run-worker                          # run scraper task (one-off)
 just run-worker src/workers/other.ts     # run a different task
 ```
 
@@ -187,6 +195,20 @@ src/components/schedules/
   edit-schedule-form.tsx   # Edit form (re-uses the same shape as new-schedule-form)
 src/lib/cron.ts            # Cron expression builder + parser + validator
                            # Mirrors the Go generateCronExpression / parseCronToForm
+```
+
+## New directories added for Worker Timers
+
+```
+src/components/timers/
+  timers-list.tsx          # List page client component (rows + toggle + delete + create form)
+src/lib/worker-timer-scheduler.ts  # In-process cron scheduler for worker timers
+src/app/timers/
+  page.tsx                 # /timers page shell
+src/app/api/timers/
+  route.ts                 # GET list + POST create
+  [id]/route.ts            # GET show + PUT update + DELETE
+  [id]/toggle/route.ts     # POST toggle enabled/disabled
 ```
 
 ## Testing
@@ -362,16 +384,62 @@ stealth techniques are needed:
 | DELETE | `/api/schedules/[id]`             | Delete + unregister                    |
 | POST   | `/api/schedules/[id]/toggle`      | Toggle enabled + add/remove from scheduler |
 
+## Worker Timers — In-process scheduling for background workers
+
+Worker Timers replace the external systemd timer units (`mission-control-scraper.timer`
+and `mission-control-energy-price-scraper.timer`). They store cron expressions in the
+`worker_timers` DB table and run workers in-process via the `cron` npm package.
+
+### API surface
+
+| Method | Path                              | Purpose                                |
+| ------ | --------------------------------- | -------------------------------------- |
+| GET    | `/api/timers`                     | List all worker timers + preset registry |
+| POST   | `/api/timers`                     | Create timer (body: `{name, workerPath, cronExpression}`) |
+| GET    | `/api/timers/[id]`                | Get single timer                       |
+| PUT    | `/api/timers/[id]`                | Update timer                           |
+| DELETE | `/api/timers/[id]`                | Delete timer + unregister              |
+| POST   | `/api/timers/[id]/toggle`         | Toggle enabled + add/remove from scheduler |
+
+### DB model
+
+`WorkerTimer` table stores one row per configured timer:
+- `name` — human-readable label (e.g. "Scraper", "Energy Price Scraper")
+- `workerPath` — relative path to the worker script (e.g. `src/workers/scraper-worker.ts`)
+- `cronExpression` — 5-field cron expression (e.g. `*/30 * * * *`)
+- `enabled` — whether the timer is active
+- `lastRunAt` — timestamp of last execution
+- `lastStatus` — `"success"` or `"error"` from last run
+
+### Scheduler
+
+`src/lib/worker-timer-scheduler.ts` initializes on server boot (via `instrumentation.ts`)
+and loads all enabled timers from the DB. Each timer gets a `CronJob` instance that
+imports and runs the worker's `main()` function on the configured schedule.
+
+### Preset workers
+
+| Name | Worker Path | Default Schedule | Description |
+| ---- | ----------- | ---------------- | ----------- |
+| Scraper | `src/workers/scraper-worker.ts` | `*/30 * * * *` (every 30 min) | Runs all three scrape sources |
+| Energy Price Scraper | `src/workers/energy-price-scraper.ts` | `0 8 * * *` (daily at 8 AM) | Scrapes EnergizeCT.com rates |
+
+Custom workers can also be added by specifying a worker script path directly.
+
 ## Phase 4 worker pattern
 
 `src/workers/scraper-runner.ts` is the orchestrator. It is invoked in two ways:
 
 | Caller                      | Command                                                                  | Effect                             |
 | --------------------------- | ------------------------------------------------------------------------ | ---------------------------------- |
-| `mission-control-scraper.timer` (systemd) | `bun run src/workers/scraper-worker.ts` → `runAllSources()` | All three sources, sequentially    |
+| Worker Timer scheduler (in-process) | `worker-timer-scheduler.ts` → `main()` | All three sources, sequentially    |
 | `POST /api/scraper/trigger` (web)         | `triggerSourceInBackground(src)`                            | One source, background             |
 | `POST /api/scraper/trigger-all`           | `triggerAllSourcesInBackground()`                           | All three sources, background      |
 | Manual (one source)         | `just run-worker src/workers/scraper-runner.ts -- <source>`               | One source, foreground (logs visible) |
+
+The Worker Timer scheduler (`/timers` page) stores cron expressions in the `worker_timers`
+DB table and runs workers in-process. No external systemd timers are needed for scheduling.
+The systemd `.service` units are kept only for manual one-off runs.
 
 Scraping status (`is_scraping` per source) is stored in the `settings` table
 under the key `scraper_status:<source>` so the web process and worker process

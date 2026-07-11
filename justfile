@@ -43,6 +43,10 @@ install-service:
 deploy:
     ./deploy/deploy.sh
 
+# Remove old systemd services replaced by in-process worker timer scheduler
+cleanup:
+    ./deploy/cleanup.sh
+
 # Stop the service
 stop:
     systemctl stop mission-control
@@ -91,23 +95,11 @@ bl-finder-restart:
 bl-finder-stop:
     systemctl stop mission-control-broken-link-checker.service
 
-# ── Energy Price Scraper (daily, 9 AM timer) ─────────────────────────────────
+# ── Energy Price Scraper (manual runs only — scheduling via /schedules) ────────
 
 # Run the energy-price scraper in the foreground (for local dev / testing)
 energy-prices:
     bun run src/workers/energy-price-scraper.ts
-
-# Tail energy-price scraper logs
-energy-prices-logs:
-    journalctl -u mission-control-energy-price-scraper.service -f
-
-# Restart the energy-price scraper timer
-energy-prices-restart:
-    systemctl restart mission-control-energy-price-scraper.timer
-
-# Stop the energy-price scraper timer
-energy-prices-stop:
-    systemctl stop mission-control-energy-price-scraper.timer
 
 # ── One-off Scripts ──────────────────────────────────────────────────────────
 
@@ -116,9 +108,10 @@ energy-prices-stop:
 script name:
     bun run {{name}}
 
-# ── Scraper / Cron Tasks (run once — systemd timer handles scheduling) ────────
+# ── Worker Tasks (run once — worker timer scheduler handles scheduling) ──────
 
-# Run the scraper task once (default). Call via systemd timer or crontab.
+# Run a worker task once (default: scraper). Scheduling is configured
+# via the web UI at /schedules (Worker Timers section).
 # Other tasks:  just run-worker src/workers/other.ts
 run-worker path="src/workers/scraper-worker.ts":
     bun run {{path}}

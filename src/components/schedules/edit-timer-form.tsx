@@ -12,14 +12,13 @@ import {
   type DayOfWeek,
   type ScheduleFormValues,
 } from "@/lib/cron";
-import type { MacroOption } from "./schedules-list";
 
-interface EditScheduleFormProps {
-  scheduleId: number;
+interface EditTimerFormProps {
+  timerId: number;
+  timerName: string;
+  workerPath: string;
   initialEnabled: boolean;
-  macros: MacroOption[];
   initialValues: ScheduleFormValues;
-  initialMacroId: number;
 }
 
 const labelCls = "text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant";
@@ -32,19 +31,17 @@ const inputStyle: React.CSSProperties = {
 };
 
 /**
- * Edit form. Mirrors the Go `EditSchedule` view: same fields as the new
- * form, pre-filled with `parseCronToForm(cronExpression)`.
+ * Edit form for worker timers. Mirrors the macro schedule edit form.
  */
-export function EditScheduleForm({
-  scheduleId,
+export function EditTimerForm({
+  timerId,
+  timerName,
+  workerPath,
   initialEnabled,
-  macros,
   initialValues,
-  initialMacroId,
-}: EditScheduleFormProps) {
+}: EditTimerFormProps) {
   const toast = useToast();
   const router = useRouter();
-  const [macroId, setMacroId] = useState<string>(String(initialMacroId));
   const [frequency, setFrequency] = useState<Frequency>(initialValues.frequency);
   const [intervalValue, setIntervalValue] = useState(initialValues.intervalValue ?? "1");
   const [intervalUnit, setIntervalUnit] = useState<IntervalUnit>(
@@ -68,28 +65,24 @@ export function EditScheduleForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!macroId) return;
     setSubmitting(true);
     try {
       const cronExpression = buildCronExpression(currentValues);
-      const res = await fetch(`/api/schedules/${scheduleId}`, {
+      const res = await fetch(`/api/schedules/timers/${timerId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          macroId: Number(macroId),
-          cronExpression,
-        }),
+        body: JSON.stringify({ cronExpression }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error ?? `HTTP ${res.status}`);
       }
-      toast.showToast("Schedule updated", "success");
+      toast.showToast("Timer updated", "success");
       router.push("/schedules");
       router.refresh();
     } catch (err) {
       toast.showToast(
-        err instanceof Error ? err.message : "Failed to update schedule",
+        err instanceof Error ? err.message : "Failed to update timer",
         "error"
       );
     } finally {
@@ -109,15 +102,18 @@ export function EditScheduleForm({
           className="text-2xl font-bold text-on-surface tracking-tight"
           style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
         >
-          Edit Schedule
+          Edit Timer
         </h1>
+        <span
+          className="text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-none"
+          style={{ background: "rgba(0, 255, 156, 0.1)", color: "#00FF9C" }}
+        >
+          {timerName}
+        </span>
         {!initialEnabled && (
           <span
             className="text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-none"
-            style={{
-              background: "rgba(107, 114, 128, 0.2)",
-              color: "#9CA3AF",
-            }}
+            style={{ background: "rgba(107, 114, 128, 0.2)", color: "#9CA3AF" }}
           >
             Currently disabled
           </span>
@@ -129,24 +125,15 @@ export function EditScheduleForm({
         style={{ background: "#1C1B1B", border: "1px solid rgba(59, 75, 63, 0.3)" }}
       >
         <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+          {/* Worker info (read-only) */}
           <div className="grid grid-cols-1 gap-1.5">
-            <label htmlFor="macro_id" className={labelCls}>
-              Macro
-            </label>
-            <select
-              name="macro_id"
-              id="macro_id"
-              value={macroId}
-              onChange={(e) => setMacroId(e.target.value)}
-              className={inputCls}
-              style={inputStyle}
+            <label className={labelCls}>Worker</label>
+            <div
+              className="px-3 py-2 text-sm text-on-surface-variant rounded-none"
+              style={{ background: "#2A2A2A", borderBottom: "2px solid #3B4B3F" }}
             >
-              {macros.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name} ({m.groupName})
-                </option>
-              ))}
-            </select>
+              <span className="font-mono text-xs">{workerPath}</span>
+            </div>
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -265,11 +252,11 @@ export function EditScheduleForm({
               <Button
                 type="submit"
                 variant="primary"
-                disabled={submitting || !macroId}
+                disabled={submitting}
                 className="disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className="material-symbols-outlined text-sm">save</span>
-                {submitting ? "Saving…" : "Update Schedule"}
+                {submitting ? "Saving…" : "Update Timer"}
               </Button>
             </div>
             <div className="flex items-center gap-2 md:mr-auto">

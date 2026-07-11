@@ -9,13 +9,15 @@ import { formatSeconds } from "@/lib/format";
 
 interface HistoryItem {
   id: number;
-  macroId: number;
+  macroId: number | null;
+  workerTimerId: number | null;
   startTime: string;
   endTime: string | null;
   status: string;
   output: string | null;
   triggeredBy: string;
-  macro: { name: string };
+  macro: { name: string } | null;
+  workerTimer: { name: string } | null;
 }
 
 function statusPill(status: string) {
@@ -155,7 +157,12 @@ export default function HistoryPage() {
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="min-w-0">
                     <div className="text-sm font-medium text-[#E5E2E1] truncate">
-                      {item.macro.name}
+                      {item.workerTimer?.name ?? item.macro?.name ?? "Unknown"}
+                      {item.workerTimer && (
+                        <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-none" style={{ background: "rgba(0, 255, 156, 0.1)", color: "#00FF9C" }}>
+                          timer
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       {statusPill(item.status)}
