@@ -103,6 +103,7 @@ function renderList(props: {
       <SchedulesList
         macros={props.macros ?? macros}
         initialSchedules={props.initialSchedules ?? []}
+        initialTimers={[]}
       />
     </ToastProvider>,
   );
@@ -111,9 +112,9 @@ function renderList(props: {
 // ── Tests ──────────────────────────────────────────────────────────────
 
 describe("SchedulesList", () => {
-  test("shows the 'No schedules configured yet.' empty state when empty", () => {
+  test("shows the 'No schedules configured' empty state when empty", () => {
     renderList({ initialSchedules: [] });
-    expect(screen.getByText("No schedules configured yet.")).toBeInTheDocument();
+    expect(screen.getByText("No schedules configured")).toBeInTheDocument();
   });
 
   test("renders one row per schedule with the macro name and cron expression", () => {
@@ -135,17 +136,17 @@ describe("SchedulesList", () => {
       baseSchedule({ id: 3, enabled: false }),
     ];
     renderList({ initialSchedules: schedules });
-    expect(screen.getByText("3 schedules · 2 enabled")).toBeInTheDocument();
+    expect(screen.getByText("3 macro schedules · 0 worker timers · 2 enabled")).toBeInTheDocument();
   });
 
   test("subtitle uses singular 'schedule' when there's exactly one", () => {
     renderList({ initialSchedules: [baseSchedule()] });
-    expect(screen.getByText("1 schedule · 1 enabled")).toBeInTheDocument();
+    expect(screen.getByText("1 macro schedule · 0 worker timers · 1 enabled")).toBeInTheDocument();
   });
 
-  test("subtitle shows 'No schedules yet' when empty", () => {
+  test("subtitle shows 'No schedules configured' when empty", () => {
     renderList({ initialSchedules: [] });
-    expect(screen.getByText("No schedules yet")).toBeInTheDocument();
+    expect(screen.getByText("No schedules configured")).toBeInTheDocument();
   });
 
   test("add button is disabled when there are no macros", () => {
@@ -160,8 +161,8 @@ describe("SchedulesList", () => {
     fireEvent.click(addBtn);
     // Button is gone once the form is open
     expect(screen.queryByRole("button", { name: /add schedule/i })).toBeNull();
-    // The form panel is now visible (look for the 'New Schedule' heading)
-    expect(screen.getByText("New Schedule")).toBeInTheDocument();
+    // The form panel is now visible (look for the 'New Macro Schedule' heading)
+    expect(screen.getByText("New Macro Schedule")).toBeInTheDocument();
   });
 
   test("edit link for each row points to /schedules/:id/edit", () => {

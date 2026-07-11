@@ -73,8 +73,8 @@ echo "→ Restarting services..."
 systemctl restart mission-control.service
 systemctl restart mission-control-magnet-bridge.service
 systemctl restart mission-control-broken-link-checker.service
-# The energy-price scraper runs on a timer (once daily), but restarting
-# the timer ensures the next scheduled tick uses the new code.
-systemctl restart mission-control-energy-price-scraper.timer 2>/dev/null || true
+# Note: scraper and energy-price scrapers are now run in-process via the
+# worker timer scheduler (configured in the web UI at /timers).
+# The .service units are kept for manual one-off runs.
 
 echo "=== Deploy complete ==="

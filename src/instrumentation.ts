@@ -11,5 +11,9 @@ export async function register() {
     const { cronScheduler } = await import("@/lib/cron-scheduler");
     await cronScheduler.init();
     console.log("[cron] Scheduler started");
+
+    const { workerTimerScheduler } = await import("@/lib/worker-timer-scheduler");
+    await workerTimerScheduler.init();
+    console.log("[worker-timer] Scheduler started");
   }
 }

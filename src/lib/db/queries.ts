@@ -102,7 +102,8 @@ export async function deleteMacroGroup(id: number) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function createHistory(data: {
-  macroId: number;
+  macroId?: number;
+  workerTimerId?: number;
   startTime?: Date;
   status?: string;
   output?: string;
@@ -111,6 +112,7 @@ export async function createHistory(data: {
   return db.history.create({
     data: {
       macroId: data.macroId,
+      workerTimerId: data.workerTimerId,
       startTime: data.startTime ?? new Date(),
       status: data.status ?? "running",
       output: data.output,
@@ -156,14 +158,20 @@ export async function flushHistoryOutput(id: number, output: string) {
 export async function getHistory() {
   return db.history.findMany({
     orderBy: { startTime: "desc" },
-    include: { macro: { select: { name: true } } },
+    include: {
+      macro: { select: { name: true } },
+      workerTimer: { select: { name: true } },
+    },
   });
 }
 
 export async function getHistoryItem(id: number) {
   return db.history.findUniqueOrThrow({
     where: { id },
-    include: { macro: { select: { name: true } } },
+    include: {
+      macro: { select: { name: true } },
+      workerTimer: { select: { name: true } },
+    },
   });
 }
 
@@ -223,6 +231,63 @@ export async function getEnabledSchedules() {
   return db.schedule.findMany({
     where: { enabled: true },
     include: { macro: { select: { name: true } } },
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  WORKER TIMERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function listWorkerTimers() {
+  return db.workerTimer.findMany({ orderBy: { createdAt: "asc" } });
+}
+
+export async function getWorkerTimer(id: number) {
+  return db.workerTimer.findUniqueOrThrow({ where: { id } });
+}
+
+export async function getEnabledWorkerTimers() {
+  return db.workerTimer.findMany({ where: { enabled: true } });
+}
+
+export async function createWorkerTimer(data: {
+  name: string;
+  workerPath: string;
+  cronExpression: string;
+  enabled?: boolean;
+}) {
+  return db.workerTimer.create({
+    data: {
+      name: data.name,
+      workerPath: data.workerPath,
+      cronExpression: data.cronExpression,
+      enabled: data.enabled ?? true,
+    },
+  });
+}
+
+export async function updateWorkerTimer(
+  id: number,
+  data: Prisma.WorkerTimerUpdateInput
+) {
+  return db.workerTimer.update({ where: { id }, data });
+}
+
+export async function toggleWorkerTimer(id: number) {
+  const timer = await db.workerTimer.findUniqueOrThrow({ where: { id } });
+  return db.workerTimer.update({
+    where: { id },
+    data: { enabled: !timer.enabled },
+  });
+}
+
+export async function updateWorkerTimerRunStatus(
+  id: number,
+  status: string
+) {
+  return db.workerTimer.update({
+    where: { id },
+    data: { lastRunAt: new Date(), lastStatus: status },
   });
 }
 
