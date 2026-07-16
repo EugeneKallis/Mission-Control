@@ -14,6 +14,14 @@ const LABELS: Record<string, string> = {
 
 const SERVICES = Object.keys(LABELS);
 
+/** UI status strings that should never be filtered or replaced by the empty-state message. */
+function isPlaceholder(s: string): boolean {
+  if (s === "Loading...") return true;
+  if (s === "No logs available.") return true;
+  if (s.startsWith("Failed to fetch logs")) return true;
+  return false;
+}
+
 export default function LogsPage() {
   const [logs, setLogs] = useState<string>("Loading...");
   const [service, setService] = useState("web");
@@ -123,21 +131,23 @@ export default function LogsPage() {
     }
   }, [logs]);
 
-  const filteredLogs = logs
-    .split("\n")
-    .filter((line) => {
-      if (errorsOnly && !isErrorLine(line)) {
-        return false;
-      }
-      if (excludeWeb && (line.startsWith("GET ") || line.startsWith("POST ") || line.startsWith('"GET ') || line.startsWith('"POST '))) {
-        return false;
-      }
-      if (filter && !line.toLowerCase().includes(filter.toLowerCase())) {
-        return false;
-      }
-      return true;
-    })
-    .join("\n");
+  const filteredLogs = isPlaceholder(logs)
+    ? logs
+    : logs
+        .split("\n")
+        .filter((line) => {
+          if (errorsOnly && !isErrorLine(line)) {
+            return false;
+          }
+          if (excludeWeb && (line.startsWith("GET ") || line.startsWith("POST ") || line.startsWith('"GET ') || line.startsWith('"POST '))) {
+            return false;
+          }
+          if (filter && !line.toLowerCase().includes(filter.toLowerCase())) {
+            return false;
+          }
+          return true;
+        })
+        .join("\n");
 
   // ── Per-line rendering (with highlight for errors) ────────────
   const MAX_HIGHLIGHT_LINES = 8_000;
@@ -145,7 +155,14 @@ export default function LogsPage() {
   const useLineHighlight = lines.length <= MAX_HIGHLIGHT_LINES;
 
   function renderLines() {
-    if (!filteredLogs) return "No logs available.";
+    if (!filteredLogs) {
+      if (logs && !isPlaceholder(logs)) {
+        return errorsOnly
+          ? "No error lines in current logs."
+          : "No lines match current filters.";
+      }
+      return "No logs available.";
+    }
     if (!useLineHighlight) return filteredLogs;
     const lineEls = lines.map((line, i) => {
       const isError = line.trim() && isErrorLine(line);
