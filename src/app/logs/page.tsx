@@ -19,6 +19,7 @@ export default function LogsPage() {
   const [service, setService] = useState("web");
   const [filter, setFilter] = useState("");
   const [excludeWeb, setExcludeWeb] = useState(true);
+  const [errorsOnly, setErrorsOnly] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [errorCount, setErrorCount] = useState(0);
@@ -125,6 +126,9 @@ export default function LogsPage() {
   const filteredLogs = logs
     .split("\n")
     .filter((line) => {
+      if (errorsOnly && !isErrorLine(line)) {
+        return false;
+      }
       if (excludeWeb && (line.startsWith("GET ") || line.startsWith("POST ") || line.startsWith('"GET ') || line.startsWith('"POST '))) {
         return false;
       }
@@ -207,6 +211,17 @@ export default function LogsPage() {
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
+
+          {/* Errors Only checkbox */}
+          <label className="flex items-center gap-2 text-xs text-[#849587] cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={errorsOnly}
+              onChange={(e) => setErrorsOnly(e.target.checked)}
+              className="accent-[#618B6B]"
+            />
+            Errors Only
+          </label>
 
           {/* Exclude Web checkbox */}
           <label className="flex items-center gap-2 text-xs text-[#849587] cursor-pointer select-none">
