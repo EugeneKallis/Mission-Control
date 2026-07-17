@@ -319,9 +319,9 @@ export function ScraperPage({
   // D / H: find the card whose top is closest to (and at or above)
   //        the viewport top — that is the "active" card. Trigger
   //        download / hide on it.
-  // ArrowDown / ArrowUp: the snap targets are the header section and
-  //        every card. Move to the next / previous one based on the
-  //        current scrollTop.
+  // j / k / ArrowDown / ArrowUp: the snap targets are the header
+  //        section and every card. Move to the next / previous one
+  //        based on the current scrollTop.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement | null)?.tagName;
@@ -354,7 +354,9 @@ export function ScraperPage({
         return;
       }
 
-      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      const isDown = e.key === "ArrowDown" || key === "j";
+      const isUp = e.key === "ArrowUp" || key === "k";
+      if (!isDown && !isUp) return;
       e.preventDefault();
       const targets: HTMLElement[] = [];
       const header = container.querySelector<HTMLElement>("#scraper-header-section");
@@ -375,7 +377,7 @@ export function ScraperPage({
       for (let i = 0; i < targets.length; i++) {
         if (targets[i].offsetTop <= scrollTop + 100) idx = i;
       }
-      idx = e.key === "ArrowDown" ? Math.min(idx + 1, targets.length - 1) : Math.max(idx - 1, 0);
+      idx = isDown ? Math.min(idx + 1, targets.length - 1) : Math.max(idx - 1, 0);
       container.scrollTo({ top: targets[idx].offsetTop, behavior: "smooth" });
     };
     document.addEventListener("keydown", handler);

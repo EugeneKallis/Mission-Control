@@ -44,6 +44,14 @@ export function formatDuration(end: Date, start: Date): string {
 }
 
 /**
+ * Truncate a string to max characters, appending "…" if truncated.
+ */
+export function truncate(s: string, max: number): string {
+  if (s.length <= max) return s;
+  return s.slice(0, max) + "…";
+}
+
+/**
  * Format a duration in seconds as "1d 2h" / "3h 45m" / "12m 34s" / "5s".
  * Shows the two most significant units.
  */

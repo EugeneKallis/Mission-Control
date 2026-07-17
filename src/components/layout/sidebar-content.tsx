@@ -236,7 +236,6 @@ export function SidebarContent({
 
         <div className="my-3 mx-4 h-px" style={{ background: "rgba(59, 75, 63, 0.4)" }} />
 
-        <NavItem label="Chat" icon="chat" href="/chat" color="primary" />
         <NavItem
           label="Energy Prices"
           icon="bolt"
@@ -245,6 +244,15 @@ export function SidebarContent({
           badge={energyBetterCount ?? undefined}
           badgeTitle="better rates"
         />
+
+        {/* Agent section */}
+        <div className="my-2 mx-5 mt-3">
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant/50">
+            Agent
+          </span>
+        </div>
+        <NavItem label="Pi Agent" icon="smart_toy" href="/chat" color="primary" />
+        <NavItem label="Pi Settings" icon="settings" href="/pi-settings" color="primary" />
 
         {/* Divider */}
         <div className="my-3 mx-4 h-px" style={{ background: "rgba(59, 75, 63, 0.4)" }} />

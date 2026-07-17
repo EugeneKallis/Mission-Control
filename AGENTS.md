@@ -165,6 +165,7 @@ This tells the next agent exactly where to pick up.
 | Phase 10 — Test coverage gaps | 21 (Component + route + script + worker tests) | ✅ Done |
 | Phase 11 — BL Finder | 22 (Broken-link checker: page + worker + API + deploy) | ✅ Done |
 | Phase 12 — Chat | 23 (Chat: provider catalog + model selector + attachments + media warnings) | ✅ Done |
+| Phase 13 — Pi Agent Integration | Pi-powered chat (Phases 1–9): process manager, SSE/command endpoints, skills/tools settings, streaming UI, tool call rendering, model controls, session persistence, legacy cleanup | ✅ Done |
 
 **Convention:** After completing a phase, update:
 1. This table (set Status to ✅ Done, add next phase as ⏳ In progress)
@@ -839,104 +840,92 @@ src/components/layout/sidebar-content.tsx  # MODIFIED — polls /api/logs/alerts
 src/app/logs/page.tsx                  # MODIFIED — error highlighting + Mark Resolved
 ```
 
-## Phase 12 — Chat (model selection + attachments)
+## Phase 12 — Chat (legacy, replaced by Pi Agent)
 
-Persistent DB-backed chat with a curated model catalog, provider selection,
-client-side attachment support, and media-capability warnings.
+> **This phase has been superseded.** The old static ChatPage (provider catalog,
+> model selector, attachments, media warnings) has been fully replaced by a
+> full Pi-powered chat at `/chat`. See **Pi Agent Integration** below for
+> the current architecture.
+>
+> All old chat files have been deleted in Phase 9 of Pi Agent Integration:
+> - `src/lib/chat/` — models, provider, keys
+> - `src/app/api/chat/` — sessions, models, messages routes
+> - `src/components/chat/` — chat-page, chat-types
+> - Prisma models `ChatSession`/`ChatMessage` removed
+> - Migration `20260714000000_drop_chat_tables` drops the tables
 
-### Architecture
+## Pi Agent Integration (Phases 1-9)
 
-- **Model catalog** — `src/lib/chat/models.ts` exports a static array of
-  `ChatModel` entries with accurate provider, pricing, context window, max
-  output, capabilities (text/vision/tools/reasoning), and the API surface
-  (OpenAI-compatible or Anthropic-compatible). Defaults to
-  `opencode-go/deepseek-v4-flash` (DeepSeek V4 Flash via OpenCode Go).
-  All helpers are pure (no I/O, no DB) and unit-tested.
-- **Provider call layer** — `src/lib/chat/provider.ts` builds the correct
-  request body and headers per `apiStyle` (openai → `/chat/completions`;
-  anthropic → `/messages`), sends via an injectable `fetch`, returns the
-  assistant text. Two API styles cover all catalogued models.
-- **DB persistence** — `ChatSession` and `ChatMessage` models via Prisma.
-  Each session stores the composite model id (`"provider/modelId"`) so a
-  session remembers its model across reloads. The `model` column is
-  defaulted to `"opencode-go/deepseek-v4-flash"` and changeable via PATCH.
-- **Attachments** — read client-side as text (inlined into the prompt) or
-  image (base64 data URL sent to vision-capable models). Unsupported
-  file types (audio/video/pdf/binary) are kept in the UI only as warning
-  chips — never sent. Baseline text attachments work with every model;
-  image attachments require a Vision-capable model. Metadata is persisted
-  in the DB; actual content is ephemeral (sent in the POST body).
-- **Media warning** — `categorizeAttachment` + `attachmentSupported` from
-  `src/lib/chat/models.ts` check each pending attachment against the
-  currently selected model. The input bar shows a warning banner and
-  disables Send when an attachment isn't supported.
-- **Model selector** — a `Modal` showing all models sorted by input price
-  (cheapest first), with search + provider filter. Each row displays
-  capability chips (Vision, Tools, Reasoning), price per 1M tokens,
-  context window, and a "ready"/"needs key" badge. Selecting PATCHes
-  the session's model.
+### Phase 5 — New Chat UI (Streaming + Slash Autocomplete)
 
-### API surface
+The old static ChatPage has been replaced by a full Pi-powered chat at `/chat`.
+`src/app/chat/page.tsx` renders `<PiChatPage />` instead of `<ChatPage />`.
 
-| Method | Path | Purpose |
-| ------ | ------------------------------------------ | --------------------------------------------- |
-| GET | `/api/chat/models` | Catalog sorted by price (cheapest first) with capabilities, price, and configured status |
-| GET | `/api/chat/sessions` | List sessions (id, title, model, timestamps) newest-first |
-| POST | `/api/chat/sessions` | Create session (optional title/model, defaults to deepseek-v4-flash) |
-| GET | `/api/chat/sessions/[id]` | Session with all messages (attachments metadata as JSON) |
-| PATCH | `/api/chat/sessions/[id]` | Update title and/or model (session remembers its model) |
-| DELETE | `/api/chat/sessions/[id]` | Delete session + cascade messages |
-| POST | `/api/chat/sessions/[id]/messages` | Send a message: persists user + assistant, calls provider, returns both |
-
-### Provider config (env vars)
-
-Keys are read from env (validated in `src/lib/config.ts`):
-
-| Env var | Provider |
-| ------- | -------- |
-| `OPENCODE_GO_API_KEY` | OpenCode Go (default, must be set for the default model to work) |
-| `OPENAI_API_KEY` | OpenAI (gpt-4o, gpt-4o-mini, o4-mini) |
-| `ANTHROPIC_API_KEY` | Anthropic (Claude Sonnet 4.5, Claude Haiku 4.5) |
-| `GEMINI_API_KEY` | Google Gemini (Gemini 2.5 Flash, Gemini 2.5 Pro) |
-
-### New directories / files
-
+**New files:**
 ```
-src/lib/chat/
-  models.ts              # Model catalog + capabilities + attachment helpers (pure)
-  models.test.ts         # 23 tests
-  provider.ts            # OpenAI/Anthropic-compatible provider call layer
-  provider.test.ts       # 10 tests (stubbed fetch)
-src/app/api/chat/
-  models/route.ts        # GET /api/chat/models
-  sessions/route.ts      # GET index + POST create
-  sessions/[id]/route.ts # GET show + PATCH update + DELETE
-  sessions/[id]/messages/route.ts  # POST send
-  4 route test files      # (models, sessions, [id], messages)
-src/components/chat/
-  chat-types.ts           # Shared TS types (ChatSession, ModelEntry, etc.)
-  chat-page.tsx           # Full DB-backed chat: model selector + attachments + warnings
-  chat-page.test.tsx      # 8 component tests (mock fetch, no network)
-prisma/migrations/20260708120000_chat/  # ChatSession + ChatMessage tables
+src/components/pi-chat/
+  pi-chat-page.tsx         # Main chat: streaming, thinking blocks, tool calls
+  slash-autocomplete.tsx    # /-triggered autocomplete for skills & templates
+  skills-tools-dropdowns.tsx # Read-only header dropdowns for enabled tools/skills
+src/hooks/
+  use-pi-stream.ts          # SSE hook for /api/pi/events/[sessionId]
 ```
 
-### Testing
+### Phase 6 — Tool Call Rendering
 
-- 23 unit tests for pure catalog + attachment helpers (`src/lib/chat/models.test.ts`)
-- 10 unit tests for provider call layer (`src/lib/chat/provider.test.ts`)
-- 4× route tests (27 total, DB-backed via `makeTestDB()`, provider mocked)
-- 8 component tests via `@/test-utils/render` with `globalThis.fetch` mocked
+Per-tool rendering extracted from pi-chat-page.tsx into dedicated modules:
 
-67 tests total across 7 files. All pure-logic helpers are tested without DB
-or network. Route tests use `makeTestDB()` + `mock.module("@/lib/db")`.
-Component tests mock `globalThis.fetch` to a stateful in-memory store.
-
-### Running
-
-```bash
-# Server: set the env vars above, then `just dev` or `just build && just start`
+**New files:**
+```
+src/components/pi-chat/
+  tool-call-card.tsx                 # Collapsible card, status icons, per-tool render
+  tool-result-renderers.tsx          # bash→terminal, read→file+preview, edit→diff, write→creation
+  tool-call-card.test.tsx            # 13 tests
+  tool-result-renderers.test.tsx     # 20 tests
 ```
 
-The chat page is at `/chat`. The sidebar link already exists.
+33 tests across 2 files, all pure-logic or component tests with no DB/network.
 
+### Phase 7 — Model & Settings Controls
+
+Model selector + thinking level toggle + status bar integrated into the Pi chat header.
+
+**New/modified files:**
+```
+src/components/pi-chat/
+  model-selector.tsx          # Modal: search + provider filter + Pi model registry
+  model-selector.test.tsx     # 8 tests
+  status-bar.tsx              # Header: model badge, thinking dropdown, context bar, stats
+  status-bar.test.tsx         # 8 tests
+  pi-chat-page.tsx            # MODIFIED — integrated ModelSelector + StatusBar
+src/app/api/pi/state/
+  [sessionId]/route.ts        # GET available models/stats, PUT model/thinking level
+  [sessionId]/route.test.ts   # 11 tests
+src/lib/pi/
+  process-manager.ts          # MODIFIED — added sendAndWait() method
+  event-types.ts              # MODIFIED — RpcResponse added to PiEvent union
+```
+
+27 new tests + 1325 passing overall (1 pre-existing failure in scraper).
+
+### Phase 8 — Session Persistence & Management
+
+Persistent Pi sessions with a collapsible session sidebar.
+
+**New/modified files:**
+```
+src/components/pi-chat/
+  session-sidebar.tsx          # Collapsible panel: list, rename, delete, switch sessions
+  session-sidebar.test.tsx     # 11 tests
+  pi-chat-page.tsx             # MODIFIED — sidebar toggle + session switch handlers
+src/app/api/pi/sessions/
+  route.ts                     # GET list + POST rename Pi sessions
+  route.test.ts                # 7 tests
+  [id]/route.ts                # DELETE session (path-traversal safe)
+  [id]/route.test.ts           # 3 tests
+src/lib/pi/
+  process-manager.ts           # MODIFIED — spawns with --session for persistence
+```
+
+21 new tests + 1346 passing overall.
 

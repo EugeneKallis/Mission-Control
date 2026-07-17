@@ -20,7 +20,12 @@ init: setup typecheck
 # ── Development ──────────────────────────────────────────────────────────────
 
 # Start the dev server (default target)
+# Kills any existing next-server and Pi RPC processes first
 dev:
+    @echo "Killing existing processes…"
+    pkill -f "next.*300[0-9]|next-server" 2>/dev/null; true
+    pkill -f "pi --mode rpc" 2>/dev/null; true
+    sleep 1
     NEXT_PRIVATE_LOCAL_DEV=1 bun next dev -p 3001 -H 0.0.0.0
 
 # ── Build ────────────────────────────────────────────────────────────────────
