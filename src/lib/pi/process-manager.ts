@@ -156,10 +156,9 @@ class PiProcess {
   private lineBuffer = "";
   private _exited = false;
   private _exitCode: number | null = null;
+  private _booted = false;
   private cleanupTimeout: ReturnType<typeof setTimeout> | null = null;
   private readonly GRACE_PERIOD_MS = 30_000;
-  private _ready: Promise<void>;
-  private _resolveReady: (() => void) | null = null;
 
   constructor(cwd: string) {
     this._cwd = cwd;
@@ -210,10 +209,7 @@ class PiProcess {
         if (event) {
           this._bus.publish(event);
           // Resolve ready on the first connected event
-          if (event.type === "connected" && this._resolveReady) {
-            this._resolveReady();
-            this._resolveReady = null;
-          }
+
         }
       }
     });
