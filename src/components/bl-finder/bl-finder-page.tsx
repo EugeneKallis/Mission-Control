@@ -44,6 +44,7 @@ export function BlFinderPage() {
   const [deletingAll, setDeletingAll] = useState(false);
 
   // ── Fetchers (ref-stable for the polling effect) ────────────────────
+  const autoFilterApplied = useRef(false);
   const fetchRowsRef = useRef<() => Promise<void>>(async () => {});
   const fetchRows = useCallback(async () => {
     try {
@@ -121,6 +122,19 @@ export function BlFinderPage() {
     void fetchStatus();
     void fetchConfig();
   }, [fetchRows, fetchStatus, fetchConfig]);
+
+  // Auto-apply "broken" filter on first render when broken items exist.
+  // Once the user touches the filter, this never fires again.
+  useEffect(() => {
+    if (autoFilterApplied.current) return;
+    if (counts.broken && counts.broken > 0) {
+      setStatusFilter("broken");
+      autoFilterApplied.current = true;
+    } else if (!loading && counts.broken === 0) {
+      // No broken items — mark as applied so future poll bumps don't override.
+      autoFilterApplied.current = true;
+    }
+  }, [counts.broken, loading]);
 
   // Fetch log when the panel is opened.
   useEffect(() => {
