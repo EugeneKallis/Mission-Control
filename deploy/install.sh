@@ -25,6 +25,32 @@ fi
 BUN_PATH="$(command -v bun)"
 echo "→ Bun: $BUN_PATH ($(bun --version))"
 
+# Detect the `pi` binary (Agent chat spawns `pi --mode rpc` to load models).
+# nvm installs it under ~/.nvm/versions/node/<ver>/bin/pi, so `command -v pi`
+# only works if nvm is loaded in this shell — fall back to a glob search.
+PI_PATH=""
+if command -v pi &>/dev/null; then
+  PI_PATH="$(command -v pi)"
+else
+  for candidate in \
+    "$HOME"/.nvm/versions/node/*/bin/pi \
+    /opt/homebrew/bin/pi \
+    /usr/local/bin/pi \
+    /usr/bin/pi \
+    "$HOME"/.local/bin/pi; do
+    if [ -x "$candidate" ]; then PI_PATH="$candidate"; break; fi
+  done
+fi
+if [ -z "$PI_PATH" ]; then
+  echo "✗ pi binary not found. Install with: npm install -g @earendil-works/pi-coding-agent" >&2
+  exit 1
+fi
+PI_DIR="$(dirname "$PI_PATH")"
+BUN_DIR="$(dirname "$BUN_PATH")"
+SERVICE_PATH="$PI_DIR:$BUN_DIR:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+echo "→ Pi:  $PI_PATH"
+echo "→ Service PATH: $SERVICE_PATH"
+
 # 1. Build the app
 echo "→ Building..."
 cd "$DEPLOY_DIR"
@@ -47,7 +73,11 @@ bunx prisma migrate deploy
 
 # 2. Write service files with the correct bun path
 echo "→ Writing systemd units..."
-sed "s|/usr/local/bin/bun|$BUN_PATH|g" "$SERVICES_DIR/mission-control.service" > /etc/systemd/system/mission-control.service
+# mission-control.service needs the pi + bun dirs on PATH so the Next.js
+# process can spawn `pi --mode rpc`. Other workers only need bun.
+sed -e "s|/usr/local/bin/bun|$BUN_PATH|g" \
+    -e "s|PATH_PLACEHOLDER|$SERVICE_PATH|g" \
+    "$SERVICES_DIR/mission-control.service" > /etc/systemd/system/mission-control.service
 sed "s|/usr/local/bin/bun|$BUN_PATH|g" "$SERVICES_DIR/mission-control-magnet-bridge.service" > /etc/systemd/system/mission-control-magnet-bridge.service
 sed "s|/usr/local/bin/bun|$BUN_PATH|g" "$SERVICES_DIR/mission-control-broken-link-checker.service" > /etc/systemd/system/mission-control-broken-link-checker.service
 

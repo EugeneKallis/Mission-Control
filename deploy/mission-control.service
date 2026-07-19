@@ -11,6 +11,10 @@ RestartSec=5
 Environment=NODE_ENV=production
 Environment=PORT=3000
 Environment=HOSTNAME=0.0.0.0
+# PATH must include the dirs containing `pi` and `bun` so the Next.js
+# process can spawn `pi --mode rpc` (the Agent chat model backend).
+# install.sh substitutes the placeholder below with the detected dirs.
+Environment=PATH=PATH_PLACEHOLDER
 
 [Install]
 WantedBy=multi-user.target
