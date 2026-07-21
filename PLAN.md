@@ -35,7 +35,7 @@ The agent is told (via `--append-system-prompt`) that it is headless, running un
 | Phase 1 — Headless core | `headless-prompt.ts`, `json-event-renderer.ts`, shared `pi-path.ts`; unit tests | ✅ Done |
 | Phase 2 — Scheduler | `agent-task-scheduler.ts` (spawn/json/timeout/overlap-guard) + instrumentation; lifecycle tests | ✅ Done |
 | Phase 3 — API routes | `/api/agent-tasks/*` (list/create/get/update/delete/toggle/run-now/resources) + route tests | ✅ Done |
-| Phase 4 — UI | `/agent-tasks` page + components (list, form w/ cron builder, tools/skills toggles, runs) + component tests | ⏳ Not started |
+| Phase 4 — UI | `/agent-tasks` page + components (list, form w/ cron builder, tools/skills toggles, runs) + component tests | ✅ Done |
 | Phase 5 — Log tab integration | `/api/logs` DB branch for `agent-tasks`, logs page button, log-alerts aggregation + tests | ✅ Done |
 | Phase 6 — Docs & polish | AGENTS.md phase entry, this PLAN completion, sidebar nav item, manual smoke test | ⏳ Not started |
 
