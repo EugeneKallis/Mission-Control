@@ -253,6 +253,7 @@ export function SidebarContent({
         </div>
         <NavItem label="Pi Agent" icon="smart_toy" href="/chat" color="primary" />
         <NavItem label="Pi Settings" icon="settings" href="/pi-settings" color="primary" />
+        <NavItem label="Scheduled Tasks" icon="schedule_send" href="/agent-tasks" color="primary" />
 
         {/* Divider */}
         <div className="my-3 mx-4 h-px" style={{ background: "rgba(59, 75, 63, 0.4)" }} />

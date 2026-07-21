@@ -33,6 +33,7 @@ model History {
   id             Int       @id @default(autoincrement())
   macroId        Int?      @map("macro_id")
   workerTimerId  Int?      @map("worker_timer_id")
+  agentTaskId    Int?      @map("agent_task_id")
   startTime      DateTime  @map("start_time")
   endTime        DateTime? @map("end_time")
   status         String
@@ -40,6 +41,7 @@ model History {
   triggeredBy    String?   @default("user") @map("triggered_by")
   macro          Macro?    @relation(fields: [macroId], references: [id])
   workerTimer    WorkerTimer? @relation(fields: [workerTimerId], references: [id])
+  agentTask      AgentTask? @relation(fields: [agentTaskId], references: [id])
 
   @@map("history")
 }
@@ -190,6 +192,30 @@ model WorkerTimer {
   history        History[]
 
   @@map("worker_timers")
+}
+
+model AgentTask {
+  id              Int       @id @default(autoincrement())
+  name            String
+  prompt          String
+  cronExpression  String    @map("cron_expression")
+  enabled         Boolean   @default(false)
+  provider        String?
+  model           String?
+  thinkingLevel   String?   @map("thinking_level")
+  enabledTools    String?   @map("enabled_tools")
+  disabledTools   String?   @map("disabled_tools")
+  enabledSkills   String?   @map("enabled_skills")
+  noSkills        Boolean   @default(false)          @map("no_skills")
+  appendSystem    String?   @map("append_system")
+  persistSession  Boolean   @default(false)          @map("persist_session")
+  timeoutSec      Int       @default(300)           @map("timeout_sec")
+  lastRunAt       DateTime? @map("last_run_at")
+  lastStatus      String?   @map("last_status")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  history         History[]
+
+  @@map("agent_tasks")
 }
 
 model EnergyPrice {

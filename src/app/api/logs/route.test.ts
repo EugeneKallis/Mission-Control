@@ -15,6 +15,8 @@ import {
   beforeEach,
 } from "bun:test";
 import { getRequest, jsonBody, status } from "@/test-utils/route-helpers";
+import type { PrismaClient } from "@prisma/client";
+import { makeTestDB } from "@/lib/db/test-helpers";
 
 let execFileSyncMock: ReturnType<typeof mock>;
 
@@ -209,5 +211,140 @@ describe("GET /api/logs", () => {
     expect(journalCall!.args).toContain("--no-pager");
     expect(journalCall!.args).toContain("-o");
     expect(journalCall!.args).toContain("cat");
+  });
+});
+
+// ── Agent Tasks (DB-backed) ─────────────────────────────────────────────────
+
+describe("GET /api/logs — agent-tasks service", () => {
+  let testDB: { db: PrismaClient; cleanup: () => Promise<void> };
+
+  beforeAll(async () => {
+    testDB = await makeTestDB();
+    mock.module("@/lib/db", () => ({ db: testDB.db }));
+
+    // Seed an agent task with a couple of history runs
+    const task = await testDB.db.agentTask.create({
+      data: {
+        name: "Daily Check",
+        prompt: "check status",
+        cronExpression: "0 6 * * *",
+        enabled: true,
+      },
+    });
+
+    await testDB.db.history.create({
+      data: {
+        agentTaskId: task.id,
+        startTime: new Date(Date.now() - 60_000),
+        status: "success",
+        output:
+          "Starting check...\n" +
+          "Checking endpoint A...\n" +
+          "Error: timeout on A\n" +
+          "Retrying...\n" +
+          "Check complete.",
+        triggeredBy: "schedule",
+      },
+    });
+
+    await testDB.db.history.create({
+      data: {
+        agentTaskId: task.id,
+        startTime: new Date(Date.now() - 7_200_000),
+        status: "error",
+        output: "FATAL: connection refused\nFailed to start agent",
+        triggeredBy: "schedule",
+      },
+    });
+  });
+
+  afterAll(async () => {
+    await testDB.cleanup();
+  });
+
+  test("returns text/plain with run headers and transcripts", async () => {
+    const { GET } = await loadRoute();
+    const res = await GET(
+      buildRequest("http://localhost/api/logs?service=agent-tasks"),
+    );
+    expect(status(res)).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe("text/plain; charset=utf-8");
+    const text = await res.text();
+    expect(text).toContain("=== Daily Check —");
+    expect(text).toContain("Error: timeout on A");
+    expect(text).toContain("FATAL: connection refused");
+    expect(text).not.toContain("(no output recorded)");
+  });
+
+  test("respects lines parameter to limit recent runs", async () => {
+    const { GET } = await loadRoute();
+    const res = await GET(
+      buildRequest("http://localhost/api/logs?service=agent-tasks&lines=1"),
+    );
+    const text = await res.text();
+    const headers = text.match(/=== Daily Check —/g);
+    expect(headers).toHaveLength(1);
+  });
+
+  test("supports task id filter", async () => {
+    const { GET } = await loadRoute();
+    const res = await GET(
+      buildRequest(
+        "http://localhost/api/logs?service=agent-tasks&task=99999",
+      ),
+    );
+    const text = await res.text();
+    expect(text).toBe("(no agent task history)");
+  });
+
+  test("returns 400 on invalid task parameter", async () => {
+    const { GET } = await loadRoute();
+    const res = await GET(
+      buildRequest("http://localhost/api/logs?service=agent-tasks&task=abc"),
+    );
+    expect(status(res)).toBe(400);
+    const text = await res.text();
+    expect(text).toContain("Invalid task parameter");
+  });
+
+  test("returns 400 on invalid lines parameter", async () => {
+    const { GET } = await loadRoute();
+    const res = await GET(
+      buildRequest(
+        "http://localhost/api/logs?service=agent-tasks&lines=abc",
+      ),
+    );
+    expect(status(res)).toBe(400);
+    const text = await res.text();
+    expect(text).toContain("Invalid lines parameter");
+  });
+
+  test("handles runs with null output", async () => {
+    // Create an additional task + history with null output
+    const nullTask = await testDB.db.agentTask.create({
+      data: {
+        name: "Null Output",
+        prompt: "silent",
+        cronExpression: "0 12 * * *",
+        enabled: true,
+      },
+    });
+    await testDB.db.history.create({
+      data: {
+        agentTaskId: nullTask.id,
+        startTime: new Date(Date.now() - 1000),
+        status: "running",
+        output: null,
+        triggeredBy: "schedule",
+      },
+    });
+
+    const { GET } = await loadRoute();
+    const res = await GET(
+      buildRequest("http://localhost/api/logs?service=agent-tasks"),
+    );
+    const text = await res.text();
+    expect(text).toContain("(no output recorded)");
   });
 });

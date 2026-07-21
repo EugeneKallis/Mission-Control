@@ -10,6 +10,7 @@ const LABELS: Record<string, string> = {
   "magnet-bridge": "Magnet Bridge",
   "broken-link-checker": "BL Finder",
   scraper: "Scraper",
+  "agent-tasks": "Agent Tasks",
 };
 
 const SERVICES = Object.keys(LABELS);

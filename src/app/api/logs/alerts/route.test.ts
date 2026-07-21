@@ -84,6 +84,7 @@ describe("GET /api/logs/alerts", () => {
     expect(typeof body.perService).toBe("object");
     expect(typeof body.total).toBe("number");
     expect(Object.keys(body.perService).sort()).toEqual([
+      "agent-tasks",
       "broken-link-checker",
       "magnet-bridge",
       "scraper",

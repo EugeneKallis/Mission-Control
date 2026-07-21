@@ -9,23 +9,15 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import type { ThinkingLevel } from "@/lib/pi/event-types";
+import { usePiModels, type PiModelEntry } from "@/hooks/use-pi-models";
 
-// ── Types matching Pi's RPC response shape ─────────────────────────────────
-
-export interface PiModelEntry {
-  id: string;            // e.g. "anthropic/claude-sonnet-4"
-  provider: string;      // e.g. "anthropic"
-  providerLabel?: string;
-  name: string;
-  capabilities?: string[];
-  inputPricePerM?: number;
-  outputPricePerM?: number;
-  contextWindow?: number;
-  configured?: boolean;
-}
+// Re-export the type so `status-bar.tsx`'s existing
+// `import type { PiModelEntry } from "./model-selector"` keeps working
+// (the canonical home is now `@/hooks/use-pi-models`).
+export type { PiModelEntry } from "@/hooks/use-pi-models";
 
 interface ModelSelectorProps {
   open: boolean;
@@ -35,57 +27,9 @@ interface ModelSelectorProps {
 }
 
 export function ModelSelector({ open, onClose, activeModelId, onSelect }: ModelSelectorProps) {
-  const [models, setModels] = useState<PiModelEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { models, loading, error } = usePiModels(open);
   const [query, setQuery] = useState("");
   const [provider, setProvider] = useState("all");
-
-  // Fetch models when modal opens (retries once on 404 for race with SSE connection)
-  useEffect(() => {
-    if (!open) return;
-
-    let cancelled = false;
-    let retries = 0;
-
-    const fetchModels = () => {
-      setLoading(true);
-      setError(null);
-
-      fetch(`/api/pi/state/`)
-        .then((r) => {
-          if (r.status === 404 && retries < 3) {
-            // Session may not be created yet — retry after 2s
-            retries++;
-            setTimeout(() => {
-              if (!cancelled) fetchModels();
-            }, 2000);
-            return null;
-          }
-          return r.json();
-        })
-        .then((data) => {
-          if (!data || cancelled) return;
-          if (data.error) {
-            setError(data.error);
-          } else if (Array.isArray(data.models)) {
-            setModels(data.models);
-          } else {
-            setError("Unexpected response format");
-          }
-          setLoading(false);
-        })
-        .catch((e) => {
-          if (!cancelled) {
-            setError(e.message ?? "Network error");
-            setLoading(false);
-          }
-        });
-    };
-
-    fetchModels();
-    return () => { cancelled = true; };
-  }, [open]);
 
   // Build sorted models (by inputPricePerM)
   const sorted = [...models].sort(
@@ -171,7 +115,7 @@ export function ModelSelector({ open, onClose, activeModelId, onSelect }: ModelS
 
               return (
                 <button
-                  key={m.id}
+                  key={`${m.provider}/${m.id}`}
                   onClick={() => onSelect(m.id, m.provider)}
                   className={`text-left px-3 py-2.5 border transition-colors ${
                     active

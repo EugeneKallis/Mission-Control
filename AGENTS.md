@@ -166,6 +166,7 @@ This tells the next agent exactly where to pick up.
 | Phase 11 — BL Finder | 22 (Broken-link checker: page + worker + API + deploy) | ✅ Done |
 | Phase 12 — Chat | 23 (Chat: provider catalog + model selector + attachments + media warnings) | ✅ Done |
 | Phase 13 — Pi Agent Integration | Pi-powered chat (Phases 1–9): process manager, SSE/command endpoints, skills/tools settings, streaming UI, tool call rendering, model controls, session persistence, legacy cleanup | ✅ Done |
+| Phase 14 — Scheduled Agent Tasks | Cron-scheduled Pi agent tasks: headless print+JSON mode, per-task tools/skills, scheduler, API, UI, Log tab integration | ✅ Done |
 
 **Convention:** After completing a phase, update:
 1. This table (set Status to ✅ Done, add next phase as ⏳ In progress)
@@ -928,4 +929,65 @@ src/lib/pi/
 ```
 
 21 new tests + 1346 passing overall.
+
+## New directories added in Phase 14 (Scheduled Agent Tasks)
+
+```
+src/lib/agent-task-scheduler.ts      # Cron-based scheduler for agent tasks
+src/lib/agent-task-scheduler.test.ts # 9 lifecycle + runOnce integration tests
+src/lib/pi/pi-path.ts                # Shared pi binary path resolution (extracted)
+src/lib/pi/pi-path.test.ts           # Path resolution tests
+src/lib/pi/headless-prompt.ts        # Pure: build spawn args + headless directive
+src/lib/pi/headless-prompt.test.ts   # 18 argv-combination tests
+src/lib/pi/json-event-renderer.ts    # Pure: pi JSON events → readable transcript
+src/lib/pi/json-event-renderer.test.ts # 28 event-type rendering tests
+src/app/agent-tasks/                 # Page shell
+src/app/api/agent-tasks/             # API routes (list/create/update/delete/toggle/run/resources)
+src/app/api/agent-tasks/route.test.ts # 23 route tests
+src/components/agent-tasks/
+  agent-tasks-page.tsx               # Task list + card controls (toggle/edit/delete/run)
+  agent-task-form.tsx                # Create/edit form: cron builder, tools/skills toggles, model
+  agent-task-runs.tsx                # Collapsible history runs panel
+  agent-task-types.ts                # Shared TS types
+```
+
+### Architecture
+
+Scheduled agent tasks use **`pi -p "<prompt>" --mode json`** (print+JSON mode, not the RPC singleton):
+- The scheduler spawns pi as a child process, pipes stdout, and parses each JSON event line.
+- Events are rendered to a human-readable transcript via `renderJsonEvent()`.
+- The transcript is stored in the `History` table (with incremental flush every 1.5s) for per-run review.
+- The **Log Viewer** has an "Agent Tasks" service that returns DB-backed transcripts (no journalctl).
+- Agent errors count toward the log-alert badge via `countErrorsInAgentTaskHistory()`.
+
+### Safety (dangerous tools)
+
+- Per-task tool allowlist defaults to **safe read-only tools** (`read, grep, find, ls`).
+- Mutating tools (`bash, edit, write`) are OFF by default and must be explicitly enabled per task.
+- The headless directive (appended via `--append-system-prompt`) makes the agent aware it's
+  running unattended on a cron — it must not expect user interaction or halt on approval prompts.
+
+### API surface
+
+| Method | Path | Purpose |
+| ------ | ------------------------------------------ | --------------------------------------------- |
+| GET | `/api/agent-tasks` | List tasks + tool/skill catalog |
+| POST | `/api/agent-tasks` | Create task |
+| GET | `/api/agent-tasks/[id]` | Get single task |
+| PUT | `/api/agent-tasks/[id]` | Update task (prompt/cron/tools/skills/model/…) |
+| DELETE | `/api/agent-tasks/[id]` | Delete task + unregister from scheduler |
+| POST | `/api/agent-tasks/[id]/toggle` | Toggle enabled/disabled |
+| POST | `/api/agent-tasks/[id]/run` | Run once immediately (returns 202) |
+| GET | `/api/agent-tasks/[id]/runs` | Recent run history |
+| GET | `/api/agent-tasks/resources` | Available tools + skills for the form |
+
+### Scheduler
+
+`src/lib/agent-task-scheduler.ts` mirrors the `WorkerTimerScheduler` pattern:
+- In-process `CronJob` instances using the `cron` npm package.
+- Overlap guard: an in-memory `Set<taskId>` prevents concurrent runs of the same task.
+- Timeout: configurable per task (default 300s), SIGTERM → 5s → SIGKILL.
+- Transcript streaming: flushed to `History.output` every 1.5s (Phase 9 pattern).
+- History cleanup: keeps last 50 runs per task.
+- Initialized in `instrumentation.ts` alongside the cron and worker-timer schedulers.
 

@@ -104,6 +104,7 @@ export async function deleteMacroGroup(id: number) {
 export async function createHistory(data: {
   macroId?: number;
   workerTimerId?: number;
+  agentTaskId?: number;
   startTime?: Date;
   status?: string;
   output?: string;
@@ -113,6 +114,7 @@ export async function createHistory(data: {
     data: {
       macroId: data.macroId,
       workerTimerId: data.workerTimerId,
+      agentTaskId: data.agentTaskId,
       startTime: data.startTime ?? new Date(),
       status: data.status ?? "running",
       output: data.output,
@@ -161,6 +163,7 @@ export async function getHistory() {
     include: {
       macro: { select: { name: true } },
       workerTimer: { select: { name: true } },
+      agentTask: { select: { name: true } },
     },
   });
 }
@@ -171,6 +174,7 @@ export async function getHistoryItem(id: number) {
     include: {
       macro: { select: { name: true } },
       workerTimer: { select: { name: true } },
+      agentTask: { select: { name: true } },
     },
   });
 }
@@ -289,6 +293,117 @@ export async function updateWorkerTimerRunStatus(
     where: { id },
     data: { lastRunAt: new Date(), lastStatus: status },
   });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  AGENT TASKS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function listAgentTasks() {
+  return db.agentTask.findMany({ orderBy: { createdAt: "asc" } });
+}
+
+export async function getAgentTask(id: number) {
+  return db.agentTask.findUniqueOrThrow({ where: { id } });
+}
+
+export async function getEnabledAgentTasks() {
+  return db.agentTask.findMany({ where: { enabled: true } });
+}
+
+export async function createAgentTask(data: {
+  name: string;
+  prompt: string;
+  cronExpression: string;
+  enabled?: boolean;
+  provider?: string | null;
+  model?: string | null;
+  thinkingLevel?: string | null;
+  enabledTools?: string[] | null;
+  disabledTools?: string[] | null;
+  enabledSkills?: string[] | null;
+  noSkills?: boolean;
+  appendSystem?: string | null;
+  persistSession?: boolean;
+  timeoutSec?: number;
+}) {
+  return db.agentTask.create({
+    data: {
+      name: data.name,
+      prompt: data.prompt,
+      cronExpression: data.cronExpression,
+      enabled: data.enabled ?? false,
+      provider: data.provider ?? null,
+      model: data.model ?? null,
+      thinkingLevel: data.thinkingLevel ?? null,
+      enabledTools: data.enabledTools ? JSON.stringify(data.enabledTools) : null,
+      disabledTools: data.disabledTools ? JSON.stringify(data.disabledTools) : null,
+      enabledSkills: data.enabledSkills ? JSON.stringify(data.enabledSkills) : null,
+      noSkills: data.noSkills ?? false,
+      appendSystem: data.appendSystem ?? null,
+      persistSession: data.persistSession ?? false,
+      timeoutSec: data.timeoutSec ?? 300,
+    },
+  });
+}
+
+export async function updateAgentTask(
+  id: number,
+  data: Prisma.AgentTaskUpdateInput
+) {
+  return db.agentTask.update({ where: { id }, data });
+}
+
+export async function toggleAgentTask(id: number) {
+  const task = await db.agentTask.findUniqueOrThrow({ where: { id } });
+  return db.agentTask.update({
+    where: { id },
+    data: { enabled: !task.enabled },
+  });
+}
+
+export async function deleteAgentTask(id: number) {
+  return db.agentTask.delete({ where: { id } });
+}
+
+export async function updateAgentTaskRunStatus(
+  id: number,
+  status: string
+) {
+  return db.agentTask.update({
+    where: { id },
+    data: { lastRunAt: new Date(), lastStatus: status },
+  });
+}
+
+export async function getRecentAgentTaskHistory(taskId?: number, limit = 20) {
+  const where: Record<string, unknown> = {};
+  if (taskId !== undefined) where.agentTaskId = taskId;
+  return db.history.findMany({
+    where,
+    orderBy: { startTime: "desc" },
+    take: limit,
+    include: { agentTask: { select: { name: true } } },
+  });
+}
+
+/**
+ * Prune old history rows for a task, keeping only the most recent `keep`.
+ * Returns the number of rows deleted.
+ */
+export async function cleanOldAgentTaskHistory(taskId: number, keep = 50) {
+  const rows = await db.history.findMany({
+    where: { agentTaskId: taskId },
+    orderBy: { startTime: "desc" },
+    select: { id: true },
+    take: keep,
+  });
+  if (rows.length < keep) return 0;
+  const keepIds = new Set(rows.map((r) => r.id));
+  const result = await db.history.deleteMany({
+    where: { agentTaskId: taskId, id: { notIn: [...keepIds] } },
+  });
+  return result.count;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
