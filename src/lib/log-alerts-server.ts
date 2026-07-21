@@ -8,6 +8,7 @@
 import { db } from "@/lib/db";
 import { execFileSync } from "child_process";
 import { countErrorsInText } from "./log-alerts";
+import { getRecentAgentTaskHistory } from "@/lib/db/queries";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -17,6 +18,7 @@ export const SERVICE_MAP: Record<string, string> = {
   "magnet-bridge": "mission-control-magnet-bridge",
   "broken-link-checker": "mission-control-broken-link-checker",
   scraper: "mission-control-scraper",
+  "agent-tasks": "mission-control-agent-tasks",
 };
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -72,6 +74,28 @@ export function runJournalctl(unit: string, sinceMs: number): string {
   }
 }
 
+// ── Agent task history error counting ─────────────────────────────────────
+
+/**
+ * Count error lines across recent agent-task history runs, filtered to runs
+ * whose startTime is at or after `sinceMs`.
+ */
+export async function countErrorsInAgentTaskHistory(sinceMs: number): Promise<number> {
+  try {
+    const runs = await getRecentAgentTaskHistory(undefined, 50);
+    let count = 0;
+    for (const run of runs) {
+      if (run.startTime.getTime() < sinceMs) continue;
+      if (run.output) {
+        count += countErrorsInText(run.output);
+      }
+    }
+    return count;
+  } catch {
+    return 0;
+  }
+}
+
 // ── Aggregation with in-process cache ─────────────────────────────────────
 
 export interface CountsResult {
@@ -105,6 +129,14 @@ export async function getAllLogAlertCounts(): Promise<CountsResult> {
   let total = 0;
 
   for (const [key, unit] of Object.entries(SERVICE_MAP)) {
+    // Agent tasks are DB-backed, not journalctl-backed
+    if (key === "agent-tasks") {
+      const agentTaskErrors = await countErrorsInAgentTaskHistory(sinceMs);
+      perService[key] = agentTaskErrors;
+      total += agentTaskErrors;
+      continue;
+    }
+
     const text = runJournalctl(unit, sinceMs);
     const count = countErrorsInText(text);
     perService[key] = count;

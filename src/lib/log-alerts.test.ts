@@ -227,4 +227,102 @@ describe("getAllLogAlertCounts", () => {
     const result = await getAllLogAlertCounts();
     expect(result.acknowledgedAt).toBe(5000);
   });
+
+  test("includes agent-tasks in perService with 0 when no history exists", async () => {
+    const { getAllLogAlertCounts } = await import(
+      `./log-alerts-server?bust=${Date.now()}-${Math.random()}`
+    );
+    const result = await getAllLogAlertCounts();
+    expect(result.perService).toHaveProperty("agent-tasks");
+    expect(result.perService["agent-tasks"]).toBe(0);
+  });
+});
+
+// ── Agent task error counting ───────────────────────────────────────────────
+
+describe("countErrorsInAgentTaskHistory", () => {
+  let testDB: { db: PrismaClient; cleanup: () => Promise<void> };
+
+  beforeAll(async () => {
+    testDB = await makeTestDB();
+    mock.module("@/lib/db", () => ({ db: testDB.db }));
+
+    const task = await testDB.db.agentTask.create({
+      data: {
+        name: "Error Prone",
+        prompt: "check stuff",
+        cronExpression: "0 * * * *",
+        enabled: true,
+      },
+    });
+
+    // Run with errors
+    await testDB.db.history.create({
+      data: {
+        agentTaskId: task.id,
+        startTime: new Date(Date.now() - 60_000),
+        status: "error",
+        output: "Error: task failed\nFATAL: crashed\ncleanup done",
+        triggeredBy: "schedule",
+      },
+    });
+
+    // Run without errors
+    await testDB.db.history.create({
+      data: {
+        agentTaskId: task.id,
+        startTime: new Date(Date.now() - 3_600_000),
+        status: "success",
+        output: "All good\nCompleted.",
+        triggeredBy: "schedule",
+      },
+    });
+
+    // Run before the sinceMs window
+    await testDB.db.history.create({
+      data: {
+        agentTaskId: task.id,
+        startTime: new Date(Date.now() - 25 * 60 * 60 * 1000), // 25h ago
+        status: "success",
+        output: "Old run with Error: ancient bug",
+        triggeredBy: "schedule",
+      },
+    });
+  });
+
+  afterAll(async () => {
+    await testDB.cleanup();
+  });
+
+  test("counts error lines in recent agent task transcripts", async () => {
+    const { countErrorsInAgentTaskHistory } = await import(
+      `./log-alerts-server?bust=${Date.now()}-${Math.random()}`
+    );
+    // since 2h ago — should catch the first two runs (recent), not the old one
+    const sinceMs = Date.now() - 2 * 60 * 60 * 1000;
+    const count = await countErrorsInAgentTaskHistory(sinceMs);
+    // First run has "Error:" and "FATAL:" = 2 errors
+    // Second run has no errors
+    // Third run is before the window, so excluded
+    expect(count).toBe(2);
+  });
+
+  test("returns 0 when no runs in window", async () => {
+    const { countErrorsInAgentTaskHistory } = await import(
+      `./log-alerts-server?bust=${Date.now()}-${Math.random()}`
+    );
+    const count = await countErrorsInAgentTaskHistory(Date.now() + 60_000);
+    expect(count).toBe(0);
+  });
+
+  test("includes all runs when sinceMs is far in the past", async () => {
+    const { countErrorsInAgentTaskHistory } = await import(
+      `./log-alerts-server?bust=${Date.now()}-${Math.random()}`
+    );
+    const count = await countErrorsInAgentTaskHistory(0);
+    // First run: 2 errors
+    // Second run: 0 errors
+    // Third run: 1 error ("Error: ancient bug")
+    expect(count).toBe(3);
+  });
 });

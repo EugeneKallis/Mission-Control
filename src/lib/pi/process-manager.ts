@@ -15,10 +15,11 @@
  * at ~/.pi/agent/sessions/mc-main/ for conversation persistence.
  */
 
-import { spawn, execSync, type ChildProcess } from "child_process";
-import { accessSync, constants, existsSync, mkdirSync } from "fs";
+import { spawn, type ChildProcess } from "child_process";
+import { existsSync, mkdirSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
+import { getPiPath } from "./pi-path";
 import type { PiEvent, RpcCommand, RpcResponse, PiSpawnOptions } from "./event-types";
 
 // ── Event bus (single, shared by all SSE subscribers) ──────────────────────
@@ -65,45 +66,6 @@ function parseEvent(line: string): PiEvent | null {
   } catch {
     return null;
   }
-}
-
-// ── Resolve the pi binary path ─────────────────────────────────────────────
-
-let resolvedPiPath: string | null = null;
-
-function getPiPath(): string {
-  if (resolvedPiPath) return resolvedPiPath;
-
-  try {
-    const path = execSync("which pi", { encoding: "utf-8", timeout: 5000 }).trim();
-    if (path) {
-      resolvedPiPath = path;
-      return path;
-    }
-  } catch {
-    // fall through
-  }
-
-  const candidates = [
-    "/opt/homebrew/bin/pi",
-    "/usr/local/bin/pi",
-    "/usr/bin/pi",
-    "/home/linuxbrew/.linuxbrew/bin/pi",
-  ];
-
-  for (const candidate of candidates) {
-    try {
-      accessSync(candidate, constants.X_OK);
-      resolvedPiPath = candidate;
-      return candidate;
-    } catch {
-      continue;
-    }
-  }
-
-  throw new Error(
-    "Pi binary not found. Install it with: npm install -g @earendil-works/pi-coding-agent"
-  );
 }
 
 // ── Build CLI args from spawn options ──────────────────────────────────────
