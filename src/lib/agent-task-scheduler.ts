@@ -143,6 +143,7 @@ class AgentTaskScheduler {
     let childProcess: ChildProcess | null = null;
     let dirty = false; // true when transcript has changed since last flush
     let done = false;
+    let timedOut = false; // set by the timeout handler; flips finalization to "error"
 
     try {
       console.log(`[agent-task] Running task ${id}…`);
@@ -186,6 +187,9 @@ class AgentTaskScheduler {
         if (timeoutSec > 0) {
           timeoutHandle = setTimeout(() => {
             if (resolved) return;
+            timedOut = true;
+            transcript += `\n[timeout] Task timed out after ${timeoutSec}s\n`;
+            dirty = true;
             console.log(`[agent-task] Task ${id} timed out after ${timeoutSec}s`);
             childProcess?.kill("SIGTERM");
             setTimeout(() => {
@@ -246,6 +250,16 @@ class AgentTaskScheduler {
 
       const endTime = new Date();
       const duration = endTime.getTime() - startTime.getTime();
+
+      if (timedOut) {
+        // A timed-out run is an error, never success. The SIGTERM'd child
+        // closes with code === null, which the Promise resolves as success —
+        // so flip it here and let the catch block finalize as "error" with
+        // the transcript preserved.
+        console.log(`[agent-task] Task ${id} finalized as error (timeout) after ${duration}ms`);
+        throw new Error(`Task timed out after ${timeoutSec}s`);
+      }
+
       console.log(`[agent-task] Task ${id} completed in ${duration}ms`);
 
       // Finalize history

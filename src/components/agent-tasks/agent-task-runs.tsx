@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import type { HistoryRun } from "./agent-task-types";
 
 interface Props {
@@ -20,7 +20,6 @@ export function AgentTaskRuns({ taskId }: Props) {
   const [runs, setRuns] = useState<HistoryRun[]>([]);
   const [expandedRun, setExpandedRun] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const intervalRef = useRef<ReturnType<typeof setInterval>>(null);
 
   const fetchRuns = async () => {
     try {
@@ -34,21 +33,24 @@ export function AgentTaskRuns({ taskId }: Props) {
     }
   };
 
+  // Derived: is any run currently in-flight? Drives the polling effect
+  // below so the interval re-evaluates on every status change, instead of
+  // capturing a stale `runs` from the first render (the old dead closure).
+  const hasRunning = runs.some((r) => r.status === "running");
+
+  // Fetch on mount / when the selected task changes.
   useEffect(() => {
     void fetchRuns();
-
-    // Poll while there's a running run
-    intervalRef.current = setInterval(() => {
-      const hasRunning = runs.some((r) => r.status === "running");
-      if (hasRunning) void fetchRuns();
-    }, 5000);
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  // Only re-run on taskId change, not on runs changes
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskId]);
+
+  // Poll only while a run is in-flight; stops automatically once it settles.
+  useEffect(() => {
+    if (!hasRunning) return;
+    const id = setInterval(() => void fetchRuns(), 5000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasRunning]);
 
   return (
     <div className="p-3 space-y-2" style={{ background: "rgba(0,0,0,0.15)", maxHeight: "300px", overflow: "auto" }}>

@@ -303,5 +303,11 @@ describe("runOnce with mocked spawn", () => {
 
     const history = await queries.getRecentAgentTaskHistory(task.id, 10);
     expect(history.length).toBeGreaterThanOrEqual(1);
+    // A timed-out run must finalize as "error", never "success".
+    expect(history[0].status).toBe("error");
+    expect(history[0].output).toContain("[timeout]");
+
+    const updatedTask = await queries.getAgentTask(task.id);
+    expect(updatedTask.lastStatus).toBe("error");
   });
 });
