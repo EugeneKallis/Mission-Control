@@ -209,12 +209,14 @@ export function AgentTasksPage({ initialTasks }: Props) {
       {/* Confirm delete */}
       {deleteTarget && (
         <ConfirmDialog
+          open={true}
           title="Delete Task"
-          message={`Are you sure you want to delete "${deleteTarget.name}"? This cannot be undone.`}
           confirmLabel="Delete"
           onConfirm={handleDelete}
-          onCancel={() => setDeleteTarget(null)}
-        />
+          onClose={() => setDeleteTarget(null)}
+        >
+          {`Are you sure you want to delete "${deleteTarget.name}"? This cannot be undone.`}
+        </ConfirmDialog>
       )}
     </div>
   );
@@ -243,8 +245,8 @@ function TaskCard({ task, onToggle, onEdit, onDelete, onRunNow, isRunning }: Tas
       <div className="flex items-center justify-between p-3 gap-3">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <ToggleSwitch
-            checked={task.enabled}
-            onChange={onToggle}
+            enabled={task.enabled}
+            onChange={() => onToggle(!task.enabled)}
           />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">

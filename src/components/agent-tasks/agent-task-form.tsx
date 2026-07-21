@@ -2,69 +2,24 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ToggleSwitch } from "@/components/ui/toggle-switch";
-import { buildCronExpression, parseCronToForm } from "@/lib/cron";
+import {
+  buildCronExpression,
+  parseCronToForm,
+  type Frequency,
+  type IntervalUnit,
+  type DayOfWeek,
+  DEFAULT_FORM,
+} from "@/lib/cron";
 import type { AgentTaskRow, ResourceState, ToolInfo, SkillInfo } from "./agent-task-types";
 
 interface Props {
   resources: ResourceState | null;
   initial: AgentTaskRow | null;
-  onSubmit: (data: {
-    name: string;
-    prompt: string;
-    cronExpression: string;
-    enabled: boolean;
-    provider?: string | null;
-    model?: string | null;
-    thinkingLevel?: string | null;
-    enabledTools?: string[] | null;
-    disabledTools?: string[] | null;
-    enabledSkills?: string[] | null;
-    noSkills?: boolean;
-    appendSystem?: string | null;
-    persistSession?: boolean;
-    timeoutSec?: number;
-  }) => void;
+  onSubmit: (data: Partial<AgentTaskRow> & { cronExpression: string; prompt: string; name: string }) => void;
   onCancel: () => void;
 }
 
-// ── Cron shape helpers ────────────────────────────────────────────────────
-
-type CronShape = "interval" | "daily" | "weekly";
-
-const DEFAULT_INTERVAL = 30;
-const DEFAULT_HOUR = "08";
-const DEFAULT_MINUTE = "00";
-const DEFAULT_DAY = "0";
-
-interface CronFormValues {
-  shape: CronShape;
-  interval: number;
-  hour: string;
-  minute: string;
-  dayOfWeek: string;
-}
-
-function defaultCronValues(existingCron?: string): CronFormValues {
-  if (existingCron) {
-    const parsed = parseCronToForm(existingCron);
-    if (parsed) {
-      const shape: CronShape = "interval" in parsed && parsed.interval
-        ? "interval"
-        : "dayOfWeek" in parsed && parsed.dayOfWeek !== undefined
-          ? "weekly"
-          : "daily";
-      return {
-        shape,
-        interval: "interval" in parsed ? (parsed.interval ?? DEFAULT_INTERVAL) : DEFAULT_INTERVAL,
-        hour: "hour" in parsed ? (parsed.hour ?? DEFAULT_HOUR) : DEFAULT_HOUR,
-        minute: "minute" in parsed ? (parsed.minute ?? DEFAULT_MINUTE) : DEFAULT_MINUTE,
-        dayOfWeek: "dayOfWeek" in parsed ? (parsed.dayOfWeek ?? DEFAULT_DAY) : DEFAULT_DAY,
-      };
-    }
-  }
-  return { shape: "interval", interval: DEFAULT_INTERVAL, hour: DEFAULT_HOUR, minute: DEFAULT_MINUTE, dayOfWeek: DEFAULT_DAY };
-}
+// ── Cron form: reuses ScheduleFormValues from src/lib/cron ─────────────
 
 // ── Thinking levels ───────────────────────────────────────────────────────
 
@@ -75,9 +30,12 @@ const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "ma
 export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props) {
   const [name, setName] = useState(initial?.name ?? "");
   const [prompt, setPrompt] = useState(initial?.prompt ?? "");
-  const [cronValues, setCronValues] = useState<CronFormValues>(
-    defaultCronValues(initial?.cronExpression),
-  );
+  const parsedCron = initial?.cronExpression ? parseCronToForm(initial.cronExpression) : DEFAULT_FORM;
+  const [frequency, setFrequency] = useState<Frequency>(parsedCron.frequency);
+  const [intervalValue, setIntervalValue] = useState(parsedCron.intervalValue ?? "5");
+  const [intervalUnit, setIntervalUnit] = useState<IntervalUnit>(parsedCron.intervalUnit ?? "minutes");
+  const [time, setTime] = useState(parsedCron.time ?? "09:00");
+  const [dayOfWeek, setDayOfWeek] = useState<DayOfWeek>(parsedCron.dayOfWeek ?? "1");
   const [enabled, setEnabled] = useState(initial?.enabled ?? false);
   const [provider, setProvider] = useState(initial?.provider ?? "");
   const [model, setModel] = useState(initial?.model ?? "");
@@ -111,10 +69,11 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
 
   // ── Build cron expression from form values ────────────────────────
   function buildCron(): string {
-    return buildCronExpression({
-      ...cronValues,
-      interval: cronValues.interval,
-    } as Parameters<typeof buildCronExpression>[0]);
+    try {
+      return buildCronExpression({ frequency, intervalValue, intervalUnit, time, dayOfWeek });
+    } catch {
+      return "*/5 * * * *";
+    }
   }
 
   // ── Submit ─────────────────────────────────────────────────────────
@@ -127,9 +86,9 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
       provider: provider || null,
       model: model || null,
       thinkingLevel: thinkingLevel || null,
-      enabledTools: selectedEnabledTools.size > 0 ? [...selectedEnabledTools] : null,
-      disabledTools: selectedDisabledTools.size > 0 ? [...selectedDisabledTools] : null,
-      enabledSkills: selectedEnabledSkills.size > 0 ? [...selectedEnabledSkills] : null,
+      enabledTools: selectedEnabledTools.size > 0 ? JSON.stringify([...selectedEnabledTools]) : null,
+      disabledTools: selectedDisabledTools.size > 0 ? JSON.stringify([...selectedDisabledTools]) : null,
+      enabledSkills: selectedEnabledSkills.size > 0 ? JSON.stringify([...selectedEnabledSkills]) : null,
       noSkills,
       appendSystem: appendSystem || null,
       persistSession,
@@ -209,15 +168,15 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
           <div className="flex flex-wrap items-center gap-2">
             <select
               className="bg-[#0E0E0E] border border-[#3B4B3F] rounded px-2.5 py-1.5 text-xs text-[#E5E2E1] outline-none focus:border-[#618B6B]"
-              value={cronValues.shape}
-              onChange={(e) => setCronValues((p) => ({ ...p, shape: e.target.value as CronShape }))}
+              value={frequency}
+              onChange={(e) => setFrequency(e.target.value as Frequency)}
             >
               <option value="interval">Every N minutes</option>
               <option value="daily">Daily at</option>
               <option value="weekly">Weekly on</option>
             </select>
 
-            {cronValues.shape === "interval" && (
+            {frequency === "interval" && (
               <>
                 <span className="text-xs text-[#849587]">Every</span>
                 <input
@@ -225,33 +184,37 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
                   min={1}
                   max={1440}
                   className="w-20 bg-[#0E0E0E] border border-[#3B4B3F] rounded px-2.5 py-1.5 text-xs text-[#E5E2E1] outline-none focus:border-[#618B6B]"
-                  value={cronValues.interval}
-                  onChange={(e) => setCronValues((p) => ({ ...p, interval: parseInt(e.target.value) || 30 }))}
+                  value={intervalValue}
+                  onChange={(e) => setIntervalValue(e.target.value || "5")}
                 />
-                <span className="text-xs text-[#849587]">min</span>
+                <select
+                  className="bg-[#0E0E0E] border border-[#3B4B3F] rounded px-2.5 py-1.5 text-xs text-[#E5E2E1] outline-none focus:border-[#618B6B]"
+                  value={intervalUnit}
+                  onChange={(e) => setIntervalUnit(e.target.value as IntervalUnit)}
+                >
+                  <option value="minutes">min</option>
+                  <option value="hours">hr</option>
+                </select>
               </>
             )}
 
-            {cronValues.shape === "daily" && (
+            {frequency === "daily" && (
               <>
                 <input
                   type="time"
                   className="bg-[#0E0E0E] border border-[#3B4B3F] rounded px-2.5 py-1.5 text-xs text-[#E5E2E1] outline-none focus:border-[#618B6B]"
-                  value={`${cronValues.hour.padStart(2, "0")}:${cronValues.minute.padStart(2, "0")}`}
-                  onChange={(e) => {
-                    const [h, m] = e.target.value.split(":");
-                    setCronValues((p) => ({ ...p, hour: h ?? "08", minute: m ?? "00" }));
-                  }}
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
                 />
               </>
             )}
 
-            {cronValues.shape === "weekly" && (
+            {frequency === "weekly" && (
               <>
                 <select
                   className="bg-[#0E0E0E] border border-[#3B4B3F] rounded px-2.5 py-1.5 text-xs text-[#E5E2E1] outline-none focus:border-[#618B6B]"
-                  value={cronValues.dayOfWeek}
-                  onChange={(e) => setCronValues((p) => ({ ...p, dayOfWeek: e.target.value }))}
+                  value={dayOfWeek}
+                  onChange={(e) => setDayOfWeek(e.target.value as DayOfWeek)}
                 >
                   <option value="0">Sunday</option>
                   <option value="1">Monday</option>
@@ -265,11 +228,8 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
                 <input
                   type="time"
                   className="bg-[#0E0E0E] border border-[#3B4B3F] rounded px-2.5 py-1.5 text-xs text-[#E5E2E1] outline-none focus:border-[#618B6B]"
-                  value={`${cronValues.hour.padStart(2, "0")}:${cronValues.minute.padStart(2, "0")}`}
-                  onChange={(e) => {
-                    const [h, m] = e.target.value.split(":");
-                    setCronValues((p) => ({ ...p, hour: h ?? "08", minute: m ?? "00" }));
-                  }}
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
                 />
               </>
             )}
