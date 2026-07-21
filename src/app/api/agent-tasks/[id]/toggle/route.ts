@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { toggleAgentTask, getAgentTask } from "@/lib/db/queries";
 import { agentTaskScheduler } from "@/lib/agent-task-scheduler";
+import { agentTaskRowToSpawnConfig } from "@/lib/pi/headless-prompt";
 
 export async function POST(
   _request: NextRequest,
@@ -21,19 +22,7 @@ export async function POST(
 
     // Update scheduler: register or unregister the cron job
     if (toggled.enabled) {
-      await agentTaskScheduler.addTask(taskId, {
-        prompt: toggled.prompt,
-        provider: toggled.provider,
-        model: toggled.model,
-        thinkingLevel: toggled.thinkingLevel,
-        enabledTools: toggled.enabledTools ? (JSON.parse(toggled.enabledTools) as string[]) : null,
-        disabledTools: toggled.disabledTools ? (JSON.parse(toggled.disabledTools) as string[]) : null,
-        enabledSkills: toggled.enabledSkills ? (JSON.parse(toggled.enabledSkills) as string[]) : null,
-        noSkills: toggled.noSkills,
-        appendSystem: toggled.appendSystem,
-        persistSession: toggled.persistSession,
-        taskId: toggled.id,
-      });
+      await agentTaskScheduler.addTask(taskId, agentTaskRowToSpawnConfig(toggled));
     } else {
       await agentTaskScheduler.removeTask(taskId);
     }

@@ -191,17 +191,17 @@ describe("buildFullPrompt", () => {
 
 describe("defaultScheduledSessionPath", () => {
   test("returns path containing slug and mc-scheduled", () => {
-    const path = defaultScheduledSessionPath("my-task");
+    const path = defaultScheduledSessionPath(1, "my-task");
     expect(path).toContain("mc-scheduled");
-    expect(path).toContain("my-task.jsonl");
+    expect(path).toContain("1-my-task.jsonl");
     expect(path).toContain(".pi/agent/sessions");
   });
 
   test("different slugs produce different paths", () => {
-    const a = defaultScheduledSessionPath("task-a");
-    const b = defaultScheduledSessionPath("task-b");
+    const a = defaultScheduledSessionPath(1, "task-a");
+    const b = defaultScheduledSessionPath(2, "task-b");
     expect(a).not.toBe(b);
-    expect(a).toContain("task-a.jsonl");
-    expect(b).toContain("task-b.jsonl");
+    expect(a).toContain("1-task-a.jsonl");
+    expect(b).toContain("2-task-b.jsonl");
   });
 });

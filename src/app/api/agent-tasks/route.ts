@@ -9,6 +9,7 @@ import { listAgentTasks, createAgentTask } from "@/lib/db/queries";
 import { agentTaskScheduler } from "@/lib/agent-task-scheduler";
 import { validateCronExpression } from "@/lib/cron";
 import { getAllTools, discoverSkills } from "@/lib/pi/pi-settings";
+import { agentTaskRowToSpawnConfig } from "@/lib/pi/headless-prompt";
 
 // ── Create Schema ─────────────────────────────────────────────────────────
 
@@ -75,19 +76,7 @@ export async function POST(request: NextRequest) {
 
     // Register with scheduler if enabled
     if (task.enabled) {
-      await agentTaskScheduler.addTask(task.id, {
-        prompt: task.prompt,
-        provider: task.provider,
-        model: task.model,
-        thinkingLevel: task.thinkingLevel,
-        enabledTools: task.enabledTools ? (JSON.parse(task.enabledTools) as string[]) : null,
-        disabledTools: task.disabledTools ? (JSON.parse(task.disabledTools) as string[]) : null,
-        enabledSkills: task.enabledSkills ? (JSON.parse(task.enabledSkills) as string[]) : null,
-        noSkills: task.noSkills,
-        appendSystem: task.appendSystem,
-        persistSession: task.persistSession,
-        taskId: task.id,
-      });
+      await agentTaskScheduler.addTask(task.id, agentTaskRowToSpawnConfig(task));
     }
 
     return NextResponse.json(task, { status: 201 });

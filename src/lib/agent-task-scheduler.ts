@@ -9,7 +9,7 @@
  */
 
 import { CronJob } from "cron";
-import { spawn } from "child_process";
+import { spawn, type ChildProcess } from "child_process";
 import {
   getEnabledAgentTasks,
   getAgentTask,
@@ -20,7 +20,7 @@ import {
   cleanOldAgentTaskHistory,
 } from "@/lib/db/queries";
 import { getPiPath } from "@/lib/pi/pi-path";
-import { buildAgentTaskSpawnArgs, type AgentTaskSpawnConfig } from "@/lib/pi/headless-prompt";
+import { buildAgentTaskSpawnArgs, agentTaskRowToSpawnConfig, type AgentTaskSpawnConfig } from "@/lib/pi/headless-prompt";
 import { renderJsonEvent } from "@/lib/pi/json-event-renderer";
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -53,7 +53,7 @@ class AgentTaskScheduler {
     try {
       const tasks = await getEnabledAgentTasks();
       for (const t of tasks) {
-        this.addJob(t.id, t);
+        this.addJob(t.id, agentTaskRowToSpawnConfig(t));
       }
       console.log(`[agent-task] Loaded ${tasks.length} enabled task(s)`);
     } catch (err) {
@@ -62,7 +62,10 @@ class AgentTaskScheduler {
   }
 
   /** Register a new cron job for a task. */
-  async addTask(id: number, task: AgentTaskSpawnConfig) {
+  async addTask(
+    id: number,
+    task: AgentTaskSpawnConfig & { cronExpression?: string; timeoutSec?: number },
+  ) {
     this.addJob(id, task);
     console.log(`[agent-task] Added task ${id}: ${task.prompt.slice(0, 60)}…`);
   }
@@ -78,7 +81,11 @@ class AgentTaskScheduler {
   }
 
   /** Update a task: stop old job, start new if enabled. */
-  async updateTask(id: number, task: AgentTaskSpawnConfig, enabled: boolean) {
+  async updateTask(
+    id: number,
+    task: AgentTaskSpawnConfig & { cronExpression?: string; timeoutSec?: number },
+    enabled: boolean,
+  ) {
     await this.removeTask(id);
     if (enabled) {
       this.addJob(id, task);
@@ -95,20 +102,8 @@ class AgentTaskScheduler {
 
     try {
       const task = await getAgentTask(id);
-      const config: AgentTaskSpawnConfig = {
-        prompt: task.prompt,
-        provider: task.provider,
-        model: task.model,
-        thinkingLevel: task.thinkingLevel,
-        enabledTools: task.enabledTools ? (JSON.parse(task.enabledTools) as string[]) : null,
-        disabledTools: task.disabledTools ? (JSON.parse(task.disabledTools) as string[]) : null,
-        enabledSkills: task.enabledSkills ? (JSON.parse(task.enabledSkills) as string[]) : null,
-        noSkills: task.noSkills,
-        appendSystem: task.appendSystem,
-        persistSession: task.persistSession,
-        taskId: task.id,
-      };
-      await this.runOnce(id, config, task.timeoutSec);
+      const config = agentTaskRowToSpawnConfig(task);
+      await this.runOnce(id, config, config.timeoutSec);
     } catch (err) {
       console.error(`[agent-task] runNow(${id}) failed:`, err);
     }
@@ -145,7 +140,7 @@ class AgentTaskScheduler {
     let transcript = "";
     let flushInterval: ReturnType<typeof setInterval> | null = null;
     let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
-    let childProcess: ReturnType<typeof spawn> | null = null;
+    let childProcess: ChildProcess | null = null;
     let dirty = false; // true when transcript has changed since last flush
     let done = false;
 
@@ -286,8 +281,9 @@ class AgentTaskScheduler {
       // Cleanup
       if (flushInterval) clearInterval(flushInterval);
       if (timeoutHandle) clearTimeout(timeoutHandle);
-      if (childProcess && !childProcess.killed) {
-        childProcess.kill("SIGTERM");
+      const proc = childProcess as ChildProcess | null;
+      if (proc && !proc.killed) {
+        proc.kill("SIGTERM");
       }
       this.running.delete(id);
     }
@@ -304,22 +300,10 @@ class AgentTaskScheduler {
     }
 
     const timeout = task.timeoutSec ?? 300;
-    // Build config without cronExpression for the spawn args
-    const spawnConfig: AgentTaskSpawnConfig = {
-      prompt: task.prompt,
-      provider: task.provider,
-      model: task.model,
-      thinkingLevel: task.thinkingLevel,
-      enabledTools: task.enabledTools,
-      disabledTools: task.disabledTools,
-      enabledSkills: task.enabledSkills,
-      noSkills: task.noSkills,
-      appendSystem: task.appendSystem,
-      persistSession: task.persistSession,
-      taskId: id,
-    };
+    // Build config without scheduler-only fields for the spawn args
+    const { cronExpression, timeoutSec: _ts, ...spawnConfig } = task;
 
-    const cronExpr = task.cronExpression;
+    const cronExpr = cronExpression;
     if (!cronExpr) {
       console.error(`[agent-task] Task ${id} has no cron expression — skipping`);
       return;

@@ -10,6 +10,7 @@
 
 import { homedir } from "os";
 import { join } from "path";
+import type { AgentTask } from "@prisma/client";
 
 /**
  * System prompt appended (via --append-system-prompt) to tell the agent
@@ -51,6 +52,10 @@ export interface AgentTaskSpawnConfig {
   persistSession?: boolean;
   /** Custom session file path. Only used when persistSession is true. */
   sessionPath?: string;
+  /** Cron expression (used by the scheduler, not by the pi CLI). */
+  cronExpression?: string;
+  /** Timeout in seconds for the run. */
+  timeoutSec?: number;
 }
 
 /**
@@ -74,7 +79,7 @@ export function buildAgentTaskSpawnArgs(task: AgentTaskSpawnConfig): string[] {
   if (task.persistSession && task.sessionPath) {
     args.push("--session", task.sessionPath);
   } else if (task.persistSession) {
-    args.push("--session", defaultScheduledSessionPath("default"));
+    args.push("--session", defaultScheduledSessionPath(0, "default"));
   } else {
     args.push("--no-session");
   }
@@ -126,9 +131,51 @@ export function buildFullPrompt(task: AgentTaskSpawnConfig): string {
 }
 
 /**
- * Default session directory path for scheduled agent tasks.
- * Path: ~/.pi/agent/sessions/mc-scheduled/<projectSlug>.jsonl
+ * Default session file path for scheduled agent tasks.
+ * Path: ~/.pi/agent/sessions/mc-scheduled/<id>-<slug>.jsonl
  */
-export function defaultScheduledSessionPath(projectSlug: string): string {
-  return join(homedir(), ".pi", "agent", "sessions", "mc-scheduled", `${projectSlug}.jsonl`);
+export function defaultScheduledSessionPath(id: number, name: string): string {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "task";
+  return join(homedir(), ".pi", "agent", "sessions", "mc-scheduled", `${id}-${slug}.jsonl`);
+}
+
+/**
+ * Helper: parse a JSON-encoded string array column, returning undefined for null/invalid.
+ */
+function parseJsonArray(v: string | null): string[] | undefined {
+  if (!v) return undefined;
+  try {
+    const a = JSON.parse(v);
+    return Array.isArray(a) ? a : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Adapt a Prisma AgentTask row (with `null` for optional columns and JSON-encoded
+ * array columns) into an `AgentTaskSpawnConfig` (with `undefined` for optionals and
+ * parsed arrays). Includes `cronExpression` and `timeoutSec` so the scheduler can
+ * use the returned object directly.
+ */
+export function agentTaskRowToSpawnConfig(
+  task: AgentTask,
+): AgentTaskSpawnConfig & { cronExpression: string; timeoutSec: number } {
+  return {
+    prompt: task.prompt,
+    provider: task.provider ?? undefined,
+    model: task.model ?? undefined,
+    thinkingLevel: task.thinkingLevel ?? undefined,
+    enabledTools: parseJsonArray(task.enabledTools),
+    disabledTools: parseJsonArray(task.disabledTools),
+    enabledSkills: parseJsonArray(task.enabledSkills),
+    noSkills: task.noSkills,
+    appendSystem: task.appendSystem ?? undefined,
+    persistSession: task.persistSession,
+    sessionPath: task.persistSession
+      ? defaultScheduledSessionPath(task.id, task.name)
+      : undefined,
+    cronExpression: task.cronExpression,
+    timeoutSec: task.timeoutSec,
+  };
 }

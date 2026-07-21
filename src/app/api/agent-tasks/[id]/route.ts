@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getAgentTask, updateAgentTask, deleteAgentTask } from "@/lib/db/queries";
 import { agentTaskScheduler } from "@/lib/agent-task-scheduler";
+import { agentTaskRowToSpawnConfig } from "@/lib/pi/headless-prompt";
 
 // ── Update Schema ─────────────────────────────────────────────────────────
 
@@ -105,19 +106,7 @@ export async function PUT(
 
     // Re-register with scheduler if currently enabled, or disable
     if (updated.enabled) {
-      await agentTaskScheduler.addTask(taskId, {
-        prompt: updated.prompt,
-        provider: updated.provider,
-        model: updated.model,
-        thinkingLevel: updated.thinkingLevel,
-        enabledTools: updated.enabledTools ? (JSON.parse(updated.enabledTools) as string[]) : null,
-        disabledTools: updated.disabledTools ? (JSON.parse(updated.disabledTools) as string[]) : null,
-        enabledSkills: updated.enabledSkills ? (JSON.parse(updated.enabledSkills) as string[]) : null,
-        noSkills: updated.noSkills,
-        appendSystem: updated.appendSystem,
-        persistSession: updated.persistSession,
-        taskId: updated.id,
-      });
+      await agentTaskScheduler.addTask(taskId, agentTaskRowToSpawnConfig(updated));
     } else {
       await agentTaskScheduler.removeTask(taskId);
     }
