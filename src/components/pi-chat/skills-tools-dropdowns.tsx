@@ -130,7 +130,7 @@ export function SkillsToolsDropdowns() {
               className="fixed inset-0 z-40"
               onClick={() => setToolsOpen(false)}
             />
-            <div className="absolute top-full left-0 mt-1 z-50 bg-surface border border-outline-variant/30 shadow-xl min-w-[220px] max-h-64 overflow-y-auto">
+            <div className="absolute top-full left-0 mt-1 z-50 bg-surface border border-outline-variant/30 shadow-xl min-w-[220px] max-h-[min(70vh,400px)] overflow-y-auto">
               <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant/50 border-b border-outline-variant/20">
                 Tools · click to toggle
               </div>
@@ -186,7 +186,7 @@ export function SkillsToolsDropdowns() {
                 className="fixed inset-0 z-40"
                 onClick={() => setSkillsOpen(false)}
               />
-              <div className="absolute top-full left-0 mt-1 z-50 bg-surface border border-outline-variant/30 shadow-xl min-w-[240px] max-h-64 overflow-y-auto">
+              <div className="absolute top-full left-0 mt-1 z-50 bg-surface border border-outline-variant/30 shadow-xl min-w-[240px] max-h-[min(70vh,400px)] overflow-y-auto">
                 <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant/50 border-b border-outline-variant/20">
                   Skills · click to toggle
                 </div>
