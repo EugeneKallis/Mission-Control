@@ -15,5 +15,9 @@ export async function register() {
     const { workerTimerScheduler } = await import("@/lib/worker-timer-scheduler");
     await workerTimerScheduler.init();
     console.log("[worker-timer] Scheduler started");
+
+    const { agentTaskScheduler } = await import("@/lib/agent-task-scheduler");
+    await agentTaskScheduler.init();
+    console.log("[agent-task] Scheduler started");
   }
 }

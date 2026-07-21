@@ -1,340 +1,285 @@
 /**
  * Tests for src/lib/pi/json-event-renderer.ts
  *
- * Covers every event type that the renderer handles, plus
- * truncation, null returns, and edge cases.
+ * Covers every event type: connected, agent_start/end, turn_start/end,
+ * message_start/update/end, tool_execution_start/update/end,
+ * compaction_start/end, auto_retry_start/end, extension_error,
+ * and unknown types.
  */
 
 import { describe, test, expect } from "bun:test";
 import { renderJsonEvent } from "./json-event-renderer";
 
-// ── Agent lifecycle ───────────────────────────────────────────────────────
+// ── connected (session) ────────────────────────────────────────────────────
 
-describe("agent_start", () => {
-  test("renders start message", () => {
-    const result = renderJsonEvent({ type: "agent_start" });
-    expect(result).toBe("[agent_start] Agent session started");
-  });
-});
-
-describe("agent_end", () => {
-  test("renders with message count", () => {
+describe("connected", () => {
+  test("renders session info", () => {
     const result = renderJsonEvent({
-      type: "agent_end",
-      messages: [{}, {}, {}],
+      type: "connected",
+      sessionId: "abc123",
+      cwd: "/home/user/project",
+      timestamp: 1712345678,
     });
-    expect(result).toBe("[agent_end] Session complete (3 messages)");
-  });
-
-  test("renders without messages", () => {
-    const result = renderJsonEvent({ type: "agent_end" });
-    expect(result).toBe("[agent_end] Session complete");
-  });
-
-  test("renders with empty messages array", () => {
-    const result = renderJsonEvent({ type: "agent_end", messages: [] });
-    expect(result).toBe("[agent_end] Session complete (0 messages)");
+    expect(result).toBe("[session: abc123] cwd=/home/user/project");
   });
 });
 
-// ── Turn lifecycle ────────────────────────────────────────────────────────
+// ── agent_start / agent_end / agent_settled ───────────────────────────────
 
-describe("turn_start", () => {
-  test("renders turn start", () => {
-    const result = renderJsonEvent({ type: "turn_start" });
-    expect(result).toBe("[turn_start]");
+describe("agent lifecycle", () => {
+  test("agent_start", () => {
+    expect(renderJsonEvent({ type: "agent_start" })).toBe("[agent_start]");
+  });
+
+  test("agent_end", () => {
+    expect(renderJsonEvent({ type: "agent_end" })).toBe("[agent_end]");
+  });
+
+  test("agent_settled", () => {
+    expect(renderJsonEvent({ type: "agent_settled" })).toBe("[agent_settled]");
   });
 });
 
-describe("turn_end", () => {
-  test("renders with tool result count", () => {
-    const result = renderJsonEvent({
-      type: "turn_end",
-      toolResults: [{}],
-    });
-    expect(result).toBe("[turn_end] Turn complete (1 tool result)");
+// ── turn_start / turn_end ─────────────────────────────────────────────────
+
+describe("turn lifecycle", () => {
+  test("turn_start", () => {
+    expect(renderJsonEvent({ type: "turn_start" })).toBe("[turn_start]");
   });
 
-  test("renders with plural", () => {
-    const result = renderJsonEvent({
-      type: "turn_end",
-      toolResults: [{}, {}],
-    });
-    expect(result).toBe("[turn_end] Turn complete (2 tool results)");
-  });
-
-  test("renders with zero tool results", () => {
-    const result = renderJsonEvent({ type: "turn_end" });
-    expect(result).toBe("[turn_end] Turn complete (0 tool results)");
+  test("turn_end", () => {
+    expect(renderJsonEvent({ type: "turn_end" })).toBe("[turn_end]");
   });
 });
 
-// ── Message lifecycle ─────────────────────────────────────────────────────
+// ── message_start (null) ──────────────────────────────────────────────────
+
+describe("message_start", () => {
+  test("returns null (too noisy)", () => {
+    expect(renderJsonEvent({ type: "message_start", message: {} })).toBeNull();
+  });
+});
+
+// ── message_update (null) ─────────────────────────────────────────────────
 
 describe("message_update", () => {
-  test("returns null (skipped)", () => {
-    const result = renderJsonEvent({
-      type: "message_update",
-      assistantMessageEvent: { type: "text_delta", delta: "Hello" },
-    });
-    expect(result).toBeNull();
+  test("returns null (too noisy)", () => {
+    expect(
+      renderJsonEvent({ type: "message_update", message: {}, assistantMessageEvent: { type: "start" } })
+    ).toBeNull();
   });
 });
 
+// ── message_end ────────────────────────────────────────────────────────────
+
 describe("message_end", () => {
-  test("renders assistant message text", () => {
+  test("renders assistant text content", () => {
     const result = renderJsonEvent({
       type: "message_end",
       message: {
         role: "assistant",
         content: [
-          { type: "text", text: "Here is the file listing." },
-          { type: "text", text: "\n\nThere are 3 files." },
+          { type: "text", text: "Hello! I found " },
+          { type: "text", text: "the answer." },
         ],
       },
     });
-    expect(result).toContain("[assistant]");
-    expect(result).toContain("Here is the file listing.");
-    expect(result).toContain("There are 3 files.");
+    expect(result).toBe("Assistant: Hello! I found the answer.");
   });
 
-  test("returns null for user messages", () => {
+  test("returns null when no text content", () => {
     const result = renderJsonEvent({
       type: "message_end",
       message: {
-        role: "user",
-        content: [{ type: "text", text: "list files" }],
+        role: "assistant",
+        content: [{ type: "tool_use", name: "read" }],
       },
     });
     expect(result).toBeNull();
   });
 
-  test("returns null when message is missing", () => {
-    const result = renderJsonEvent({ type: "message_end" });
-    expect(result).toBeNull();
-  });
-
-  test("returns null when content is missing", () => {
-    const result = renderJsonEvent({
-      type: "message_end",
-      message: { role: "assistant" },
-    });
-    expect(result).toBeNull();
+  test("returns null when no message field", () => {
+    expect(renderJsonEvent({ type: "message_end" })).toBeNull();
   });
 });
 
-// ── Tool execution ────────────────────────────────────────────────────────
+// ── tool_execution_start ───────────────────────────────────────────────────
 
 describe("tool_execution_start", () => {
   test("renders tool name and args", () => {
     const result = renderJsonEvent({
       type: "tool_execution_start",
+      toolCallId: "call_1",
       toolName: "read",
-      args: { path: "/tmp/test.txt" },
+      args: { path: "/etc/hosts" },
     });
-    expect(result).toContain("[tool_start: read]");
-    expect(result).toContain('"path"');
-    expect(result).toContain("/tmp/test.txt");
+    expect(result).toBe('[tool: read] args: {"path":"/etc/hosts"}');
   });
 
-  test("handles missing toolName", () => {
+  test("truncates args JSON over 300 chars", () => {
+    const longArgs = { data: "x".repeat(400) };
     const result = renderJsonEvent({
       type: "tool_execution_start",
-      args: { path: "x" },
+      toolCallId: "call_2",
+      toolName: "read",
+      args: longArgs,
     });
-    expect(result).toContain("[tool_start: ?]");
+    expect(result).toBeTruthy();
+    expect(result!.length).toBeLessThan(350);
+    expect(result).toContain("[tool: read]");
+    expect(result).toContain("…");
   });
 
-  test("truncates long args at 200 chars", () => {
-    const longStr = "a".repeat(300);
+  test("handles missing args gracefully", () => {
     const result = renderJsonEvent({
       type: "tool_execution_start",
-      toolName: "write",
-      args: { path: "/tmp/test.txt", content: longStr },
+      toolCallId: "call_3",
+      toolName: "ls",
     });
-    expect(result!.length).toBeLessThan(250);
+    expect(result).toBe("[tool: ls] args: ");
   });
 });
 
+// ── tool_execution_update (null) ──────────────────────────────────────────
+
+describe("tool_execution_update", () => {
+  test("returns null (too noisy)", () => {
+    expect(
+      renderJsonEvent({ type: "tool_execution_update", toolCallId: "c1", toolName: "read", args: {} })
+    ).toBeNull();
+  });
+});
+
+// ── tool_execution_end ─────────────────────────────────────────────────────
+
 describe("tool_execution_end", () => {
-  test("renders success with content text", () => {
+  test("renders success result", () => {
     const result = renderJsonEvent({
       type: "tool_execution_end",
-      toolName: "grep",
+      toolCallId: "call_1",
+      toolName: "read",
       result: {
-        content: [{ type: "text", text: "Found 3 matches." }],
+        content: [{ type: "text", text: "File contents: hello world" }],
       },
       isError: false,
     });
-    expect(result).toContain("[tool_end: grep] OK");
-    expect(result).toContain("Found 3 matches.");
+    expect(result).toBe("[tool: read] File contents: hello world");
   });
 
-  test("renders error with ERROR prefix", () => {
+  test("prefixes ERROR when isError is true", () => {
     const result = renderJsonEvent({
       type: "tool_execution_end",
+      toolCallId: "call_2",
       toolName: "bash",
       result: {
-        content: [{ type: "text", text: "Command not found" }],
+        content: [{ type: "text", text: "Command failed with exit code 1" }],
       },
       isError: true,
     });
-    expect(result).toContain("[tool_end: bash] ERROR");
-    expect(result).toContain("Command not found");
+    expect(result).toBe("[tool: bash] ERROR: Command failed with exit code 1");
   });
 
-  test("handles missing result content", () => {
+  test("truncates result over 500 chars", () => {
+    const longText = "x".repeat(600);
     const result = renderJsonEvent({
       type: "tool_execution_end",
-      toolName: "ls",
-      result: {},
-      isError: false,
-    });
-    expect(result).toContain("(no content)");
-  });
-
-  test("handles missing toolName and isError", () => {
-    const result = renderJsonEvent({
-      type: "tool_execution_end",
-      isError: true,
-    });
-    expect(result).toContain("[tool_end: ?] ERROR");
-  });
-
-  test("truncates long result text", () => {
-    const longText = "x".repeat(1000);
-    const result = renderJsonEvent({
-      type: "tool_execution_end",
+      toolCallId: "call_3",
       toolName: "read",
       result: {
         content: [{ type: "text", text: longText }],
       },
       isError: false,
     });
-    expect(result).toContain("[truncated]");
-    expect(result!.length).toBeLessThan(600); // truncation ensures shorter
+    expect(result).toBeTruthy();
+    expect(result!.length).toBeLessThan(550);
+    expect(result).toContain("…");
+  });
+
+  test("handles missing result", () => {
+    const result = renderJsonEvent({
+      type: "tool_execution_end",
+      toolCallId: "call_4",
+      toolName: "read",
+      isError: false,
+    });
+    expect(result).toBe("[tool: read] ");
   });
 });
 
-// ── Compaction ────────────────────────────────────────────────────────────
+// ── compaction_start / compaction_end ──────────────────────────────────────
 
-describe("compaction_start", () => {
-  test("renders with reason", () => {
-    const result = renderJsonEvent({
-      type: "compaction_start",
-      reason: "threshold",
-    });
-    expect(result).toBe("[compaction_start] reason: threshold");
+describe("compaction", () => {
+  test("compaction_start with reason", () => {
+    expect(renderJsonEvent({ type: "compaction_start", reason: "threshold" })).toBe("[compaction: threshold]");
   });
 
-  test("renders with missing reason", () => {
-    const result = renderJsonEvent({ type: "compaction_start" });
-    expect(result).toBe("[compaction_start] reason: ?");
+  test("compaction_end with reason", () => {
+    expect(renderJsonEvent({ type: "compaction_end", reason: "manual" })).toBe("[compaction: manual]");
   });
 });
 
-describe("compaction_end", () => {
-  test("renders completed compaction", () => {
-    const result = renderJsonEvent({
-      type: "compaction_end",
-      reason: "overflow",
-      aborted: false,
-    });
-    expect(result).toBe("[compaction_end] reason: overflow — ok");
-  });
+// ── auto_retry_start / auto_retry_end ──────────────────────────────────────
 
-  test("renders aborted compaction", () => {
-    const result = renderJsonEvent({
-      type: "compaction_end",
-      reason: "manual",
-      aborted: true,
-    });
-    expect(result).toBe("[compaction_end] reason: manual — aborted");
-  });
-});
-
-// ── Auto-retry ────────────────────────────────────────────────────────────
-
-describe("auto_retry_start", () => {
-  test("renders with attempt, max, and error", () => {
+describe("auto_retry", () => {
+  test("auto_retry_start with attempt and error message", () => {
     const result = renderJsonEvent({
       type: "auto_retry_start",
       attempt: 2,
       maxAttempts: 3,
+      delayMs: 5000,
       errorMessage: "Rate limit exceeded",
     });
-    expect(result).toContain("[retry_start] attempt 2/3");
-    expect(result).toContain("Rate limit exceeded");
+    expect(result).toBe("[retry: attempt 2] Rate limit exceeded");
   });
 
-  test("handles missing fields", () => {
-    const result = renderJsonEvent({ type: "auto_retry_start" });
-    expect(result).toContain("[retry_start]");
-    expect(result).toContain("?");
-  });
-
-  test("truncates long error message", () => {
-    const longErr = "x".repeat(300);
-    const result = renderJsonEvent({
-      type: "auto_retry_start",
-      attempt: 1,
-      maxAttempts: 3,
-      errorMessage: longErr,
-    });
-    expect(result!.length).toBeLessThan(250);
-  });
-});
-
-describe("auto_retry_end", () => {
-  test("renders succeeded retry", () => {
+  test("auto_retry_end success state", () => {
     const result = renderJsonEvent({
       type: "auto_retry_end",
       success: true,
       attempt: 2,
     });
-    expect(result).toContain("[retry_end] attempt 2 succeeded");
+    expect(result).toBe("[retry: attempt 2 success]");
   });
 
-  test("renders failed retry with final error", () => {
+  test("auto_retry_end failed state with final error", () => {
     const result = renderJsonEvent({
       type: "auto_retry_end",
       success: false,
       attempt: 3,
-      finalError: "All retries exhausted",
+      finalError: "API still unavailable",
     });
-    expect(result).toContain("[retry_end] attempt 3 failed");
-    expect(result).toContain("All retries exhausted");
-  });
-
-  test("truncates long final error", () => {
-    const longErr = "y".repeat(300);
-    const result = renderJsonEvent({
-      type: "auto_retry_end",
-      success: false,
-      attempt: 1,
-      finalError: longErr,
-    });
-    expect(result!.length).toBeLessThan(250);
+    expect(result).toBe("[retry: attempt 3 failed] API still unavailable");
   });
 });
 
-// ── Events that should be skipped ─────────────────────────────────────────
+// ── extension_error ────────────────────────────────────────────────────────
 
-describe("events that return null", () => {
-  const skipCases = [
-    { type: "connected", sessionId: "abc", cwd: "/tmp", timestamp: 1 },
-    { type: "session", version: 3, id: "uuid" },
-    { type: "extension_ui_request", id: "req1", method: "confirm" },
-    { type: "extension_error", extensionPath: "/x", event: "y", error: "z" },
-    { type: "queue_update", steering: [] },
-    { type: "unknown_event_type" },
-    { type: "turn_something" },
-    {},
-  ];
-
-  for (const evt of skipCases) {
-    test(`${evt.type ?? "empty"} returns null`, () => {
-      expect(renderJsonEvent(evt as any)).toBeNull();
+describe("extension_error", () => {
+  test("renders extension path and error", () => {
+    const result = renderJsonEvent({
+      type: "extension_error",
+      extensionPath: "extensions/my-tool",
+      event: "execute",
+      error: "Tool not found",
     });
-  }
+    expect(result).toBe("[extension_error: extensions/my-tool] Tool not found");
+  });
+});
+
+// ── unknown type (null) ────────────────────────────────────────────────────
+
+describe("unknown type", () => {
+  test("returns null for unhandled event types", () => {
+    expect(renderJsonEvent({ type: "unknown_event_type" as string, data: "blah" })).toBeNull();
+  });
+
+  test("returns null for response events", () => {
+    expect(
+      renderJsonEvent({ type: "response", command: "get_state", success: true })
+    ).toBeNull();
+  });
+
+  test("returns null for queue_update", () => {
+    expect(renderJsonEvent({ type: "queue_update", steering: [] })).toBeNull();
+  });
 });

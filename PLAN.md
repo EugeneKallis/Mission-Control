@@ -33,7 +33,7 @@ The agent is told (via `--append-system-prompt`) that it is headless, running un
 |-------|-------------|--------|
 | Phase 0 — DB & types | Prisma `AgentTask` model, `History.agentTaskId` relation, migration, queries | ✅ Done |
 | Phase 1 — Headless core | `headless-prompt.ts`, `json-event-renderer.ts`, shared `pi-path.ts`; unit tests | ✅ Done |
-| Phase 2 — Scheduler | `agent-task-scheduler.ts` (spawn/json/timeout/overlap-guard) + instrumentation; lifecycle tests | ⏳ Not started |
+| Phase 2 — Scheduler | `agent-task-scheduler.ts` (spawn/json/timeout/overlap-guard) + instrumentation; lifecycle tests | ✅ Done |
 | Phase 3 — API routes | `/api/agent-tasks/*` (list/create/get/update/delete/toggle/run-now/resources) + route tests | ⏳ Not started |
 | Phase 4 — UI | `/agent-tasks` page + components (list, form w/ cron builder, tools/skills toggles, runs) + component tests | ⏳ Not started |
 | Phase 5 — Log tab integration | `/api/logs` DB branch for `agent-tasks`, logs page button, log-alerts aggregation + tests | ⏳ Not started |
