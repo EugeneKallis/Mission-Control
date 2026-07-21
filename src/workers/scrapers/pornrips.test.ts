@@ -91,6 +91,7 @@ describe("enrichPornRipsItem", () => {
       magnet: "mg",
       tags: [],
       detailURL: "",
+      fileSize: "",
     };
     expect(await enrichPornRipsItem(item)).toBe(item);
   });
@@ -107,6 +108,7 @@ describe("enrichPornRipsItem", () => {
       magnet: "mg",
       tags: [],
       detailURL: "",
+      fileSize: "",
     };
     expect(await enrichPornRipsItem({ ...item, detailURL: "https://pornrips.to/x" })).toMatchObject({
       title: "X",
@@ -139,6 +141,7 @@ describe("enrichPornRipsItem", () => {
       magnet: "mg",
       tags: [],
       detailURL: "",
+      fileSize: "",
     };
     const enriched = await enrichPornRipsItem({ ...item, detailURL: "https://pornrips.to/x" });
     expect(enriched.images).toEqual([

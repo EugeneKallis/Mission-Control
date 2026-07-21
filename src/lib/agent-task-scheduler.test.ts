@@ -122,14 +122,20 @@ describe("runOnce with mocked spawn", () => {
     // Build a fake child process
     const stdout = new EventEmitter();
     let closeCb: ((code: number | null) => void) | null = null;
-    const fakeProcess = {
+    const fakeProcess: {
+      stdout: EventEmitter;
+      stderr: EventEmitter;
+      on: (event: string, cb: (...args: unknown[]) => void) => unknown;
+      kill: (...args: unknown[]) => void;
+      killed: boolean;
+    } = {
       stdout,
       stderr: new EventEmitter(),
-      on: mock((event: string, cb: (...args: unknown[]) => void) => {
+      on: (event: string, cb: (...args: unknown[]) => void) => {
         if (event === "close") closeCb = cb as (code: number | null) => void;
         return fakeProcess;
-      }),
-      kill: mock(() => {}),
+      },
+      kill: () => {},
       killed: false,
     };
 
@@ -175,7 +181,8 @@ describe("runOnce with mocked spawn", () => {
       }) + "\n" +
       JSON.stringify({ type: "agent_end" }) + "\n",
     ));
-    if (closeCb) closeCb(0);
+    // @ts-expect-error -- mock callback type inference narrows closeCb to never
+    closeCb?.(0);
 
     await runPromise;
 
@@ -205,14 +212,20 @@ describe("runOnce with mocked spawn", () => {
 
     const stdout = new EventEmitter();
     let closeCb: ((code: number | null) => void) | null = null;
-    const fakeProcess = {
+    const fakeProcess: {
+      stdout: EventEmitter;
+      stderr: EventEmitter;
+      on: (event: string, cb: (...args: unknown[]) => void) => unknown;
+      kill: (...args: unknown[]) => void;
+      killed: boolean;
+    } = {
       stdout,
       stderr: new EventEmitter(),
-      on: mock((event: string, cb: (...args: unknown[]) => void) => {
+      on: (event: string, cb: (...args: unknown[]) => void) => {
         if (event === "close") closeCb = cb as (code: number | null) => void;
         return fakeProcess;
-      }),
-      kill: mock(() => {}),
+      },
+      kill: () => {},
       killed: false,
     };
 
@@ -246,7 +259,8 @@ describe("runOnce with mocked spawn", () => {
       }) + "\n" +
       JSON.stringify({ type: "agent_end" }) + "\n",
     ));
-    if (closeCb) closeCb(1);
+    // @ts-expect-error -- mock callback type inference narrows closeCb to never
+    closeCb?.(1);
 
     await runPromise;
 
@@ -267,19 +281,25 @@ describe("runOnce with mocked spawn", () => {
     });
 
     let closeCb: ((code: number | null) => void) | null = null;
-    const fakeProcess = {
+    const fakeProcess: {
+      stdout: EventEmitter;
+      stderr: EventEmitter;
+      on: (event: string, cb: (...args: unknown[]) => void) => unknown;
+      kill: (...args: unknown[]) => void;
+      killed: boolean;
+    } = {
       stdout: new EventEmitter(),
       stderr: new EventEmitter(),
-      on: mock((event: string, cb: (...args: unknown[]) => void) => {
+      on: (event: string, cb: (...args: unknown[]) => void) => {
         if (event === "close") closeCb = cb as (code: number | null) => void;
         return fakeProcess;
-      }),
-      kill: mock((sig?: string) => {
+      },
+      kill: (..._args: unknown[]) => {
         // When killed, simulate process exit by emitting close
         setTimeout(() => {
           if (closeCb) closeCb(null);
         }, 10);
-      }),
+      },
       killed: false,
     };
 

@@ -8,7 +8,6 @@ import { describe, test, expect, afterEach, beforeEach, mock } from "bun:test";
 import { render, screen, fireEvent, cleanup, waitFor } from "@/test-utils/render";
 import { StatusBar } from "./status-bar";
 
-const SESSION_ID = "test-session-1";
 const mockOnOpenModelSelector = mock();
 const mockOnThinkingLevelChange = mock();
 
@@ -52,7 +51,6 @@ describe("StatusBar", () => {
   test("renders model name from props", () => {
     render(
       <StatusBar
-        sessionId={SESSION_ID}
         isConnected={true}
         onOpenModelSelector={mockOnOpenModelSelector}
         currentModelId="opencode-go/deepseek-v4-flash"
@@ -68,7 +66,6 @@ describe("StatusBar", () => {
   test("renders thinking level label", () => {
     render(
       <StatusBar
-        sessionId={SESSION_ID}
         isConnected={true}
         onOpenModelSelector={mockOnOpenModelSelector}
         currentModelId={null}
@@ -83,7 +80,6 @@ describe("StatusBar", () => {
   test("opens thinking level dropdown on click", async () => {
     render(
       <StatusBar
-        sessionId={SESSION_ID}
         isConnected={true}
         onOpenModelSelector={mockOnOpenModelSelector}
         currentModelId={null}
@@ -106,7 +102,6 @@ describe("StatusBar", () => {
   test("calls onThinkingLevelChange when a level is selected", async () => {
     render(
       <StatusBar
-        sessionId={SESSION_ID}
         isConnected={true}
         onOpenModelSelector={mockOnOpenModelSelector}
         currentModelId={null}
@@ -133,7 +128,6 @@ describe("StatusBar", () => {
   test("calls onOpenModelSelector when model badge is clicked", () => {
     render(
       <StatusBar
-        sessionId={SESSION_ID}
         isConnected={true}
         onOpenModelSelector={mockOnOpenModelSelector}
         currentModelId="opencode-go/deepseek-v4-flash"
@@ -152,11 +146,10 @@ describe("StatusBar", () => {
   test("fetches state from API and shows context usage", async () => {
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response(JSON.stringify(MOCK_STATE))),
-    );
+    ) as unknown as typeof globalThis.fetch;
 
     render(
       <StatusBar
-        sessionId={SESSION_ID}
         isConnected={true}
         onOpenModelSelector={mockOnOpenModelSelector}
         currentModelId={null}
@@ -180,11 +173,10 @@ describe("StatusBar", () => {
     globalThis.fetch = mock(() => {
       callCount++;
       return Promise.resolve(new Response(JSON.stringify(MOCK_STATE)));
-    });
+    }) as unknown as typeof globalThis.fetch;
 
     render(
       <StatusBar
-        sessionId={SESSION_ID}
         isConnected={true}
         onOpenModelSelector={mockOnOpenModelSelector}
         currentModelId={null}
@@ -213,11 +205,10 @@ describe("StatusBar", () => {
 
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response(JSON.stringify(highContextState))),
-    );
+    ) as unknown as typeof globalThis.fetch;
 
     render(
       <StatusBar
-        sessionId={SESSION_ID}
         isConnected={true}
         onOpenModelSelector={mockOnOpenModelSelector}
         currentModelId={null}
@@ -239,11 +230,10 @@ describe("StatusBar", () => {
 
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response(JSON.stringify(nanContextState))),
-    );
+    ) as unknown as typeof globalThis.fetch;
 
     render(
       <StatusBar
-        sessionId={SESSION_ID}
         isConnected={true}
         onOpenModelSelector={mockOnOpenModelSelector}
         currentModelId={null}

@@ -75,7 +75,7 @@ describe("AgentTaskForm — model dropdowns", () => {
   test("(a) renders all providers from Pi's model registry", async () => {
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response(JSON.stringify({ models: MOCK_MODELS }))),
-    );
+    ) as unknown as typeof globalThis.fetch;
 
     renderForm();
 
@@ -88,7 +88,7 @@ describe("AgentTaskForm — model dropdowns", () => {
   test("(b) selecting a provider filters the Model dropdown", async () => {
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response(JSON.stringify({ models: MOCK_MODELS }))),
-    );
+    ) as unknown as typeof globalThis.fetch;
 
     renderForm();
     // Wait for the models to load before interacting
@@ -114,7 +114,7 @@ describe("AgentTaskForm — model dropdowns", () => {
   test("(c) selecting a model then submitting emits the matching provider+model", async () => {
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response(JSON.stringify({ models: MOCK_MODELS }))),
-    );
+    ) as unknown as typeof globalThis.fetch;
 
     renderForm();
     await screen.findByText("DeepSeek");
@@ -148,7 +148,7 @@ describe("AgentTaskForm — model dropdowns", () => {
   test("(c2) duplicate-id across providers resolves to the selected provider", async () => {
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response(JSON.stringify({ models: MOCK_MODELS }))),
-    );
+    ) as unknown as typeof globalThis.fetch;
 
     renderForm();
     await screen.findByText("DeepSeek");
@@ -179,7 +179,7 @@ describe("AgentTaskForm — model dropdowns", () => {
   });
 
   test("(d) fetch failure → fallback text inputs render", async () => {
-    globalThis.fetch = mock(() => Promise.reject(new Error("Network error")));
+    globalThis.fetch = mock(() => Promise.reject(new Error("Network error"))) as unknown as typeof globalThis.fetch;
 
     renderForm();
 

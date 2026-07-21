@@ -2,6 +2,7 @@
  * Unit tests for /api/pi/sessions route — list and manage Pi sessions.
  */
 import { describe, test, expect, afterEach, mock } from "bun:test";
+import { NextRequest } from "next/server";
 import { GET, POST } from "./route";
 
 describe("GET /api/pi/sessions", () => {
@@ -38,7 +39,7 @@ describe("GET /api/pi/sessions", () => {
 
 describe("POST /api/pi/sessions", () => {
   test("returns 400 when id is missing", async () => {
-    const req = new Request("http://localhost/api/pi/sessions", {
+    const req = new NextRequest("http://localhost/api/pi/sessions", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ name: "test" }),
@@ -48,7 +49,7 @@ describe("POST /api/pi/sessions", () => {
   });
 
   test("returns 400 when name is missing", async () => {
-    const req = new Request("http://localhost/api/pi/sessions", {
+    const req = new NextRequest("http://localhost/api/pi/sessions", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ id: "test-id" }),
@@ -58,7 +59,7 @@ describe("POST /api/pi/sessions", () => {
   });
 
   test("returns 400 for path traversal", async () => {
-    const req = new Request("http://localhost/api/pi/sessions", {
+    const req = new NextRequest("http://localhost/api/pi/sessions", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ id: "../../etc/passwd", name: "hack" }),
@@ -68,7 +69,7 @@ describe("POST /api/pi/sessions", () => {
   });
 
   test("returns 404 for non-existent session", async () => {
-    const req = new Request("http://localhost/api/pi/sessions", {
+    const req = new NextRequest("http://localhost/api/pi/sessions", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ id: "nonexistent-session-id-12345", name: "Test" }),

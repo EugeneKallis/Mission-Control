@@ -63,7 +63,7 @@ describe("SessionSidebar", () => {
   test("renders session list when open", async () => {
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response(JSON.stringify({ sessions: MOCK_SESSIONS }))),
-    );
+    ) as unknown as typeof globalThis.fetch;
 
     render(
       <SessionSidebar
@@ -84,7 +84,7 @@ describe("SessionSidebar", () => {
   test("highlights active session", async () => {
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response(JSON.stringify({ sessions: MOCK_SESSIONS }))),
-    );
+    ) as unknown as typeof globalThis.fetch;
 
     render(
       <SessionSidebar
@@ -105,7 +105,7 @@ describe("SessionSidebar", () => {
   test("calls onSwitchSession when an inactive session is clicked", async () => {
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response(JSON.stringify({ sessions: MOCK_SESSIONS }))),
-    );
+    ) as unknown as typeof globalThis.fetch;
 
     render(
       <SessionSidebar
@@ -129,7 +129,7 @@ describe("SessionSidebar", () => {
   test("does not call onSwitchSession when active session is clicked", async () => {
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response(JSON.stringify({ sessions: MOCK_SESSIONS }))),
-    );
+    ) as unknown as typeof globalThis.fetch;
 
     render(
       <SessionSidebar
@@ -153,7 +153,7 @@ describe("SessionSidebar", () => {
   test("calls onNewSession when new button is clicked", async () => {
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response(JSON.stringify({ sessions: [] }))),
-    );
+    ) as unknown as typeof globalThis.fetch;
 
     render(
       <SessionSidebar
@@ -174,7 +174,7 @@ describe("SessionSidebar", () => {
   test("calls onClose when close button is clicked", () => {
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response(JSON.stringify({ sessions: [] }))),
-    );
+    ) as unknown as typeof globalThis.fetch;
 
     render(
       <SessionSidebar
@@ -194,7 +194,7 @@ describe("SessionSidebar", () => {
   test("shows truncated name for raw Pi directory IDs", async () => {
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response(JSON.stringify({ sessions: MOCK_SESSIONS }))),
-    );
+    ) as unknown as typeof globalThis.fetch;
 
     render(
       <SessionSidebar
@@ -215,7 +215,7 @@ describe("SessionSidebar", () => {
   test("shows empty state when no sessions", async () => {
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response(JSON.stringify({ sessions: [] }))),
-    );
+    ) as unknown as typeof globalThis.fetch;
 
     render(
       <SessionSidebar
@@ -233,7 +233,7 @@ describe("SessionSidebar", () => {
   });
 
   test("shows error state on fetch failure", async () => {
-    globalThis.fetch = mock(() => Promise.reject(new Error("Network failure")));
+    globalThis.fetch = mock(() => Promise.reject(new Error("Network failure"))) as unknown as typeof globalThis.fetch;
 
     render(
       <SessionSidebar
@@ -253,7 +253,7 @@ describe("SessionSidebar", () => {
   test("shows relative time for sessions", async () => {
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response(JSON.stringify({ sessions: MOCK_SESSIONS }))),
-    );
+    ) as unknown as typeof globalThis.fetch;
 
     render(
       <SessionSidebar

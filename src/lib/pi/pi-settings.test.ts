@@ -10,6 +10,7 @@
 
 import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach, mock } from "bun:test";
 import { makeTestDB, type TestDB } from "@/lib/db/test-helpers";
+import type { ResourceState } from "./pi-settings";
 
 // Mock the DB module so our settings use the test database
 let testDB: TestDB;
@@ -159,7 +160,7 @@ describe("getResourceState", () => {
 
 describe("computeSpawnOptions", () => {
   test("returns empty object when everything is enabled", () => {
-    const allEnabled: settings.ResourceState = {
+    const allEnabled: ResourceState = {
       tools: settings.BUILTIN_TOOLS.map((t) => ({ ...t, enabled: true })),
       skills: [],
     };
@@ -168,7 +169,7 @@ describe("computeSpawnOptions", () => {
   });
 
   test("excludes disabled tools", () => {
-    const state: settings.ResourceState = {
+    const state: ResourceState = {
       tools: [
         { name: "read", label: "Read", description: "", dangerous: false, required: false, enabled: true },
         { name: "bash", label: "Bash", description: "", dangerous: true, required: false, enabled: false },
@@ -181,7 +182,7 @@ describe("computeSpawnOptions", () => {
   });
 
   test("lists only enabled skills when some are disabled", () => {
-    const state: settings.ResourceState = {
+    const state: ResourceState = {
       tools: settings.BUILTIN_TOOLS.map((t) => ({ ...t, enabled: true })),
       skills: [
         { name: "code-review", description: "", filePath: "/a", source: "user", enabled: true },
@@ -193,7 +194,7 @@ describe("computeSpawnOptions", () => {
   });
 
   test("noSkills when all skills are disabled", () => {
-    const state: settings.ResourceState = {
+    const state: ResourceState = {
       tools: settings.BUILTIN_TOOLS.map((t) => ({ ...t, enabled: true })),
       skills: [
         { name: "code-review", description: "", filePath: "/a", source: "user", enabled: false },
@@ -205,7 +206,7 @@ describe("computeSpawnOptions", () => {
   });
 
   test("combines excludeTools and skills options", () => {
-    const state: settings.ResourceState = {
+    const state: ResourceState = {
       tools: [
         { name: "read", label: "Read", description: "", dangerous: false, required: false, enabled: true },
         { name: "bash", label: "Bash", description: "", dangerous: true, required: false, enabled: false },

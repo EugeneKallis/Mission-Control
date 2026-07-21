@@ -8,7 +8,6 @@ import { describe, test, expect, afterEach, beforeEach, mock } from "bun:test";
 import { render, screen, fireEvent, cleanup, waitFor } from "@/test-utils/render";
 import { ModelSelector } from "./model-selector";
 
-const SESSION_ID = "test-session-1";
 const mockOnSelect = mock();
 const mockOnClose = mock();
 
@@ -67,7 +66,6 @@ describe("ModelSelector", () => {
       <ModelSelector
         open={false}
         onClose={mockOnClose}
-        sessionId={SESSION_ID}
         activeModelId={null}
         onSelect={mockOnSelect}
       />,
@@ -79,13 +77,12 @@ describe("ModelSelector", () => {
   test("fetches models and renders them when opened", async () => {
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response(JSON.stringify({ models: MOCK_MODELS }))),
-    );
+    ) as unknown as typeof globalThis.fetch;
 
     render(
       <ModelSelector
         open={true}
         onClose={mockOnClose}
-        sessionId={SESSION_ID}
         activeModelId={null}
         onSelect={mockOnSelect}
       />,
@@ -103,13 +100,12 @@ describe("ModelSelector", () => {
   test("highlights active model", async () => {
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response(JSON.stringify({ models: MOCK_MODELS }))),
-    );
+    ) as unknown as typeof globalThis.fetch;
 
     render(
       <ModelSelector
         open={true}
         onClose={mockOnClose}
-        sessionId={SESSION_ID}
         activeModelId="openai/gpt-4o"
         onSelect={mockOnSelect}
       />,
@@ -126,13 +122,12 @@ describe("ModelSelector", () => {
   test("calls onSelect when a model is clicked", async () => {
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response(JSON.stringify({ models: MOCK_MODELS }))),
-    );
+    ) as unknown as typeof globalThis.fetch;
 
     render(
       <ModelSelector
         open={true}
         onClose={mockOnClose}
-        sessionId={SESSION_ID}
         activeModelId={null}
         onSelect={mockOnSelect}
       />,
@@ -150,13 +145,12 @@ describe("ModelSelector", () => {
   test("shows 'needs key' badge for unconfigured models", async () => {
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response(JSON.stringify({ models: MOCK_MODELS }))),
-    );
+    ) as unknown as typeof globalThis.fetch;
 
     render(
       <ModelSelector
         open={true}
         onClose={mockOnClose}
-        sessionId={SESSION_ID}
         activeModelId={null}
         onSelect={mockOnSelect}
       />,
@@ -170,13 +164,12 @@ describe("ModelSelector", () => {
   test("shows 'ready' badge for configured models", async () => {
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response(JSON.stringify({ models: MOCK_MODELS }))),
-    );
+    ) as unknown as typeof globalThis.fetch;
 
     render(
       <ModelSelector
         open={true}
         onClose={mockOnClose}
-        sessionId={SESSION_ID}
         activeModelId={null}
         onSelect={mockOnSelect}
       />,
@@ -192,13 +185,12 @@ describe("ModelSelector", () => {
   test("shows error state when fetch fails", async () => {
     globalThis.fetch = mock(() =>
       Promise.reject(new Error("Network error")),
-    );
+    ) as unknown as typeof globalThis.fetch;
 
     render(
       <ModelSelector
         open={true}
         onClose={mockOnClose}
-        sessionId={SESSION_ID}
         activeModelId={null}
         onSelect={mockOnSelect}
       />,
@@ -212,13 +204,12 @@ describe("ModelSelector", () => {
   test("shows empty state when API returns no models", async () => {
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response(JSON.stringify({ models: [] }))),
-    );
+    ) as unknown as typeof globalThis.fetch;
 
     render(
       <ModelSelector
         open={true}
         onClose={mockOnClose}
-        sessionId={SESSION_ID}
         activeModelId={null}
         onSelect={mockOnSelect}
       />,

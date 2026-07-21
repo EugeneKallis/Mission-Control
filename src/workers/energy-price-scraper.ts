@@ -23,7 +23,7 @@
  *   ENERGY_PRICE_HEADED    — "1" to show browser (debug), default: ""
  */
 
-import { chromium } from "playwright";
+import playwright from "playwright";
 import { db } from "@/lib/db";
 
 // ── Config ──────────────────────────────────────────────────────────────────
@@ -222,7 +222,7 @@ export async function scrapeEnergizeCT(
   console.log(`[energy-price] Scraping ${utilityName} rates at ${usage} kWh/mo...`);
   console.log(`[energy-price] URL: ${url}`);
 
-  const browser = await chromium.launch({
+  const browser = await playwright.chromium.launch({
     headless: !headed,
     args: ["--no-sandbox", "--disable-blink-features=AutomationControlled"],
   });

@@ -65,7 +65,7 @@ describe("usePiModels", () => {
   test("fetch success → models populated, loading false", async () => {
     globalThis.fetch = mock(() =>
       Promise.resolve(new Response(JSON.stringify({ models: MOCK_MODELS }))),
-    );
+    ) as unknown as typeof globalThis.fetch;
 
     const { result, unmount } = renderHook(() => usePiModels(true));
     activeUnmount = unmount;
@@ -79,7 +79,7 @@ describe("usePiModels", () => {
   });
 
   test("fetch error → error set, models empty", async () => {
-    globalThis.fetch = mock(() => Promise.reject(new Error("Network down")));
+    globalThis.fetch = mock(() => Promise.reject(new Error("Network down"))) as unknown as typeof globalThis.fetch;
 
     const { result, unmount } = renderHook(() => usePiModels(true));
     activeUnmount = unmount;
@@ -105,7 +105,7 @@ describe("usePiModels", () => {
       return Promise.resolve(
         new Response(JSON.stringify({ models: MOCK_MODELS })),
       );
-    });
+    }) as unknown as typeof globalThis.fetch;
 
     const start = Date.now();
     const { result, unmount } = renderHook(() => usePiModels(true));
@@ -130,7 +130,7 @@ describe("usePiModels", () => {
         new Promise<Response>((res) => {
           resolveFetch = res;
         }),
-    );
+    ) as unknown as typeof globalThis.fetch;
 
     const errorSpy = mock(() => {});
     const consoleError = console.error;

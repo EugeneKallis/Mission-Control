@@ -43,7 +43,7 @@ describe("POST /api/logs/alerts/acknowledge", () => {
     const req = jsonRequest("http://localhost/api/logs/alerts/acknowledge", {});
     const res = await POST(req);
     expect(status(res)).toBe(200);
-    const body = await jsonBody(res);
+    const body = await jsonBody(res) as { ok: boolean; acknowledgedAt: number };
     expect(body).toHaveProperty("ok", true);
     expect(body).toHaveProperty("acknowledgedAt");
     expect(typeof body.acknowledgedAt).toBe("number");

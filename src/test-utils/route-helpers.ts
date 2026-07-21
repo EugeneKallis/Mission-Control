@@ -14,7 +14,7 @@ import { NextRequest } from "next/server";
 /**
  * Build a NextRequest for GET.
  */
-export function getRequest(url: string): NextRequest {
+export function getRequest(url: string = "/"): NextRequest {
   return new NextRequest(`http://localhost${url}`);
 }
 
