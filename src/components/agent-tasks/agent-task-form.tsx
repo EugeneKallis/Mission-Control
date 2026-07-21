@@ -11,6 +11,7 @@ import {
   DEFAULT_FORM,
 } from "@/lib/cron";
 import type { AgentTaskRow, ResourceState, ToolInfo, SkillInfo } from "./agent-task-types";
+import { usePiModels, type PiModelEntry } from "@/hooks/use-pi-models";
 
 interface Props {
   resources: ResourceState | null;
@@ -43,6 +44,55 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
   const [appendSystem, setAppendSystem] = useState(initial?.appendSystem ?? "");
   const [persistSession, setPersistSession] = useState(initial?.persistSession ?? false);
   const [timeoutSec, setTimeoutSec] = useState(initial?.timeoutSec ?? 300);
+
+  // ── Phase 2: Pi model registry for cascading Provider/Model dropdowns ───────
+  const { models, loading: modelsLoading, error: modelsError } = usePiModels();
+
+  // Three render modes for the Provider/Model controls:
+  //  - showSelects  : models loaded successfully → active cascading dropdowns
+  //  - showLoading  : fetch in flight → disabled dropdowns with "Loading\u2026"
+  //  - showFallback : error or empty registry → original plain text inputs
+  const showSelects = !modelsLoading && !modelsError && models.length > 0;
+  const showLoading = modelsLoading && !modelsError;
+  const showFallback = !showSelects && !showLoading;
+
+  // Unique providers from Pi's model list (provider value → display label)
+  const providers = new Map<string, string>();
+  for (const m of models) {
+    if (!providers.has(m.provider)) providers.set(m.provider, m.providerLabel ?? m.provider);
+  }
+
+  // Model list filtered to the selected provider (all when provider === "")
+  const visibleModels: PiModelEntry[] =
+    provider === "" ? models : models.filter((m) => m.provider === provider);
+
+  function handleProviderChange(newProvider: string) {
+    setProvider(newProvider);
+    // When switching to a specific provider, reset the model if it doesn't belong to the new provider
+    if (newProvider !== "" && model !== "") {
+      const hasModel = models.some((m) => m.provider === newProvider && m.id === model);
+      if (!hasModel) setModel("");
+    }
+  }
+
+  function handleModelChange(value: string) {
+    if (value === "") {
+      setModel("");
+      return;
+    }
+    // Prefer the model matching the currently-selected provider (disambiguates
+    // duplicate IDs across providers — e.g. `deepseek-v4-flash` under both
+    // `deepseek` and `opencode-go`). Falls back to the first match if none.
+    const m =
+      models.find((mm) => mm.id === value && (provider === "" || mm.provider === provider)) ??
+      models.find((mm) => mm.id === value);
+    if (m) {
+      setModel(m.id);
+      setProvider(m.provider);
+    } else {
+      setModel(value);
+    }
+  }
 
   // Parse stored JSON arrays
   const storedEnabledTools: string[] = initial?.enabledTools
@@ -242,21 +292,67 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
         <div className="flex flex-wrap gap-3">
           <div className="flex-1 min-w-[140px]">
             <label className="block text-xs font-semibold text-[#849587] mb-1">Provider</label>
-            <input
-              className="w-full bg-[#0E0E0E] border border-[#3B4B3F] rounded px-2.5 py-1.5 text-xs text-[#E5E2E1] outline-none focus:border-[#618B6B]"
-              value={provider}
-              onChange={(e) => setProvider(e.target.value)}
-              placeholder="anthropic"
-            />
+            {showFallback ? (
+              <input
+                data-testid="task-provider"
+                className="w-full bg-[#0E0E0E] border border-[#3B4B3F] rounded px-2.5 py-1.5 text-xs text-[#E5E2E1] outline-none focus:border-[#618B6B]"
+                value={provider}
+                onChange={(e) => setProvider(e.target.value)}
+                placeholder="anthropic"
+              />
+            ) : (
+              <select
+                data-testid="task-provider"
+                className="w-full bg-[#0E0E0E] border border-[#3B4B3F] rounded px-2.5 py-1.5 text-xs text-[#E5E2E1] outline-none focus:border-[#618B6B]"
+                value={provider}
+                disabled={showLoading}
+                onChange={(e) => handleProviderChange(e.target.value)}
+              >
+                {showLoading ? (
+                  <option value="">Loading…</option>
+                ) : (
+                  <>
+                    <option value="">Default</option>
+                    {[...providers.entries()].map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </>
+                )}
+              </select>
+            )}
           </div>
           <div className="flex-1 min-w-[140px]">
             <label className="block text-xs font-semibold text-[#849587] mb-1">Model</label>
-            <input
-              className="w-full bg-[#0E0E0E] border border-[#3B4B3F] rounded px-2.5 py-1.5 text-xs text-[#E5E2E1] outline-none focus:border-[#618B6B]"
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              placeholder="claude-sonnet-4"
-            />
+            {showFallback ? (
+              <input
+                data-testid="task-model"
+                className="w-full bg-[#0E0E0E] border border-[#3B4B3F] rounded px-2.5 py-1.5 text-xs text-[#E5E2E1] outline-none focus:border-[#618B6B]"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                placeholder="claude-sonnet-4"
+              />
+            ) : (
+              <select
+                data-testid="task-model"
+                className="w-full bg-[#0E0E0E] border border-[#3B4B3F] rounded px-2.5 py-1.5 text-xs text-[#E5E2E1] outline-none focus:border-[#618B6B]"
+                value={model}
+                disabled={showLoading}
+                onChange={(e) => handleModelChange(e.target.value)}
+              >
+                {showLoading ? (
+                  <option value="">Loading…</option>
+                ) : (
+                  <>
+                    <option value="">Default</option>
+                    {visibleModels.map((m) => (
+                      <option key={`${m.provider}/${m.id}`} value={m.id}>
+                        {m.name}{m.configured === false ? " (needs key)" : ""}
+                      </option>
+                    ))}
+                  </>
+                )}
+              </select>
+            )}
           </div>
           <div className="w-[130px]">
             <label className="block text-xs font-semibold text-[#849587] mb-1">Thinking</label>

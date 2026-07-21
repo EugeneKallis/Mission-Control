@@ -26,7 +26,7 @@ Replace the plain **Provider** and **Model** text `<input>`s in the Scheduled Ag
 | Phase | Description | Status |
 |-------|-------------|--------|
 | Phase 1 — Shared hook | Extract `usePiModels()` + `PiModelEntry` into `src/hooks/use-pi-models.ts`; refactor `model-selector.tsx` to use it (no behavior change); add `use-pi-models.test.ts` | ✅ Done |
-| Phase 2 — Form dropdowns | Replace Provider/Model inputs in `agent-task-form.tsx` with cascading `<select>`s driven by the hook; graceful fallback to text inputs on error/empty; add `agent-task-form.test.tsx` | ⏳ Not started |
+| Phase 2 — Form dropdowns | Replace Provider/Model inputs in `agent-task-form.tsx` with cascading `<select>`s driven by the hook; graceful fallback to text inputs on error/empty; add `agent-task-form.test.tsx` | ✅ Done |
 
 ---
 
