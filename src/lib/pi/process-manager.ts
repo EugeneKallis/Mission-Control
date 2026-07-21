@@ -20,6 +20,7 @@ import { existsSync, mkdirSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 import { getPiPath } from "./pi-path";
+import { computeSpawnOptions, getResourceState } from "./pi-settings";
 import type { PiEvent, RpcCommand, RpcResponse, PiSpawnOptions } from "./event-types";
 
 // ── Event bus (single, shared by all SSE subscribers) ──────────────────────
@@ -301,6 +302,11 @@ class PiProcessManager {
   /**
    * Get the singleton process, creating it if needed.
    * This is the primary entry point — all routes call this.
+   *
+   * Tool/skill enable-disable state is read from the DB (via
+   * computeSpawnOptions) and applied as --exclude-tools / --skill /
+   * --no-skills flags at spawn time. Caller-provided options (model,
+   * thinking, sessionPath) take precedence over the computed defaults.
    */
   async getOrCreate(options: PiSpawnOptions = {}): Promise<PiProcess> {
     if (this.process && !this.process.exited) {
@@ -308,8 +314,23 @@ class PiProcessManager {
       return this.process;
     }
 
+    // Apply persisted tool/skill toggles. Pi has no live RPC command for
+    // tool/skill enable-disable (only set_model / set_thinking_level),
+    // so the only way to change the active set is to respawn with new
+    // CLI flags. Conversation survives the respawn via --session.
+    let spawnOptions = options;
+    try {
+      const state = await getResourceState();
+      const computed = computeSpawnOptions(state);
+      // Caller wins for any field it explicitly sets; computed flags fill
+      // the rest (excludeTools / skills / noSkills).
+      spawnOptions = { ...computed, ...options };
+    } catch (err) {
+      console.error("[pi] Failed to load resource state for spawn:", err);
+    }
+
     this.process = new PiProcess(process.cwd());
-    this.process.spawn(options);
+    this.process.spawn(spawnOptions);
     await this.process.waitForReady();
     return this.process;
   }
@@ -332,6 +353,15 @@ class PiProcessManager {
       this.process.kill();
       this.process = null;
     }
+  }
+
+  /**
+   * Kill the running singleton so the next getOrCreate() re-spawns it
+   * with fresh CLI flags (e.g. after tool/skill toggles). No-op if no
+   * process is currently running.
+   */
+  restart(): void {
+    this.destroy();
   }
 }
 

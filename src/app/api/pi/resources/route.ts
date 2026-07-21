@@ -16,6 +16,7 @@ import {
   toggleTool,
   toggleSkill,
 } from "@/lib/pi/pi-settings";
+import { piProcessManager } from "@/lib/pi/process-manager";
 
 export async function GET(): Promise<NextResponse> {
   try {
@@ -58,7 +59,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    return NextResponse.json({ ok: true });
+    // Pi has no live RPC command for tool/skill enable-disable (only
+    // set_model / set_thinking_level mutate a running session). Tool/skill
+    // selection is spawn-time-only via --exclude-tools / --skill / --no-skills,
+    // so to apply the change to the current chat we kill the singleton; the
+    // next request re-spawns it with fresh flags. Conversation persists via
+    // --session, so this is still "the same chat" to the user.
+    try {
+      piProcessManager.restart();
+    } catch (err) {
+      console.error("[pi/resources] Failed to restart pi singleton:", err);
+    }
+
+    // Return the updated state so the UI can refresh without a second GET.
+    const state = await getResourceState();
+    return NextResponse.json({ ok: true, state });
   } catch (err) {
     console.error("[pi/resources] Failed to toggle:", err);
     return NextResponse.json(

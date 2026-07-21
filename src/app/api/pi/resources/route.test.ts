@@ -142,6 +142,30 @@ describe("POST /api/pi/resources", () => {
     expect(body2.tools.find((t) => t.name === "bash")?.enabled).toBe(true);
   });
 
+  test("toggle response includes the updated resource state", async () => {
+    const { POST } = await loadRoute("toggle-state");
+    const req = jsonRequest("/api/pi/resources", {
+      action: "toggle",
+      type: "tool",
+      name: "bash",
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      ok: boolean;
+      state: { tools: Array<{ name: string; enabled: boolean }>; skills: unknown[] };
+    };
+    expect(body.ok).toBe(true);
+    expect(body.state).toBeDefined();
+    expect(Array.isArray(body.state.tools)).toBe(true);
+    // bash was toggled disabled by this call
+    expect(body.state.tools.find((t) => t.name === "bash")?.enabled).toBe(false);
+
+    // Restore so other tests start clean
+    const { POST: POST2 } = await loadRoute("toggle-state-restore");
+    await POST2(jsonRequest("/api/pi/resources", { action: "toggle", type: "tool", name: "bash" }));
+  });
+
   test("toggles a skill on and off", async () => {
     const { POST } = await loadRoute("toggle-skill");
 
