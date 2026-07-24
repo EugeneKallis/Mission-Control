@@ -10,9 +10,9 @@
  *   Browser ──POST→ /api/pi/command    ──stdin──→ pi --mode rpc
  *   Browser ──GET── /api/pi/state      ←─RPC──── pi --mode rpc
  *
- * The Pi process is spawned lazily on first request and persists until
- * the server shuts down or the process exits. Session data is stored
- * at ~/.pi/agent/sessions/mc-main/ for conversation persistence.
+ * The Pi process is spawned eagerly on server startup (via instrumentation.ts)
+ * with auto-respawn enabled — if it exits unexpectedly, it's restarted within
+ * 10 seconds. Session data is stored at ~/.pi/agent/sessions/mc-main/.
  */
 
 import { spawn, type ChildProcess } from "child_process";
@@ -298,6 +298,40 @@ class PiProcess {
 
 class PiProcessManager {
   private process: PiProcess | null = null;
+  private autoRespawn = false;
+  private respawnTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * Enable auto-respawn: if the agent exits unexpectedly, restart it
+   * within 10 seconds.
+   */
+  enableAutoRespawn(): void {
+    this.autoRespawn = true;
+    this.scheduleRespawnCheck();
+  }
+
+  /**
+   * Check periodically (every 10s) if the process needs respawning.
+   * Uses a setTimeout chain (not setInterval) to avoid overlapping checks.
+   * The timer is unref'd so it doesn't block server shutdown.
+   */
+  private scheduleRespawnCheck(): void {
+    if (!this.autoRespawn) return;
+    if (this.respawnTimer) clearTimeout(this.respawnTimer);
+    this.respawnTimer = setTimeout(async () => {
+      if (this.autoRespawn && (!this.process || this.process.exited)) {
+        console.log("[pi] Agent not running, auto-respawning...");
+        try {
+          await this.getOrCreate();
+          console.log("[pi] Agent auto-respawned");
+        } catch (err) {
+          console.error("[pi] Auto-respawn failed:", err);
+        }
+      }
+      this.scheduleRespawnCheck();
+    }, 10_000);
+    this.respawnTimer.unref();
+  }
 
   /**
    * Get the singleton process, creating it if needed.

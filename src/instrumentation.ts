@@ -19,5 +19,10 @@ export async function register() {
     const { agentTaskScheduler } = await import("@/lib/agent-task-scheduler");
     await agentTaskScheduler.init();
     console.log("[agent-task] Scheduler started");
+
+    const { piProcessManager } = await import("@/lib/pi/process-manager");
+    await piProcessManager.getOrCreate();
+    piProcessManager.enableAutoRespawn();
+    console.log("[pi] Agent pre-loaded with auto-respawn enabled");
   }
 }
