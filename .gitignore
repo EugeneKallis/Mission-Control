@@ -54,3 +54,5 @@ prisma/*.db
 prisma/*.db-wal
 prisma/*.db-journal
 prisma/*.db-shm
+
+.worktrees
