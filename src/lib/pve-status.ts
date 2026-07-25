@@ -37,6 +37,11 @@ export async function getClusterSnapshot(): Promise<PveClusterSnapshot> {
   const endpoints = await listProxmoxEndpoints();
   const enabled = endpoints.filter((ep) => ep.enabled);
 
+  console.log(`[pve] Status request: ${endpoints.length} total, ${enabled.length} enabled`);
+  for (const ep of endpoints) {
+    console.log(`[pve]   ${ep.enabled ? "✓" : "✗"} "${ep.name}" → ${ep.apiUrl} (verifyTls=${ep.verifyTls})`);
+  }
+
   if (enabled.length === 0) {
     const empty: PveClusterSnapshot = { endpoints: [], fetchedAt: new Date().toISOString() };
     cache = { data: empty, at: now };
@@ -73,6 +78,16 @@ export async function getClusterSnapshot(): Promise<PveClusterSnapshot> {
     endpoints: endpointSnapshots,
     fetchedAt: new Date().toISOString(),
   };
+
+  // Log summary
+  for (const ep of endpointSnapshots) {
+    if (ep.online) {
+      const totalGuests = ep.nodes.reduce((s, n) => s + n.vms.length + n.containers.length, 0);
+      console.log(`[pve] "${ep.name}": online, ${ep.nodes.length} nodes, ${totalGuests} guests (${ep.nodes.reduce((s, n) => s + n.vms.length, 0)} VMs + ${ep.nodes.reduce((s, n) => s + n.containers.length, 0)} LXC), ${ep.nodes.reduce((s, n) => s + n.storage.length, 0)} storages`);
+    } else {
+      console.log(`[pve] "${ep.name}": OFFLINE — ${ep.error}`);
+    }
+  }
 
   cache = { data: snapshot, at: Date.now() };
   return snapshot;
