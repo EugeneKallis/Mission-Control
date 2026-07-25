@@ -10,11 +10,6 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
-function maskToken(token: string): string {
-  if (token.length <= 4) return "****";
-  return token.slice(-4).padStart(token.length, "*");
-}
-
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
   apiUrl: z.string().min(1).optional(),
@@ -40,7 +35,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (!ep) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-    return NextResponse.json({ ...ep, apiToken: maskToken(ep.apiToken) });
+    return NextResponse.json(ep);
   } catch (error) {
     console.error("Failed to get Proxmox endpoint:", error);
     return NextResponse.json({ error: "Failed to get endpoint" }, { status: 500 });

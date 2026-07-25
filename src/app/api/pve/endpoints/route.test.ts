@@ -87,14 +87,13 @@ test("POST validates required fields", async () => {
 
 // ── GET /api/pve/endpoints/:id ──────────────────────────────────────────────
 
-test("GET single endpoint returns masked token", async () => {
+test("GET single endpoint returns full token", async () => {
   mockGetEndpoint.mockResolvedValue({ id: 1, name: "Main", apiUrl: "https://pve1:8006", apiToken: "secret-long-token", verifyTls: true, enabled: true, order: 0 });
 
   const res = await GetSingle(new Request("http://localhost"), paramsOf("1"));
   expect(res.status).toBe(200);
   const json = await res.json();
-  expect(json.apiToken).not.toBe("secret-long-token");
-  expect(json.apiToken).toMatch(/oken$/);
+  expect(json.apiToken).toBe("secret-long-token");
 });
 
 test("GET single returns 404 for missing endpoint", async () => {

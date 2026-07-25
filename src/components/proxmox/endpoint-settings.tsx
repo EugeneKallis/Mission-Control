@@ -42,15 +42,25 @@ export function EndpointSettings({ endpoints, onRefresh }: EndpointSettingsProps
     setOpen(true);
   }, [resetForm]);
 
-  const startEdit = useCallback((ep: PveEndpointConfig) => {
+  const startEdit = useCallback(async (ep: PveEndpointConfig) => {
+    let fullToken = "";
+    try {
+      const res = await fetch(`/api/pve/endpoints/${ep.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        fullToken = data.apiToken || "";
+      }
+    } catch {
+      // fallback to masked token
+    }
     setForm({
       name: ep.name,
       apiUrl: ep.apiUrl,
-      apiToken: "", // token is masked — user must re-enter to change
+      apiToken: fullToken,
       verifyTls: ep.verifyTls,
       enabled: ep.enabled,
     });
-    setEditing({ ...ep, apiToken: "", id: ep.id });
+    setEditing({ ...ep, apiToken: fullToken, id: ep.id });
     setError(null);
     setOpen(true);
   }, []);
