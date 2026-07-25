@@ -211,7 +211,21 @@ export class ProxmoxClient {
 
     const nodeMap = new Map<string, PveNodeSnapshot>();
 
+    // ── Debug: sample first few qemu/lxc entries ──────────────────────
+    let qemuSampled = 0;
+    let lxcSampled = 0;
+    let qemuEntered = 0;
+    let lxcEntered = 0;
     for (const r of resources) {
+      if (r.type === "qemu" && qemuSampled < 2) {
+        console.log(`[pve:client:qemu] raw entry: type=${r.type} vmid=${r.vmid} node=${r.node} name=${r.name} status=${r.status} cpu=${r.cpu} maxcpu=${r.maxcpu}`);
+        qemuSampled++;
+      }
+      if (r.type === "lxc" && lxcSampled < 2) {
+        console.log(`[pve:client:lxc] raw entry: type=${r.type} vmid=${r.vmid} node=${r.node} name=${r.name} status=${r.status} cpu=${r.cpu} maxcpu=${r.maxcpu}`);
+        lxcSampled++;
+      }
+
       if (r.type === "node") {
         const nodeName = r.node ?? "unknown";
         nodeMap.set(nodeName, {
@@ -232,6 +246,8 @@ export class ProxmoxClient {
 
       if (r.type === "qemu" && r.vmid) {
         const nodeName = r.node ?? "unknown";
+        if (qemuEntered < 5) console.log(`[pve:client:qemu] ENTERED block: vmid=${r.vmid} nodeName=${nodeName}`);
+        qemuEntered++;
         if (!nodeMap.has(nodeName)) {
           // Synthetic node if /cluster/resources didn't include a node entry
           nodeMap.set(nodeName, {
@@ -257,6 +273,8 @@ export class ProxmoxClient {
 
       if (r.type === "lxc" && r.vmid) {
         const nodeName = r.node ?? "unknown";
+        if (lxcEntered < 5) console.log(`[pve:client:lxc] ENTERED block: vmid=${r.vmid} nodeName=${nodeName}`);
+        lxcEntered++;
         if (!nodeMap.has(nodeName)) {
           nodeMap.set(nodeName, {
             node: nodeName, status: "unknown",
@@ -298,7 +316,8 @@ export class ProxmoxClient {
     }
 
     const nodes = Array.from(nodeMap.values());
-    // ── Debug: log final snapshot ──────────────────────────────────────
+    // ── Debug: log final snapshot + block entry counts ─────────────────
+    console.log(`[pve:client] block-entry summary: qemuEntered=${qemuEntered} lxcEntered=${lxcEntered}`);
     for (const n of nodes) {
       console.log(`[pve:client] node="${n.node}" status=${n.status} vms=${n.vms.length} lxc=${n.containers.length} storage=${n.storage.length}`);
     }
