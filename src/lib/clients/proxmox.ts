@@ -201,6 +201,13 @@ export class ProxmoxClient {
   async getSnapshot(): Promise<PveEndpointSnapshot> {
     const resources = await this._request<PveRawResource[]>("/cluster/resources");
 
+    // Log resource type breakdown for debugging
+    const counts: Record<string, number> = {};
+    for (const r of resources) {
+      counts[r.type] = (counts[r.type] || 0) + 1;
+    }
+    console.log(`[pve] /cluster/resources → ${resources.length} resources:`, counts);
+
     const nodeMap = new Map<string, PveNodeSnapshot>();
 
     for (const r of resources) {
@@ -238,7 +245,7 @@ export class ProxmoxClient {
           name: r.name ?? `vm-${r.vmid}`,
           status: (r.status as "running" | "stopped") ?? "stopped",
           cpu: r.cpu ?? 0,
-          cpus: r.cpus ?? 0,
+          cpus: r.maxcpu ?? 0, // /cluster/resources uses maxcpu for guest CPU count
           mem: r.mem ?? 0,
           maxmem: r.maxmem ?? 0,
           disk: r.disk ?? 0,
@@ -261,7 +268,7 @@ export class ProxmoxClient {
           name: r.name ?? `ct-${r.vmid}`,
           status: (r.status as "running" | "stopped") ?? "stopped",
           cpu: r.cpu ?? 0,
-          cpus: r.cpus ?? 0,
+          cpus: r.maxcpu ?? 0, // /cluster/resources uses maxcpu for guest CPU count
           mem: r.mem ?? 0,
           maxmem: r.maxmem ?? 0,
           disk: r.disk ?? 0,
