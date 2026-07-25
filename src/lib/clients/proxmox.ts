@@ -19,7 +19,7 @@ import { URL } from "node:url";
  * Fields vary by type — the union models what's common + type-specific.
  */
 export interface PveRawResource {
-  type: "node" | "qemu" | "lxc" | "storage" | "sdn";
+  type: "node" | "qemu" | "lxc" | "storage" | "sdn" | "pool" | "openvz" | "network";
   id: string;
   node?: string;
   status?: string;
@@ -37,7 +37,7 @@ export interface PveRawResource {
   total?: number;
   used?: number;
   avail?: number;
-  plugin_type?: string;
+  plugintype?: string;
   content?: string;
   shared?: number;
   level?: string;
@@ -201,6 +201,14 @@ export class ProxmoxClient {
   async getSnapshot(): Promise<PveEndpointSnapshot> {
     const resources = await this._request<PveRawResource[]>("/cluster/resources");
 
+    // ── Debug: log raw resource type counts ────────────────────────────
+    const typeCounts = new Map<string, number>();
+    for (const r of resources) {
+      typeCounts.set(r.type, (typeCounts.get(r.type) ?? 0) + 1);
+    }
+    console.log(`[pve:client] /cluster/resources returned ${resources.length} resources: ${[...typeCounts.entries()].map(([k,v]) => `${k}=${v}`).join(", ")}`);
+    // ────────────────────────────────────────────────────────────────────
+
     const nodeMap = new Map<string, PveNodeSnapshot>();
 
     for (const r of resources) {
@@ -281,7 +289,7 @@ export class ProxmoxClient {
         }
         nodeMap.get(nodeName)!.storage.push({
           storage: r.storage,
-          type: r.plugin_type ?? r.type,
+          type: r.plugintype ?? r.type,
           total: r.total ?? 0,
           used: r.used ?? 0,
           avail: r.avail ?? 0,
@@ -289,12 +297,19 @@ export class ProxmoxClient {
       }
     }
 
+    const nodes = Array.from(nodeMap.values());
+    // ── Debug: log final snapshot ──────────────────────────────────────
+    for (const n of nodes) {
+      console.log(`[pve:client] node="${n.node}" status=${n.status} vms=${n.vms.length} lxc=${n.containers.length} storage=${n.storage.length}`);
+    }
+    // ────────────────────────────────────────────────────────────────────
+
     return {
       id: 0, // filled by caller
       name: this.baseUrl,
       apiUrl: this.baseUrl,
       online: true,
-      nodes: Array.from(nodeMap.values()),
+      nodes,
     };
   }
 }

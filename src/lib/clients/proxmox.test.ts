@@ -59,12 +59,12 @@ const TWO_NODE_CLUSTER: PveRawResource[] = [
   { type: "qemu", id: "qemu/100", node: "pve-1", vmid: 100, name: "ubuntu-server", status: "running", cpu: 0.05, maxcpu: 4, mem: 4_294_967_296, maxmem: 8_589_934_592, disk: 30_000_000_000, maxdisk: 100_000_000_000, uptime: 86400 },
   { type: "qemu", id: "qemu/101", node: "pve-1", vmid: 101, name: "nextcloud-vm", status: "stopped", cpu: 0, maxcpu: 2, mem: 0, maxmem: 4_294_967_296, disk: 20_000_000_000, maxdisk: 50_000_000_000, uptime: 0 },
   { type: "lxc", id: "lxc/200", node: "pve-1", vmid: 200, name: "nginx-ct", status: "running", cpu: 0.01, maxcpu: 2, mem: 536_870_912, maxmem: 1_073_741_824, disk: 10_000_000_000, maxdisk: 30_000_000_000, uptime: 172800 },
-  { type: "storage", id: "storage/pve-1/local", node: "pve-1", storage: "local", plugin_type: "dir", total: 500_000_000_000, used: 300_000_000_000, avail: 200_000_000_000 },
-  { type: "storage", id: "storage/pve-1/ceph", node: "pve-1", storage: "ceph-pool", plugin_type: "rbd", total: 10_000_000_000_000, used: 6_000_000_000_000, avail: 4_000_000_000_000 },
+  { type: "storage", id: "storage/pve-1/local", node: "pve-1", storage: "local", plugintype: "dir", total: 500_000_000_000, used: 300_000_000_000, avail: 200_000_000_000 },
+  { type: "storage", id: "storage/pve-1/ceph", node: "pve-1", storage: "ceph-pool", plugintype: "rbd", total: 10_000_000_000_000, used: 6_000_000_000_000, avail: 4_000_000_000_000 },
   // Node 2
   { type: "node", id: "node/pve-2", node: "pve-2", status: "online", cpu: 0.08, maxcpu: 16, mem: 12_000_000_000, maxmem: 68_719_476_736, disk: 150_000_000_000, maxdisk: 1_000_000_000_000, uptime: 1209600 },
   { type: "lxc", id: "lxc/201", node: "pve-2", vmid: 201, name: "db-ct", status: "running", cpu: 0.02, maxcpu: 4, mem: 2_000_000_000, maxmem: 4_000_000_000, disk: 50_000_000_000, maxdisk: 100_000_000_000, uptime: 3600 },
-  { type: "storage", id: "storage/pve-2/zfs", node: "pve-2", storage: "zfs-pool", plugin_type: "zfspool", total: 2_000_000_000_000, used: 800_000_000_000, avail: 1_200_000_000_000 },
+  { type: "storage", id: "storage/pve-2/zfs", node: "pve-2", storage: "zfs-pool", plugintype: "zfspool", total: 2_000_000_000_000, used: 800_000_000_000, avail: 1_200_000_000_000 },
 ];
 
 const SINGLE_NODE: PveRawResource[] = [
