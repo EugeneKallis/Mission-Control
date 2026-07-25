@@ -206,7 +206,7 @@ export class ProxmoxClient {
     for (const r of resources) {
       counts[r.type] = (counts[r.type] || 0) + 1;
     }
-    const sample = resources.slice(0, 3).map((r) => ({ type: r.type, id: r.id, ...(r as Record<string, unknown>) }));
+    const sample = resources.slice(0, 3).map((r) => ({ type: r.type, id: r.id, ...(r as unknown as Record<string, unknown>) }));
     console.log(`[pve] /cluster/resources → ${resources.length} resources:`, counts);
     if (resources.length > 0) {
       console.log(`[pve] raw sample (first 3):`, JSON.stringify(sample, null, 2));
