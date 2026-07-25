@@ -201,6 +201,17 @@ export class ProxmoxClient {
   async getSnapshot(): Promise<PveEndpointSnapshot> {
     const resources = await this._request<PveRawResource[]>("/cluster/resources");
 
+    // Debug: log resource type breakdown and sample fields
+    const counts: Record<string, number> = {};
+    for (const r of resources) {
+      counts[r.type] = (counts[r.type] || 0) + 1;
+    }
+    const sample = resources.slice(0, 3).map((r) => ({ type: r.type, id: r.id, ...(r as Record<string, unknown>) }));
+    console.log(`[pve] /cluster/resources → ${resources.length} resources:`, counts);
+    if (resources.length > 0) {
+      console.log(`[pve] raw sample (first 3):`, JSON.stringify(sample, null, 2));
+    }
+
     const nodeMap = new Map<string, PveNodeSnapshot>();
 
     for (const r of resources) {
