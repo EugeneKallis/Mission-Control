@@ -117,43 +117,62 @@ export function EndpointSettings({ endpoints, onRefresh }: EndpointSettingsProps
   }, [onRefresh, resetForm]);
 
   return (
-    <>
-      {/* Trigger button */}
-      <button
-        onClick={startCreate}
-        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-        </svg>
-        Add Server
-      </button>
-
-      {/* Endpoint list */}
+    <div>
+      {/* Header row with Add Server button top-right */}
       {endpoints.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs text-gray-500">{endpoints.length} server{endpoints.length !== 1 ? "s" : ""} configured</span>
+          <button
+            onClick={startCreate}
+            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Server
+          </button>
+        </div>
+      )}
+
+      {/* Server grid */}
+      {endpoints.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {endpoints.map((ep) => (
             <div
               key={ep.id}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm ${
-                ep.enabled ? "bg-gray-700/50 text-gray-200" : "bg-gray-800/30 text-gray-500"
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm border ${
+                ep.enabled
+                  ? "bg-gray-800/60 border-gray-700/50"
+                  : "bg-gray-800/20 border-gray-700/20 opacity-60"
               }`}
             >
-              <span className={`w-2 h-2 rounded-full ${ep.enabled ? "bg-green-500" : "bg-gray-500"}`} />
-              <span className="font-medium">{ep.name}</span>
-              <span className="text-gray-400 text-xs">{ep.apiUrl.replace(/^https?:\/\//, "")}</span>
+              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${ep.enabled ? "bg-green-500" : "bg-gray-500"}`} />
+              <div className="flex-1 min-w-0">
+                <div className="font-medium truncate">{ep.name}</div>
+                <div className="text-gray-500 text-xs truncate font-mono">{ep.apiUrl.replace(/^https?:\/\//, "")}</div>
+              </div>
               <button
                 onClick={() => startEdit(ep)}
-                className="text-gray-500 hover:text-blue-400 transition-colors ml-1"
+                className="text-gray-500 hover:text-blue-400 transition-colors shrink-0"
                 title="Edit"
               >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
               </button>
             </div>
           ))}
         </div>
+      ) : (
+        <button
+          onClick={startCreate}
+          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Add Server
+        </button>
       )}
 
       {/* Modal */}
@@ -247,6 +266,6 @@ export function EndpointSettings({ endpoints, onRefresh }: EndpointSettingsProps
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
