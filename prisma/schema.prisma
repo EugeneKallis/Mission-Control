@@ -236,6 +236,20 @@ model EnergyPrice {
   @@map("energy_prices")
 }
 
+model ProxmoxEndpoint {
+  id          Int      @id @default(autoincrement())
+  name        String
+  apiUrl      String   @map("api_url")
+  apiToken    String   @map("api_token")
+  verifyTls   Boolean  @default(false) @map("verify_tls")
+  enabled     Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("proxmox_endpoints")
+}
+
 model Config {
   id         Int      @id @default(autoincrement())
   configJson String   @default("{}") @map("config_json")

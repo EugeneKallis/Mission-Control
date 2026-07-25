@@ -167,6 +167,7 @@ This tells the next agent exactly where to pick up.
 | Phase 12 — Chat | 23 (Chat: provider catalog + model selector + attachments + media warnings) | ✅ Done |
 | Phase 13 — Pi Agent Integration | Pi-powered chat (Phases 1–9): process manager, SSE/command endpoints, skills/tools settings, streaming UI, tool call rendering, model controls, session persistence, legacy cleanup | ✅ Done |
 | Phase 14 — Scheduled Agent Tasks | Cron-scheduled Pi agent tasks: headless print+JSON mode, per-task tools/skills, scheduler, API, UI, Log tab integration | ✅ Done |
+| Phase 15 — Proxmox VE Monitoring | Proxmox cluster dashboard: multi-endpoint config, live CPU/RAM/disk/guest snapshot, expandable node→VM/LXC/Storage drill-down | ✅ Done |
 
 **Convention:** After completing a phase, update:
 1. This table (set Status to ✅ Done, add next phase as ⏳ In progress)
@@ -990,4 +991,86 @@ Scheduled agent tasks use **`pi -p "<prompt>" --mode json`** (print+JSON mode, n
 - Transcript streaming: flushed to `History.output` every 1.5s (Phase 9 pattern).
 - History cleanup: keeps last 50 runs per task.
 - Initialized in `instrumentation.ts` alongside the cron and worker-timer schedulers.
+
+## Phase 15 — Proxmox VE Monitoring
+
+### New directories / files added
+
+```
+src/lib/clients/proxmox.ts              # Proxmox API client (node:https, PVEAPIToken auth, snapshot aggregation)
+src/lib/clients/proxmox.test.ts         # 11 tests (envelope unwrap, auth header, TLS toggle, snapshot, offline recovery)
+src/lib/pve-status.ts                   # Cache + getClusterSnapshot (DB load → parallel fanout → 15s in-memory cache)
+src/app/api/pve/status/route.test.ts    # 4 tests (empty, happy, failure, disabled) on getClusterSnapshot via the route
+src/app/api/pve/endpoints/route.test.ts # 12 tests (CRUD + masking + validation)
+src/app/api/pve/endpoints/              # CRUD: list/create endpoint
+src/app/api/pve/endpoints/[id]/         # CRUD: get/update/delete endpoint
+src/app/api/pve/status/                 # GET aggregated snapshot across all enabled endpoints (15s in-memory cache)
+src/app/pve/page.tsx                    # Page shell
+src/components/proxmox/
+  proxmox-types.ts                      # Shared TS types (PveNode, PveGuest, PveEndpoint)
+  proxmox-page.tsx                      # Main client component: polls /api/pve/status every 30s, settings toggle
+  node-card.tsx                         # Node row with expandable VM/LXC/Storage drill-down tabs
+  endpoint-settings.tsx                 # Modal-based CRUD for Proxmox API endpoints
+prisma/migrations/20260724190039_add_proxmox_endpoints/
+  migration.sql                         # ProxmoxEndpoint model (id, name, apiUrl, apiToken, verifyTls, enabled, order)
+```
+
+### Data source
+
+[Proxmox VE REST API v2](https://pve.proxmox.com/pve-docs/api-viewer/) — each configured endpoint is an
+independent Proxmox cluster or standalone host. The client connects to the
+`/api2/json/*` namespace with an API token (`Authorization: PVEAPIToken=<user>!<name>=<secret>`).
+
+| Endpoint | Aggregated into |
+| -------- | --------------- |
+| `GET /nodes` | List of cluster nodes with CPU/mem/disk/uptime |
+| `GET /nodes/{node}/qemu` | Per-node QEMU VMs (vmid, name, status, cpu, mem, disk) |
+| `GET /nodes/{node}/lxc` | Per-node LXC containers (same shape as VMs) |
+| `GET /nodes/{node}/storage` | Per-node storage pools (type, total, used, avail) |
+
+All per-node requests run in parallel. Offline nodes skip guest/storage
+queries gracefully. Per-node errors (e.g. one guest endpoint fails) don't
+block the rest — the caller gets empty arrays for the failed category.
+
+### Configuration
+
+Endpoints are stored in the `ProxmoxEndpoint` database table and managed
+through the Proxmox dashboard's inline settings panel (`Manage Servers`
+button at `/pve`). Each entry stores:
+
+| Field | Description |
+| ----- | ----------- |
+| `name` | Human label (e.g. "Main Cluster") |
+| `apiUrl` | `https://<host>:8006` |
+| `apiToken` | Full token (`root@pam!monitor=xxx` — stored securely, masked in API responses) |
+| `verifyTls` | Toggle TLS cert verification (off for self-signed Proxmox certs) |
+| `enabled` | Skip disabled endpoints on the status snapshot |
+
+### Caching
+
+`GET /api/pve/status` uses an in-process 15-second TTL cache (`module`-level
+object, not Promise-backed). Since it serves both the dashboard page (30s
+poll) and future sidebar badge, this prevents redundant Proxmox API calls
+within the window. The cache is per-process and resets on server restart.
+
+### API surface
+
+| Method | Path | Purpose |
+| ------ | -------------------------------------------- | --------------------------------------------- |
+| GET | `/api/pve/endpoints` | List all endpoints (tokens masked) |
+| POST | `/api/pve/endpoints` | Create endpoint |
+| GET | `/api/pve/endpoints/[id]` | Get single endpoint |
+| PUT | `/api/pve/endpoints/[id]` | Update endpoint (blank token = keep existing) |
+| DELETE | `/api/pve/endpoints/[id]` | Delete endpoint |
+| GET | `/api/pve/status` | Aggregated snapshot across all enabled endpoints |
+
+### Security
+
+- API tokens are stored as plain text in the SQLite DB (same as
+  `real_debrid_api_key` in the Config model). The list/GET endpoints
+  mask all but the last 4 characters.
+- The PUT endpoint treats an empty/absent `apiToken` as "keep existing",
+  so the frontend never needs to send the full token back.
+- `verifyTls: false` disables TLS verification for Proxmox's default
+  self-signed certificate (common in homelab setups).
 

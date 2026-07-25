@@ -1107,6 +1107,53 @@ export async function getTableInfo(tableName: string): Promise<{ name: string; t
   );
 }
 
+// ── Proxmox Endpoints ────────────────────────────────────────────────────────
+
+export async function listProxmoxEndpoints(): Promise<{
+  id: number;
+  name: string;
+  apiUrl: string;
+  apiToken: string;
+  verifyTls: boolean;
+  enabled: boolean;
+  order: number;
+}[]> {
+  return db.proxmoxEndpoint.findMany({ orderBy: { order: "asc" } });
+}
+
+export async function getProxmoxEndpoint(id: number) {
+  return db.proxmoxEndpoint.findUnique({ where: { id } });
+}
+
+export async function createProxmoxEndpoint(data: {
+  name: string;
+  apiUrl: string;
+  apiToken: string;
+  verifyTls?: boolean;
+  enabled?: boolean;
+  order?: number;
+}) {
+  return db.proxmoxEndpoint.create({ data });
+}
+
+export async function updateProxmoxEndpoint(
+  id: number,
+  data: {
+    name?: string;
+    apiUrl?: string;
+    apiToken?: string;
+    verifyTls?: boolean;
+    enabled?: boolean;
+    order?: number;
+  }
+) {
+  return db.proxmoxEndpoint.update({ where: { id }, data });
+}
+
+export async function deleteProxmoxEndpoint(id: number) {
+  return db.proxmoxEndpoint.delete({ where: { id } });
+}
+
 export async function queryTable(
   tableName: string,
   filters: Record<string, string>,

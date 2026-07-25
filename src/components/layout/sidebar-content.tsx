@@ -268,6 +268,7 @@ export function SidebarContent({
         <div className="my-3 mx-4 h-px" style={{ background: "rgba(59, 75, 63, 0.4)" }} />
 
         <NavItem label="Server Status" icon="dns" href="/status" color="green" />
+        <NavItem label="Proxmox" icon="dns" href="/pve" color="green" />
         <NavItem
           label="Log Viewer"
           icon="terminal"
