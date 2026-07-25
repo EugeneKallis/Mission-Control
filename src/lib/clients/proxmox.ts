@@ -201,33 +201,14 @@ export class ProxmoxClient {
   async getSnapshot(): Promise<PveEndpointSnapshot> {
     const resources = await this._request<PveRawResource[]>("/cluster/resources");
 
-    // ── Debug: log raw resource type counts ────────────────────────────
-    const typeCounts = new Map<string, number>();
-    for (const r of resources) {
-      typeCounts.set(r.type, (typeCounts.get(r.type) ?? 0) + 1);
-    }
-    console.log(`[pve:client] /cluster/resources returned ${resources.length} resources: ${[...typeCounts.entries()].map(([k,v]) => `${k}=${v}`).join(", ")}`);
-    // ────────────────────────────────────────────────────────────────────
-
     const nodeMap = new Map<string, PveNodeSnapshot>();
 
-    // ── Debug: sample first few qemu/lxc entries ──────────────────────
-    let qemuSampled = 0;
-    let lxcSampled = 0;
-    let qemuEntered = 0;
-    let lxcEntered = 0;
     for (const r of resources) {
-      if (r.type === "qemu" && qemuSampled < 2) {
-        console.log(`[pve:client:qemu] raw entry: type=${r.type} vmid=${r.vmid} node=${r.node} name=${r.name} status=${r.status} cpu=${r.cpu} maxcpu=${r.maxcpu}`);
-        qemuSampled++;
-      }
-      if (r.type === "lxc" && lxcSampled < 2) {
-        console.log(`[pve:client:lxc] raw entry: type=${r.type} vmid=${r.vmid} node=${r.node} name=${r.name} status=${r.status} cpu=${r.cpu} maxcpu=${r.maxcpu}`);
-        lxcSampled++;
-      }
-
+      // Node entry: create or update the node, preserving any vms/containers/storage
+      // that may have been added already by out-of-order qemu/lxc/storage entries.
       if (r.type === "node") {
         const nodeName = r.node ?? "unknown";
+        const existing = nodeMap.get(nodeName);
         nodeMap.set(nodeName, {
           node: nodeName,
           status: (r.status as "online" | "offline" | "unknown") ?? "unknown",
@@ -238,21 +219,18 @@ export class ProxmoxClient {
           disk: r.disk ?? 0,
           maxdisk: r.maxdisk ?? 0,
           uptime: r.uptime ?? 0,
-          vms: [],
-          containers: [],
-          storage: [],
+          vms: existing?.vms ?? [],
+          containers: existing?.containers ?? [],
+          storage: existing?.storage ?? [],
         });
+        continue;
       }
 
       if (r.type === "qemu" && r.vmid) {
         const nodeName = r.node ?? "unknown";
-        if (qemuEntered < 5) console.log(`[pve:client:qemu] ENTERED block: vmid=${r.vmid} nodeName=${nodeName}`);
-        qemuEntered++;
         if (!nodeMap.has(nodeName)) {
-          // Synthetic node if /cluster/resources didn't include a node entry
           nodeMap.set(nodeName, {
-            node: nodeName,
-            status: "unknown",
+            node: nodeName, status: "unknown",
             cpu: 0, maxcpu: 0, mem: 0, maxmem: 0, disk: 0, maxdisk: 0, uptime: 0,
             vms: [], containers: [], storage: [],
           });
@@ -262,19 +240,18 @@ export class ProxmoxClient {
           name: r.name ?? `vm-${r.vmid}`,
           status: (r.status as "running" | "stopped") ?? "stopped",
           cpu: r.cpu ?? 0,
-          cpus: r.maxcpu ?? 0, // /cluster/resources uses maxcpu for guest CPU count
+          cpus: r.maxcpu ?? 0,
           mem: r.mem ?? 0,
           maxmem: r.maxmem ?? 0,
           disk: r.disk ?? 0,
           maxdisk: r.maxdisk ?? 0,
           uptime: r.uptime ?? 0,
         });
+        continue;
       }
 
       if (r.type === "lxc" && r.vmid) {
         const nodeName = r.node ?? "unknown";
-        if (lxcEntered < 5) console.log(`[pve:client:lxc] ENTERED block: vmid=${r.vmid} nodeName=${nodeName}`);
-        lxcEntered++;
         if (!nodeMap.has(nodeName)) {
           nodeMap.set(nodeName, {
             node: nodeName, status: "unknown",
@@ -287,13 +264,14 @@ export class ProxmoxClient {
           name: r.name ?? `ct-${r.vmid}`,
           status: (r.status as "running" | "stopped") ?? "stopped",
           cpu: r.cpu ?? 0,
-          cpus: r.maxcpu ?? 0, // /cluster/resources uses maxcpu for guest CPU count
+          cpus: r.maxcpu ?? 0,
           mem: r.mem ?? 0,
           maxmem: r.maxmem ?? 0,
           disk: r.disk ?? 0,
           maxdisk: r.maxdisk ?? 0,
           uptime: r.uptime ?? 0,
         });
+        continue;
       }
 
       if (r.type === "storage" && r.storage) {
@@ -312,23 +290,16 @@ export class ProxmoxClient {
           used: r.used ?? 0,
           avail: r.avail ?? 0,
         });
+        continue;
       }
     }
 
-    const nodes = Array.from(nodeMap.values());
-    // ── Debug: log final snapshot + block entry counts ─────────────────
-    console.log(`[pve:client] block-entry summary: qemuEntered=${qemuEntered} lxcEntered=${lxcEntered}`);
-    for (const n of nodes) {
-      console.log(`[pve:client] node="${n.node}" status=${n.status} vms=${n.vms.length} lxc=${n.containers.length} storage=${n.storage.length}`);
-    }
-    // ────────────────────────────────────────────────────────────────────
-
     return {
-      id: 0, // filled by caller
+      id: 0,
       name: this.baseUrl,
       apiUrl: this.baseUrl,
       online: true,
-      nodes,
+      nodes: Array.from(nodeMap.values()),
     };
   }
 }

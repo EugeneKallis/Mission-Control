@@ -222,3 +222,27 @@ test("vm and lxc cpus field is populated", async () => {
   const ct = snap.nodes[0].containers[0];
   expect(ct.cpus).toBe(2);
 });
+
+test("handles out-of-order resources: lxc/qemu before node entries", async () => {
+  const resources: PveRawResource[] = [
+    // lxc entries come BEFORE the node entry (as Proxmox API sometimes returns)
+    { type: "lxc", id: "lxc/100", node: "pve-1", vmid: 100, name: "ct-1", status: "running", cpu: 0.05, maxcpu: 2, mem: 512_000_000, maxmem: 1_000_000_000, disk: 5_000_000_000, maxdisk: 20_000_000_000, uptime: 3600 },
+    { type: "qemu", id: "qemu/200", node: "pve-1", vmid: 200, name: "vm-1", status: "running", cpu: 0.1, maxcpu: 4, mem: 2_000_000_000, maxmem: 8_000_000_000, disk: 30_000_000_000, maxdisk: 100_000_000_000, uptime: 86400 },
+    // node entry comes last — must NOT overwrite the guest arrays
+    { type: "node", id: "node/pve-1", node: "pve-1", status: "online", cpu: 0.15, maxcpu: 8, mem: 8_000_000_000, maxmem: 32_000_000_000, disk: 100_000_000_000, maxdisk: 500_000_000_000, uptime: 604800 },
+  ];
+  enqueueResponse(200, resources);
+  const client = new ProxmoxClient("https://pve.local:8006", "token");
+  const snap = await client.getSnapshot();
+
+  expect(snap.nodes).toHaveLength(1);
+  const n = snap.nodes[0];
+  expect(n.node).toBe("pve-1");
+  expect(n.status).toBe("online");
+  expect(n.vms).toHaveLength(1);
+  expect(n.vms[0].name).toBe("vm-1");
+  expect(n.vms[0].vmid).toBe(200);
+  expect(n.containers).toHaveLength(1);
+  expect(n.containers[0].name).toBe("ct-1");
+  expect(n.containers[0].vmid).toBe(100);
+});
