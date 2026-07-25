@@ -62,8 +62,17 @@ export function EnergyPricesPage() {
   // ── Set target rate ────────────────────────────────────────────────
 
   const handleSaveTarget = useCallback(async () => {
-    const rate = parseFloat(targetInput);
+    let rate = parseFloat(targetInput);
     if (isNaN(rate) || rate < 0 || rate > 100) return;
+    
+    // Auto-detect dollar amounts: if value < 1, user likely entered dollars instead of cents
+    // Convert $0.12 → 12¢/kWh (multiply by 100)
+    let convertedFromDollars = false;
+    if (rate < 1 && rate > 0) {
+      rate = rate * 100;
+      convertedFromDollars = true;
+    }
+    
     try {
       const res = await fetch("/api/energy-prices/target", {
         method: "PUT",
@@ -73,6 +82,10 @@ export function EnergyPricesPage() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setTargetRate(rate);
       setEditingTarget(false);
+      if (convertedFromDollars) {
+        // Briefly show confirmation that we converted
+        setTargetInput(String(rate));
+      }
       // Refresh data to update badge status
       fetchPrices();
     } catch (err) {
