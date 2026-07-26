@@ -131,7 +131,23 @@ export class AppConfig {
   }
 }
 
-// ── Singleton ─────────────────────────────────────────────────────────────
+// ── DB config key mapping ─────────────────────────────────────────────────
+
+/**
+ * Maps DB config JSON keys (from the configs table) to EnvConfig keys
+ * so resolveConfig() can fall back to the admin config page's stored values.
+ * Only string-valued fields are supported (no ports, paths, booleans).
+ */
+const DB_ENV_KEY_MAP: Record<string, keyof EnvConfig> = {
+  plex_token: "PLEX_TOKEN",
+  plex_url: "PLEX_URL",
+  real_debrid_api_key: "REAL_DEBRID_API_KEY",
+};
+
+/** Subset of EnvConfig keys that are string-valued and can come from the DB. */
+type DbConfigurableKey = "PLEX_TOKEN" | "PLEX_URL" | "REAL_DEBRID_API_KEY";
+
+// ── Singleton (env-only) ─────────────────────────────────────────────────
 
 let _config: AppConfig | null = null;
 
@@ -140,4 +156,51 @@ export function getConfig(): AppConfig {
   const env = envSchema.parse(process.env);
   _config = new AppConfig(env);
   return _config;
+}
+
+/**
+ * Resolve config with DB fallback.
+ *
+ * First reads env vars (like getConfig()). If any of the configurable
+ * keys (plexToken, plexUrl, realDebridApiKey) are empty, queries the
+ * DB configs table — where the admin config page stores values — and
+ * fills in missing fields.
+ *
+ * This lets standalone scripts pick up values configured via the web
+ * UI without needing a .env file.
+ */
+export async function resolveConfig(): Promise<AppConfig> {
+  const env = envSchema.parse(process.env);
+  const cfg = new AppConfig(env);
+
+  // Fast path: all DB-configurable fields are already set from env
+  if (cfg.plexToken && cfg.plexUrl && cfg.realDebridApiKey) {
+    return cfg;
+  }
+
+  // DB fallback: query the configs table for missing values
+  try {
+    const { db } = await import("@/lib/db");
+    const row = await db.config.findUnique({ where: { id: 1 } });
+    if (row?.configJson) {
+      const values = JSON.parse(row.configJson) as Record<string, string>;
+      const overrides: Partial<Record<DbConfigurableKey, string>> = {};
+
+      for (const [dbKey, envKey] of Object.entries(DB_ENV_KEY_MAP)) {
+        const envVal = env[envKey] as string | undefined;
+        const dbVal = values[dbKey];
+        if ((!envVal || envVal.length === 0) && dbVal && dbVal.length > 0) {
+          overrides[envKey as DbConfigurableKey] = dbVal;
+        }
+      }
+
+      if (Object.keys(overrides).length > 0) {
+        return new AppConfig({ ...env, ...overrides });
+      }
+    }
+  } catch {
+    // DB not available (no Prisma, no migration, etc.) — degrade gracefully
+  }
+
+  return cfg;
 }

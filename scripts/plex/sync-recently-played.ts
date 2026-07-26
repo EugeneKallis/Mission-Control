@@ -13,13 +13,13 @@
  *
  * Dependencies:
  *   - PlexTraktSync at ../PlexTraktSync (or PLEXTRAKTSYNC_DIR env)
- *   - PLEX_TOKEN and PLEX_URL set in .env
+ *   - PLEX_TOKEN and PLEX_URL — set via the admin config page or .env
  */
 
 import { spawn } from "child_process";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { getConfig } from "@/lib/config";
+import { resolveConfig } from "@/lib/config";
 import { parseArgs } from "../_lib/cli";
 import { banner, error, info, summary, warn } from "../_lib/log";
 
@@ -154,14 +154,14 @@ export async function main(argv?: string[]): Promise<void> {
 
   banner("Plex Recently-Played Sync", { dryRun: args.dryRun });
 
-  // 1. Load config
-  const cfg = getConfig();
+  // 1. Load config (env vars + DB fallback via admin config page)
+  const cfg = await resolveConfig();
   if (!cfg.plexToken) {
-    error("PLEX_TOKEN not set — configure it in .env or the admin config page");
+    error("PLEX_TOKEN not set — configure it in the admin config page (/admin)");
     process.exit(1);
   }
   if (!cfg.plexUrl) {
-    error("PLEX_URL not set — configure it in .env or the admin config page");
+    error("PLEX_URL not set — configure it in the admin config page (/admin)");
     process.exit(1);
   }
 

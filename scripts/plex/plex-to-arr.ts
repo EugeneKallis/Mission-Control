@@ -31,7 +31,7 @@ import { readFile, rm, writeFile } from "fs/promises";
 import { join } from "path";
 import { ArrClient } from "@/lib/clients/arr";
 import { isAnime } from "@/lib/clients/tvmaze";
-import { getConfig } from "@/lib/config";
+import { resolveConfig } from "@/lib/config";
 import { parseArgs } from "../_lib/cli";
 import { banner, error, info, summary, warn } from "../_lib/log";
 
@@ -205,7 +205,7 @@ export async function main(argv?: string[]): Promise<void> {
   if (args.cleanCache) await cleanCache();
   const cache = await loadCache();
 
-  const cfg = getConfig();
+  const cfg = await resolveConfig();
   const sonarrInst = cfg.arrInstances.find((i) => i.name === SONARR_NAME);
   const radarrInst = cfg.arrInstances.find((i) => i.name === RADARR_NAME);
 
