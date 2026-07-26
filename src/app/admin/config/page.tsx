@@ -7,6 +7,8 @@ import { useToast } from "@/components/toast-provider";
 
 export default function ConfigPage() {
   const [apiKey, setApiKey] = useState("");
+  const [plexToken, setPlexToken] = useState("");
+  const [plexUrl, setPlexUrl] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [rdStatus, setRdStatus] = useState<{ label: string; ok: boolean } | null>(null);
@@ -17,6 +19,8 @@ export default function ConfigPage() {
       .then((r) => r.json())
       .then((data) => {
         setApiKey(data.real_debrid_api_key || "");
+        setPlexToken(data.plex_token || "");
+        setPlexUrl(data.plex_url || "");
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -33,7 +37,7 @@ export default function ConfigPage() {
       const res = await fetch("/api/config", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ real_debrid_api_key: apiKey }),
+        body: JSON.stringify({ real_debrid_api_key: apiKey, plex_token: plexToken, plex_url: plexUrl }),
       });
       if (!res.ok) throw new Error("Save failed");
       showToast("Config saved", "success");
@@ -47,7 +51,7 @@ export default function ConfigPage() {
     } finally {
       setSaving(false);
     }
-  }, [apiKey, showToast]);
+  }, [apiKey, plexToken, plexUrl, showToast]);
 
   return (
     <AppShell>
@@ -61,6 +65,43 @@ export default function ConfigPage() {
           <div className="text-center py-16 text-[#849587]">Loading...</div>
         ) : (
           <div className="space-y-6">
+            {/* Plex Configuration */}
+            <div
+              className="p-4 md:p-6 rounded-lg"
+              style={{ background: "#201F1F", border: "1px solid rgba(59, 75, 63, 0.3)" }}
+            >
+              <h2 className="text-sm font-semibold text-[#E5E2E1] mb-4">Plex</h2>
+
+              <label className="block text-sm font-medium text-[#E5E2E1] mb-2">
+                Plex Token
+              </label>
+              <input
+                type="password"
+                className="w-full bg-[#131313] border border-[#3B4B3F] rounded px-3 py-2 text-sm font-mono text-[#E5E2E1] outline-none focus:border-[#618B6B] transition-colors"
+                placeholder="Enter your Plex authentication token"
+                value={plexToken}
+                onChange={(e) => setPlexToken(e.target.value)}
+              />
+              <p className="text-xs text-[#849587] mt-3">
+                Can be obtained via the token extractor script:&nbsp;
+                <code className="text-[#618B6B]">just script scripts/plex/plex-token-extractor.ts</code>
+              </p>
+
+              <label className="block text-sm font-medium text-[#E5E2E1] mt-4 mb-2">
+                Plex Server URL
+              </label>
+              <input
+                type="url"
+                className="w-full bg-[#131313] border border-[#3B4B3F] rounded px-3 py-2 text-sm font-mono text-[#E5E2E1] outline-none focus:border-[#618B6B] transition-colors"
+                placeholder="http://192.168.1.x:32400"
+                value={plexUrl}
+                onChange={(e) => setPlexUrl(e.target.value)}
+              />
+              <p className="text-xs text-[#849587] mt-2">
+                Local Plex server address including port (e.g. http://192.168.1.100:32400).
+              </p>
+            </div>
+
             {/* Real-Debrid API Key */}
             <div
               className="p-4 md:p-6 rounded-lg"

@@ -4,6 +4,8 @@ import { z } from "zod";
 
 const configSchema = z.object({
   real_debrid_api_key: z.string().optional(),
+  plex_token: z.string().optional(),
+  plex_url: z.string().optional(),
 });
 
 export async function GET() {
@@ -32,6 +34,12 @@ export async function PUT(request: Request) {
     const sanitized: Record<string, string> = {};
     if (parsed.data.real_debrid_api_key !== undefined) {
       sanitized.real_debrid_api_key = parsed.data.real_debrid_api_key;
+    }
+    if (parsed.data.plex_token !== undefined) {
+      sanitized.plex_token = parsed.data.plex_token;
+    }
+    if (parsed.data.plex_url !== undefined) {
+      sanitized.plex_url = parsed.data.plex_url;
     }
 
     // Load existing to preserve unset keys
