@@ -54,7 +54,7 @@ function GuestRow({ guest }: { guest: PveGuest }) {
       <span className="text-gray-400 text-xs font-mono w-12 shrink-0">{guest.vmid}</span>
       <span className="flex-1 text-sm font-medium truncate">{guest.name}</span>
       <StatusPill status={guest.status} />
-      <div className="w-24 shrink-0">
+      <div className="w-24 shrink-0 hidden sm:block">
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-gray-400 w-8 text-right">{(guest.cpu * 100).toFixed(0)}%</span>
           <div className="flex-1">
@@ -62,7 +62,7 @@ function GuestRow({ guest }: { guest: PveGuest }) {
           </div>
         </div>
       </div>
-      <div className="w-32 shrink-0">
+      <div className="w-32 shrink-0 hidden md:block">
         <div className="flex items-center gap-1.5">
           <ProgressBar value={guest.mem} max={guest.maxmem} color="bg-purple-500" />
           <span className="text-xs text-gray-400 w-20 text-right">{humanBytes(guest.mem)}/{humanBytes(guest.maxmem)}</span>
@@ -75,7 +75,7 @@ function GuestRow({ guest }: { guest: PveGuest }) {
         </div>
       </div>
       {guest.status === "running" && (
-        <span className="text-xs text-gray-500 w-14 text-right shrink-0">{humanUptime(guest.uptime)}</span>
+        <span className="text-xs text-gray-500 w-14 text-right shrink-0 hidden xl:block">{humanUptime(guest.uptime)}</span>
       )}
     </div>
   );
@@ -189,13 +189,13 @@ export function NodeCard({ node }: NodeCardProps) {
             {/* Column headers */}
             {tab !== "storage" && (
               <div className="flex items-center gap-3 px-4 py-1.5 text-[10px] text-gray-500 uppercase tracking-wide">
-                <span className="w-12 shrink-0">VM ID</span>
+                <span className="w-12 shrink-0">ID</span>
                 <span className="flex-1">Name</span>
                 <span className="w-16 shrink-0">Status</span>
-                <span className="w-24 shrink-0">CPU</span>
-                <span className="w-32 shrink-0">Memory</span>
+                <span className="w-24 shrink-0 hidden sm:block">CPU</span>
+                <span className="w-32 shrink-0 hidden md:block">Memory</span>
                 <span className="w-32 shrink-0 hidden lg:block">Disk</span>
-                <span className="w-14 shrink-0">Uptime</span>
+                <span className="w-14 shrink-0 hidden xl:block">Uptime</span>
               </div>
             )}
 

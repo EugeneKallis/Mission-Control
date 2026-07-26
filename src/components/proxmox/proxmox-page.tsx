@@ -102,7 +102,7 @@ export function ProxmoxPage() {
           <h1 className="text-xl font-bold">Proxmox</h1>
           {loading && <span className="text-sm text-gray-400 animate-pulse">Loading…</span>}
           {status && (
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-gray-500 hidden sm:inline">
               {status.endpoints.length} endpoint{status.endpoints.length !== 1 ? "s" : ""} · {status.endpoints.reduce((s, e) => s + e.nodes.length, 0)} node{status.endpoints.reduce((s, e) => s + e.nodes.length, 0) !== 1 ? "s" : ""} · {totalVMs} VM{totalVMs !== 1 ? "s" : ""} · {totalLXC} LXC
             </span>
           )}
@@ -182,7 +182,7 @@ export function ProxmoxPage() {
         {status?.endpoints.map((ep) => (
           <div key={ep.id}>
             {/* Endpoint header */}
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
               <h2 className="text-lg font-semibold">{ep.name}</h2>
               {ep.online ? (
                 <span className="px-2 py-0.5 bg-green-500/20 text-green-400 rounded-full text-xs font-medium">Online</span>
