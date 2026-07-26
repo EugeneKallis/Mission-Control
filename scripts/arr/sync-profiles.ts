@@ -13,13 +13,16 @@
  *   just script scripts/arr/sync-profiles.ts -- --dry-run
  *     # show what would be created, skip the actual writes
  *
- * Env:
- *   Per-instance API keys via ARR__<NAME>__API_KEY (the AppConfig default).
+ * Configuration:
+ *   - Arr instances are resolved via resolveConfig() from @/lib/config.
+ *   - Precedence: environment variable > Config page (website DB) > built-in default.
+ *   - Set per-instance API keys via ARR__<NAME>__API_KEY or the Config page at /admin/config.
+ *   - Set per-instance URLs via ARR__<NAME>__URL or the Config page.
  */
 
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
-import { getConfig } from "@/lib/config";
+import { resolveConfig } from "@/lib/config";
 import { parseArgs } from "../_lib/cli";
 import { banner, error, info, warn } from "../_lib/log";
 import type { ArrInstance } from "@/types";
@@ -52,7 +55,7 @@ async function main(argv?: string[]) {
   const args = parseArgs({ dryRun: { type: "boolean", default: false } }, argv);
   banner("Sync profiles", { dryRun: args.dryRun });
 
-  const config = getConfig();
+  const config = await resolveConfig();
   const rl = createInterface({ input: stdin, output: stdout });
   try {
     const type = (await rl.question("Sync Radarr or Sonarr? [radarr|sonarr]: ")).trim().toLowerCase();

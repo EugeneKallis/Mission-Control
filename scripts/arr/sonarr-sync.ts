@@ -11,12 +11,15 @@
  *   just script scripts/arr/sonarr-sync.ts                       # dry run
  *   just script scripts/arr/sonarr-sync.ts -- --no-dry-run       # actually delete
  *
- * Env:
- *   ARR__SONARR__API_KEY, ARR__SONARR4K__API_KEY (AppConfig)
+ * Configuration:
+ *   - Arr instances are resolved via resolveConfig() from @/lib/config.
+ *   - Precedence: environment variable > Config page (website DB) > built-in default.
+ *   - Set per-instance API keys via ARR__<NAME>__API_KEY or the Config page at /admin/config.
+ *   - Set per-instance URLs via ARR__<NAME>__URL or the Config page.
  */
 
 import { ArrClient } from "@/lib/clients/arr";
-import { getConfig } from "@/lib/config";
+import { resolveConfig } from "@/lib/config";
 import { parseArgs } from "../_lib/cli";
 import { banner, error, info, summary, warn } from "../_lib/log";
 
@@ -27,7 +30,7 @@ async function main(argv?: string[]) {
   const args = parseArgs({ dryRun: { type: "boolean", default: true } }, argv);
   banner("Sonarr 4K sync", { dryRun: args.dryRun });
 
-  const config = getConfig();
+  const config = await resolveConfig();
   const main = config.arrInstances.find((i) => i.name === MAIN_NAME);
   const target = config.arrInstances.find((i) => i.name === TARGET_NAME);
 

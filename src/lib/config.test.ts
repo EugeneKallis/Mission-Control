@@ -18,7 +18,7 @@
  * DB tests that also mock @/lib/db).
  */
 
-import { describe, test, expect, mock, afterEach } from "bun:test";
+import { describe, test, expect, afterEach } from "bun:test";
 
 const ORIGINAL_ENV = { ...process.env };
 
