@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { getConfig } from "@/lib/config";
+import { resolveConfig } from "@/lib/config";
 
 export async function GET() {
   try {
-    const instances = getConfig().arrInstances;
+    const cfg = await resolveConfig();
+    const instances = cfg.arrInstances;
     const map: Record<string, string> = {};
     for (const inst of instances) {
       if (inst.name && inst.url) map[inst.name] = inst.url;

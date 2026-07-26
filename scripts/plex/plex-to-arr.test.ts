@@ -23,7 +23,7 @@ afterEach(() => {
 
 async function loadScript() {
   mock.module("@/lib/config", () => ({
-    getConfig: () => ({
+    resolveConfig: async () => ({
       plexUrl: "http://plex:32400",
       plexToken: "plex-token",
       plexWatchlistRss: "https://rss.plex.tv/test",

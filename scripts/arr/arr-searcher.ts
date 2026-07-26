@@ -17,12 +17,15 @@
  *   just script scripts/arr/arr-searcher.ts -- --dry-run    # log only
  *   just script scripts/arr/arr-searcher.ts -- --radarr-only
  *
- * Env:
- *   ARR__<NAME>__API_KEY for any instance not already in AppConfig.
+ * Configuration:
+ *   - Arr instances are resolved via resolveConfig() from @/lib/config.
+ *   - Precedence: environment variable > Config page (website DB) > built-in default.
+ *   - Set per-instance API keys via ARR__<NAME>__API_KEY or the Config page at /admin/config.
+ *   - Set per-instance URLs via ARR__<NAME>__URL or the Config page.
  */
 
 import { ArrClient } from "@/lib/clients/arr";
-import { getConfig } from "@/lib/config";
+import { resolveConfig } from "@/lib/config";
 import { chunk, sortByPriority } from "../_lib/collections";
 import { parseArgs } from "../_lib/cli";
 import { banner, error, info, summary, warn } from "../_lib/log";
@@ -44,7 +47,7 @@ export async function main(argv?: string[]) {
 
   banner("Arr searcher", { dryRun: args.dryRun });
 
-  const config = getConfig();
+  const config = await resolveConfig();
   const radarr = sortByPriority(config.arrInstances.filter((i) => i.type === "radarr"), RADARR_PRIORITY);
   const sonarr = sortByPriority(config.arrInstances.filter((i) => i.type === "sonarr"), SONARR_PRIORITY);
 

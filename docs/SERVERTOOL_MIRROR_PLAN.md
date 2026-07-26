@@ -759,21 +759,51 @@ results.
 ### UI
 - "Config" header + "Global application configuration" subtitle.
 - Settings card with a **Real Debrid API Key** field (mono) + helper text.
+- **Arr Instances** section (extracted as `ArrConfigSection` in
+  `src/components/config/arr-config-section.tsx`):
+  - Per-instance URL + API-key fields for all ten built-in Radarr/Sonarr instances,
+    generated from canonical definitions in `src/lib/arr-config.ts`.
+  - Bulk-import textarea supporting the three-line format (name / URL / API key)
+    with optional blank-line separators. Only built-in names accepted; unknown
+    names, invalid URLs, incomplete records, and duplicates produce visible issues.
+  - Precedence help text: environment variables > stored website values > built-in defaults.
+  - Default URLs shown when no stored value exists.
 - Save button → `PUT /api/config` (Server Action/API). Show "Config saved" toast/banner.
 - The sidebar Real-Debrid badge reads from this key via `/api/real-debrid/status`
   (calls Real-Debrid `getUser`, shows premium days remaining / "Invalid key" / "Offline"
   / "Not configured").
 
 ### Data/API
-- `GET /api/config`, `PUT /api/config` (only allow known keys — currently
-  `real_debrid_api_key`).
+- `GET /api/config`, `PUT /api/config` — Accepts `real_debrid_api_key`, `plex_token`,
+  `plex_url`, and DB keys for all ten Arr instances (`arr_<slug>_url`,
+  `arr_<slug>_api_key`). Arr URL values validated to start with `http://` or `https://`.
+  Responses include `Cache-Control: no-store`. Unknown keys ignored; partial merges
+  with existing config.
 - `GET /api/real-debrid/status` (returns a badge label + ok boolean).
 
-### Agent tasks
-Build form + save + the Real-Debrid status endpoint using the Part 2 client. Default
-config map = `{ real_debrid_api_key: "" }`.
+### Canonical Arr configuration
 
-**Acceptance:** saving persists; badge reflects Real-Debrid premium status.
+A pure `src/lib/arr-config.ts` module owns the ten built-in instance definitions,
+DB key generation, env key generation, bulk-import parsing, and runtime resolution
+with `env > DB > default` precedence. See `AGENTS.md` for full documentation.
+
+### Runtime consumers
+
+All Arr scripts and the instance-map route use `resolveConfig()` from `@/lib/config`
+so website-configured URLs and API keys are effective at runtime. See `AGENTS.md`
+for the full consumer table.
+
+### Agent tasks
+1. Extract Arr form section from the oversized page into `ArrConfigSection`.
+2. Build canonical `src/lib/arr-config.ts` with definitions, DB keys, env keys,
+   import parser, and runtime resolution.
+3. Update API route with Arr key whitelist, URL validation, and `no-store` headers.
+4. Wire runtime consumers to use `resolveConfig()`.
+5. Add focused tests for parser, resolution, API, and components.
+
+**Acceptance:** Config page manages all ten Arr URLs and keys; supplied import format
+works with or without blank-line separators; precedence is documented and tested;
+all Arr scripts and instance-map use DB-backed resolution.
 
 ---
 

@@ -11,7 +11,7 @@
  * file gets its own process, so no leakage.
  *
  * Covers:
- *  - Fast path: all env vars set → no DB hit
+ *  - env precedence: all env vars set → env wins over DB
  *  - DB fallback: empty env, populated DB
  *  - Partial merge: some from env, rest from DB
  *  - Env wins over DB when both are set
@@ -73,8 +73,8 @@ async function loadFreshConfig(suffix: string) {
 
 // ── Tests ────────────────────────────────────────────────────────────────
 
-describe("resolveConfig — fast path (all env vars set)", () => {
-  test("returns env values immediately when plexToken, plexUrl, and realDebridApiKey are all set", async () => {
+describe("resolveConfig — env precedence over DB", () => {
+  test("env values take precedence when plexToken, plexUrl, and realDebridApiKey are all set", async () => {
     process.env.PLEX_TOKEN = "env-token";
     process.env.PLEX_URL = "http://env-plex:32400";
     process.env.REAL_DEBRID_API_KEY = "env-rd";
@@ -218,5 +218,87 @@ describe("resolveConfig — edge cases", () => {
     expect(cfg.realDebridApiKey).toBe("");
     expect(cfg.webPort).toBe(8080);
     expect(cfg.mediaDirectories.length).toBeGreaterThan(0);
+  });
+});
+
+// ── Arr key tests ─────────────────────────────────────────────────────────
+
+describe("resolveConfig — arr keys from DB", () => {
+  test("fills arr_radarr_api_key from DB when env is empty", async () => {
+    await seedConfig({ arr_radarr_api_key: "db-radarr-key" });
+
+    const mod = await loadFreshConfig("arr-api");
+    const cfg = await mod.resolveConfig();
+
+    const radarr = cfg.arrInstances.find((i) => i.name === "Radarr");
+    expect(radarr).toBeDefined();
+    expect(radarr!.apiKey).toBe("db-radarr-key");
+  });
+
+  test("fills arr_sonarr_url from DB", async () => {
+    await seedConfig({ arr_sonarr_url: "http://db-sonarr:8989" });
+
+    const mod = await loadFreshConfig("arr-url");
+    const cfg = await mod.resolveConfig();
+
+    const sonarr = cfg.arrInstances.find((i) => i.name === "Sonarr");
+    expect(sonarr).toBeDefined();
+    expect(sonarr!.url).toBe("http://db-sonarr:8989");
+  });
+
+  test("fills both apiKey and url for all Radarr instances from DB", async () => {
+    await seedConfig({
+      arr_radarr_api_key: "radarr-key",
+      arr_radarr_url: "http://radarr:7878",
+      arr_radarr4k_url: "http://radarr4k:7879",
+      arr_radarr4k_api_key: "radarr4k-key",
+    });
+
+    const mod = await loadFreshConfig("arr-all");
+    const cfg = await mod.resolveConfig();
+
+    const r1 = cfg.arrInstances.find((i) => i.name === "Radarr");
+    expect(r1!.apiKey).toBe("radarr-key");
+    expect(r1!.url).toBe("http://radarr:7878");
+
+    const r2 = cfg.arrInstances.find((i) => i.name === "Radarr4K");
+    expect(r2!.apiKey).toBe("radarr4k-key");
+    expect(r2!.url).toBe("http://radarr4k:7879");
+
+    // Unset instances keep defaults
+    const kids = cfg.arrInstances.find((i) => i.name === "RadarrKids");
+    expect(kids!.apiKey).toBe("");
+  });
+
+  test("env ARR__RADARR__API_KEY takes precedence over DB arr_radarr_api_key", async () => {
+    process.env.ARR__RADARR__API_KEY = "env-radarr-key";
+    await seedConfig({ arr_radarr_api_key: "db-radarr-key" });
+
+    const mod = await loadFreshConfig("arr-env-wins");
+    const cfg = await mod.resolveConfig();
+
+    const radarr = cfg.arrInstances.find((i) => i.name === "Radarr");
+    expect(radarr!.apiKey).toBe("env-radarr-key");
+  });
+
+  test("env ARR__RADARR__URL takes precedence over DB arr_radarr_url", async () => {
+    process.env.ARR__RADARR__URL = "http://env-radarr:7878";
+    await seedConfig({ arr_radarr_url: "http://db-radarr:7878" });
+
+    const mod = await loadFreshConfig("arr-url-env-wins");
+    const cfg = await mod.resolveConfig();
+
+    const radarr = cfg.arrInstances.find((i) => i.name === "Radarr");
+    expect(radarr!.url).toBe("http://env-radarr:7878");
+  });
+
+  test("DB arr URL fills in when env URL is empty", async () => {
+    await seedConfig({ arr_sonarr4k_url: "http://db-4k:8990" });
+
+    const mod = await loadFreshConfig("arr-url-fill");
+    const cfg = await mod.resolveConfig();
+
+    const s4k = cfg.arrInstances.find((i) => i.name === "Sonarr4K");
+    expect(s4k!.url).toBe("http://db-4k:8990");
   });
 });

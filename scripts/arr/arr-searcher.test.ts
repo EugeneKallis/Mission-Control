@@ -1,9 +1,9 @@
 /**
  * Integration test for the Arr searcher.
  *
- * We mock fetch (the only network surface the script uses) and import the
- * script with a cache-bust query so the AppConfig singleton is re-evaluated
- * with the env vars we set in the test.
+ * We mock fetch (the only network surface the script uses), mock
+ * resolveConfig from @/lib/config to return controlled Arr instances
+ * (avoiding the real DB), and import the script with a cache-bust query.
  */
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
@@ -13,13 +13,6 @@ const realFetch = globalThis.fetch;
 
 beforeEach(() => {
   mock.restore();
-  // Set env for the AppConfig singleton (consumed on first getConfig() call).
-  process.env.ARR__RADARR__API_KEY = "radarr-key";
-  process.env.ARR__RADARRKIDS__API_KEY = "radarrkids-key";
-  process.env.ARR__RADARR4K__API_KEY = "radarr4k-key";
-  process.env.ARR__SONARR__API_KEY = "sonarr-key";
-  process.env.ARR__SONARRKIDS__API_KEY = "sonarrkids-key";
-  process.env.ARR__SONARR4K__API_KEY = "sonarr4k-key";
 });
 
 afterEach(() => {
@@ -28,11 +21,8 @@ afterEach(() => {
 });
 
 async function loadScript() {
-  // The arr-map.test.ts file leaks a @/lib/config mock that throws on
-  // getConfig(). We re-install a real-looking one before each import so
-  // our test doesn't pick up the leak.
   mock.module("@/lib/config", () => ({
-    getConfig: () => ({
+    resolveConfig: async () => ({
       arrInstances: [
         { type: "radarr", name: "Radarr", url: "http://127.0.0.1:7878", apiKey: "radarr-key" },
         { type: "radarr", name: "RadarrKids", url: "http://127.0.0.1:7880", apiKey: "radarrkids-key" },

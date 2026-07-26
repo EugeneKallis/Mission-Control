@@ -22,9 +22,12 @@
  *   just script scripts/plex/plex-to-arr.ts -- --dry-run
  *   just script scripts/plex/plex-to-arr.ts -- --clean-cache
  *
- * Env:
- *   PLEX_TOKEN, PLEX_URL, PLEX_WATCHLIST_RSS
- *   ARR__SONARRLOCAL__API_KEY, ARR__RADARRLOCAL__API_KEY
+ * Configuration:
+ *   - Plex: PLEX_TOKEN, PLEX_URL, PLEX_WATCHLIST_RSS env vars or Config page.
+ *   - Arr instances are resolved via resolveConfig() from @/lib/config.
+ *   - Precedence: environment variable > Config page (website DB) > built-in default.
+ *   - Set per-instance API keys via ARR__<NAME>__API_KEY or the Config page at /admin/config.
+ *   - Set per-instance URLs via ARR__<NAME>__URL or the Config page.
  */
 
 import { readFile, rm, writeFile } from "fs/promises";
@@ -310,8 +313,8 @@ export async function main(argv?: string[]): Promise<void> {
     warn(`Sonarr profiles failed: ${(err as Error).message}`);
     return [];
   });
-  let sonarrDefaultProfile = findProfileId(sonarrProfiles, SONARR_DEFAULT_PROFILE) ?? 1;
-  let sonarrAnimeProfile = findProfileId(sonarrProfiles, SONARR_ANIME_PROFILE) ?? sonarrDefaultProfile;
+  const sonarrDefaultProfile = findProfileId(sonarrProfiles, SONARR_DEFAULT_PROFILE) ?? 1;
+  const sonarrAnimeProfile = findProfileId(sonarrProfiles, SONARR_ANIME_PROFILE) ?? sonarrDefaultProfile;
   info(`  Default: ${sonarrDefaultProfile} ('${SONARR_DEFAULT_PROFILE}')`);
   info(`  Anime:   ${sonarrAnimeProfile} ('${SONARR_ANIME_PROFILE}')`);
 

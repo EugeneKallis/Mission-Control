@@ -1,5 +1,8 @@
 /**
  * Integration test for radarr-sync: orphan detection in Radarr4K vs main Radarr.
+ *
+ * Mocks resolveConfig from @/lib/config to return controlled Arr instances
+ * (avoiding the real DB) and mocks fetch for Arr API calls.
  */
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
@@ -9,8 +12,6 @@ const realFetch = globalThis.fetch;
 
 beforeEach(() => {
   mock.restore();
-  process.env.ARR__RADARR__API_KEY = "main-key";
-  process.env.ARR__RADARR4K__API_KEY = "4k-key";
 });
 
 afterEach(() => {
@@ -19,10 +20,8 @@ afterEach(() => {
 });
 
 async function loadScript() {
-  // Re-install a working @/lib/config mock in case arr-map's
-  // throwing mock leaked in from a previous test file.
   mock.module("@/lib/config", () => ({
-    getConfig: () => ({
+    resolveConfig: async () => ({
       arrInstances: [
         { type: "radarr", name: "Radarr", url: "http://127.0.0.1:7878", apiKey: "main-key" },
         { type: "radarr", name: "Radarr4K", url: "http://127.0.0.1:7879", apiKey: "4k-key" },

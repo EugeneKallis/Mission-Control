@@ -1,5 +1,8 @@
 /**
  * Integration test for sonarr-sync: orphan detection in Sonarr4K vs main Sonarr.
+ *
+ * Mocks resolveConfig from @/lib/config to return controlled Arr instances
+ * (avoiding the real DB) and mocks fetch for Arr API calls.
  */
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
@@ -9,8 +12,6 @@ const realFetch = globalThis.fetch;
 
 beforeEach(() => {
   mock.restore();
-  process.env.ARR__SONARR__API_KEY = "main-key";
-  process.env.ARR__SONARR4K__API_KEY = "4k-key";
 });
 
 afterEach(() => {
@@ -20,7 +21,7 @@ afterEach(() => {
 
 async function loadScript() {
   mock.module("@/lib/config", () => ({
-    getConfig: () => ({
+    resolveConfig: async () => ({
       arrInstances: [
         { type: "sonarr", name: "Sonarr", url: "http://127.0.0.1:8989", apiKey: "main-key" },
         { type: "sonarr", name: "Sonarr4K", url: "http://127.0.0.1:8990", apiKey: "4k-key" },

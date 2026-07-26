@@ -1,6 +1,9 @@
 /**
  * Integration test for sonarr-season-searcher: triggers SeasonSearch for
  * fully-aired, monitored, file-less seasons.
+ *
+ * Mocks resolveConfig from @/lib/config to return controlled Arr instances
+ * (avoiding the real DB) and mocks fetch for Arr API calls.
  */
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
@@ -10,7 +13,6 @@ const realFetch = globalThis.fetch;
 
 beforeEach(() => {
   mock.restore();
-  process.env.ARR__SONARR__API_KEY = "sonarr-key";
 });
 
 afterEach(() => {
@@ -20,7 +22,7 @@ afterEach(() => {
 
 async function loadScript() {
   mock.module("@/lib/config", () => ({
-    getConfig: () => ({
+    resolveConfig: async () => ({
       arrInstances: [
         { type: "sonarr", name: "Sonarr", url: "http://127.0.0.1:8989", apiKey: "sonarr-key" },
       ],

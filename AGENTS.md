@@ -133,6 +133,87 @@ this pattern for any new
 long-running worker — do **not** schedule it via systemd timer; it would
 exit before the next tick and lose its in-memory state.
 
+## Arr Instance Configuration
+
+The project manages ten built-in Radarr/Sonarr instance URLs and API keys through
+a canonical configuration module at `src/lib/arr-config.ts`.
+
+### Canonical definitions
+
+`ARR_INSTANCE_DEFINITIONS` is the single source of truth — it defines names, slugs,
+types, and default URLs for all ten instances (Radarr, Radarr4K, RadarrKids,
+RadarrAnime, RadarrLocal, Sonarr, Sonarr4K, SonarrKids, SonarrAnime, SonarrLocal).
+Every runtime consumer and UI component derives from this list rather than
+maintaining its own copy.
+
+### Precedence
+
+For both URL and API key, effective values follow:
+
+```text
+environment variable > Config page (website DB) > built-in default
+```
+
+- **Environment variables:** `ARR__<NAME>__URL` and `ARR__<NAME>__API_KEY` (e.g.
+  `ARR__RADARR__URL=http://192.168.1.111:7878`). These always win if set.
+- **Config page:** Values stored via `/admin/config` in the `configs` DB table under
+  keys like `arr_radarr_url`, `arr_radarr_api_key`, etc. Used at runtime when no
+  env override exists.
+- **Built-in defaults:** Hardcoded in `ARR_INSTANCE_DEFINITIONS` for URLs; API keys
+  default to empty.
+
+### Import format
+
+The Config page includes a bulk-import textarea that accepts records in a
+three-line format (name / URL / API key), with optional blank-line separators.
+
+```text
+radarr
+http://192.168.1.111:7878
+replace-with-radarr-api-key
+
+radarr4k
+http://192.168.1.111:7879
+replace-with-radarr4k-api-key
+```
+
+Only the ten built-in instance names are accepted. Unknown names, invalid URLs,
+incomplete records, and duplicates produce visible issues without exposing API
+key values. See `parseArrImport()` in `src/lib/arr-config.ts`.
+
+### DB storage keys
+
+Each instance gets two flat DB config keys generated from the canonical definitions:
+`arr_<slug>_url` and `arr_<slug>_api_key`. See `arrConfigDbKey()` in
+`src/lib/arr-config.ts`. The full set is exported as `ARR_CONFIG_DB_KEYS`.
+
+### Runtime consumers
+
+The following consumers use `resolveConfig()` from `@/lib/config` which applies
+env > DB > default precedence:
+
+| Consumer | Resolution |
+| -------- | ---------- |
+| `scripts/arr/arr-searcher.ts` | `resolveConfig()` via `@/lib/config` |
+| `scripts/arr/radarr-sync.ts` | `resolveConfig()` via `@/lib/config` |
+| `scripts/arr/sonarr-sync.ts` | `resolveConfig()` via `@/lib/config` |
+| `scripts/arr/sonarr-season-searcher.ts` | `resolveConfig()` via `@/lib/config` |
+| `scripts/arr/sync-profiles.ts` | `resolveConfig()` via `@/lib/config` |
+| `scripts/plex/plex-to-arr.ts` | `resolveConfig()` via `@/lib/config` |
+| `src/app/api/arr/instance-map/route.ts` | `await resolveConfig()` (async) |
+
+Consumers that only need media paths (e.g. `src/workers/file-scanner.ts`) use
+env-only `getConfig()` and are unaffected.
+
+### Config API (`/api/config`)
+
+- `GET /api/config` — Returns all stored config values (including Arr keys).
+  Response has `Cache-Control: no-store`.
+- `PUT /api/config` — Accepts any of the Arr DB keys plus `real_debrid_api_key`,
+  `plex_token`, `plex_url`. Arr URL values are validated to start with `http://`
+  or `https://`; empty strings clear the stored override. Unknown keys are
+  silently ignored. API key values never appear in validation error details.
+
 ## Key Conventions
 
 - **API routes** live under `src/app/api/<route>/route.ts`

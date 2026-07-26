@@ -2,10 +2,19 @@
  * Runtime configuration loader.
  * Loads and validates config from env vars with sensible defaults.
  * Mirrors ~/ServerTool/config/config.go
+ *
+ * Arr instance configuration is owned by src/lib/arr-config.ts.
+ * This module imports the canonical definitions and resolution from there
+ * rather than maintaining its own instance list.
  */
 
 import { z } from "zod";
 import type { ArrInstance } from "@/types";
+import {
+  resolveArrInstances as resolveArrInstancesFromDefs,
+  arrConfigDbKey,
+  ARR_INSTANCE_DEFINITIONS,
+} from "./arr-config";
 
 // ── Schema ────────────────────────────────────────────────────────────────
 
@@ -53,36 +62,31 @@ const envSchema = z.object({
   ARR__SONARRKIDS__API_KEY: z.string().default(""),
   ARR__SONARRANIME__API_KEY: z.string().default(""),
   ARR__SONARRLOCAL__API_KEY: z.string().default(""),
+
+  // Arr instance URLs (override hardcoded defaults per instance)
+  ARR__RADARR__URL: z.string().default(""),
+  ARR__RADARR4K__URL: z.string().default(""),
+  ARR__RADARRKIDS__URL: z.string().default(""),
+  ARR__RADARRANIME__URL: z.string().default(""),
+  ARR__RADARRLOCAL__URL: z.string().default(""),
+  ARR__SONARR__URL: z.string().default(""),
+  ARR__SONARR4K__URL: z.string().default(""),
+  ARR__SONARRKIDS__URL: z.string().default(""),
+  ARR__SONARRANIME__URL: z.string().default(""),
+  ARR__SONARRLOCAL__URL: z.string().default(""),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
 
-// ── Default Arr instances ─────────────────────────────────────────────────
+// ── Resolve (env only, no DB) ─────────────────────────────────────────────
 
-const DEFAULT_ARR_INSTANCES: ArrInstance[] = [
-  { type: "radarr", name: "Radarr", url: "http://192.168.1.111:7878", apiKey: "" },
-  { type: "radarr", name: "Radarr4K", url: "http://192.168.1.111:7879", apiKey: "" },
-  { type: "radarr", name: "RadarrKids", url: "http://192.168.1.111:7880", apiKey: "" },
-  { type: "radarr", name: "RadarrAnime", url: "http://192.168.1.111:7881", apiKey: "" },
-  { type: "radarr", name: "RadarrLocal", url: "http://192.168.1.111:7882", apiKey: "" },
-  { type: "sonarr", name: "Sonarr", url: "http://192.168.1.111:8989", apiKey: "" },
-  { type: "sonarr", name: "Sonarr4K", url: "http://192.168.1.111:8990", apiKey: "" },
-  { type: "sonarr", name: "SonarrKids", url: "http://192.168.1.111:8991", apiKey: "" },
-  { type: "sonarr", name: "SonarrAnime", url: "http://192.168.1.111:8992", apiKey: "" },
-  { type: "sonarr", name: "SonarrLocal", url: "http://192.168.1.111:8993", apiKey: "" },
-];
-
-// ── Resolve ───────────────────────────────────────────────────────────────
-
+/**
+ * Resolve Arr instances from environment variables only.
+ * Delegates to the canonical module with empty DB values.
+ * Precedence: env > built-in default.
+ */
 function resolveArrInstances(env: EnvConfig): ArrInstance[] {
-  return DEFAULT_ARR_INSTANCES.map((inst) => {
-    const envKey = `ARR__${inst.name.toUpperCase()}__API_KEY` as keyof EnvConfig;
-    const envOverride = env[envKey] as string | undefined;
-    if (envOverride && envOverride.length > 0) {
-      return { ...inst, apiKey: envOverride };
-    }
-    return inst;
-  });
+  return resolveArrInstancesFromDefs(env as unknown as Record<string, string>);
 }
 
 // ── Runtime config object ─────────────────────────────────────────────────
@@ -144,9 +148,6 @@ const DB_ENV_KEY_MAP: Record<string, keyof EnvConfig> = {
   real_debrid_api_key: "REAL_DEBRID_API_KEY",
 };
 
-/** Subset of EnvConfig keys that are string-valued and can come from the DB. */
-type DbConfigurableKey = "PLEX_TOKEN" | "PLEX_URL" | "REAL_DEBRID_API_KEY";
-
 // ── Singleton (env-only) ─────────────────────────────────────────────────
 
 let _config: AppConfig | null = null;
@@ -166,6 +167,9 @@ export function getConfig(): AppConfig {
  * DB configs table — where the admin config page stores values — and
  * fills in missing fields.
  *
+ * Also checks for Arr instance API keys and URLs stored in the DB
+ * (configured via the web admin config page).
+ *
  * This lets standalone scripts pick up values configured via the web
  * UI without needing a .env file.
  */
@@ -173,29 +177,47 @@ export async function resolveConfig(): Promise<AppConfig> {
   const env = envSchema.parse(process.env);
   const cfg = new AppConfig(env);
 
-  // Fast path: all DB-configurable fields are already set from env
-  if (cfg.plexToken && cfg.plexUrl && cfg.realDebridApiKey) {
-    return cfg;
-  }
-
-  // DB fallback: query the configs table for missing values
+  // Always query DB to merge values (local SQLite PK lookup, <2ms)
   try {
     const { db } = await import("@/lib/db");
     const row = await db.config.findUnique({ where: { id: 1 } });
     if (row?.configJson) {
       const values = JSON.parse(row.configJson) as Record<string, string>;
-      const overrides: Partial<Record<DbConfigurableKey, string>> = {};
+      const overrides: Partial<Record<keyof EnvConfig, string>> = {};
 
+      // Existing Plex/RD keys
       for (const [dbKey, envKey] of Object.entries(DB_ENV_KEY_MAP)) {
         const envVal = env[envKey] as string | undefined;
         const dbVal = values[dbKey];
         if ((!envVal || envVal.length === 0) && dbVal && dbVal.length > 0) {
-          overrides[envKey as DbConfigurableKey] = dbVal;
+          overrides[envKey as keyof EnvConfig] = dbVal;
+        }
+      }
+
+      // Arr instance API keys + URLs from DB
+      // Precedence: env > DB > default (fixes URL precedence bug:
+      // previously DB overrode env unconditionally for URLs)
+      for (const def of ARR_INSTANCE_DEFINITIONS) {
+        const apiKeyEnvKey = `ARR__${def.name.toUpperCase()}__API_KEY` as keyof EnvConfig;
+        const urlEnvKey = `ARR__${def.name.toUpperCase()}__URL` as keyof EnvConfig;
+
+        // API key: env > DB > default (default is "")
+        const envApiKey = env[apiKeyEnvKey] as string | undefined;
+        const dbApiKey = values[arrConfigDbKey(def.slug, "api_key")];
+        if ((!envApiKey || envApiKey.length === 0) && dbApiKey && dbApiKey.length > 0) {
+          overrides[apiKeyEnvKey] = dbApiKey;
+        }
+
+        // URL: env > DB > default (default is from canonical definitions)
+        const envUrl = env[urlEnvKey] as string | undefined;
+        const dbUrl = values[arrConfigDbKey(def.slug, "url")];
+        if ((!envUrl || envUrl.length === 0) && dbUrl && dbUrl.length > 0) {
+          overrides[urlEnvKey] = dbUrl;
         }
       }
 
       if (Object.keys(overrides).length > 0) {
-        return new AppConfig({ ...env, ...overrides });
+        return new AppConfig({ ...env, ...overrides } as EnvConfig);
       }
     }
   } catch {
