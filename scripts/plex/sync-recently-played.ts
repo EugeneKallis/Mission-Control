@@ -12,13 +12,11 @@
  *   just script scripts/plex/sync-recently-played.ts -- --dry-run # print what would sync
  *
  * Dependencies:
- *   - PlexTraktSync at ../PlexTraktSync (or PLEXTRAKTSYNC_DIR env)
+ *   - plextraktsync (installed globally, available on PATH)
  *   - PLEX_TOKEN and PLEX_URL — set via the admin config page or .env
  */
 
 import { spawn } from "child_process";
-import { join, dirname } from "path";
-import { fileURLToPath } from "url";
 import { resolveConfig } from "@/lib/config";
 import { parseArgs } from "../_lib/cli";
 import { banner, error, info, summary, warn } from "../_lib/log";
@@ -40,15 +38,6 @@ interface PlexMetadata {
 }
 
 // ── Defaults ─────────────────────────────────────────────────────────────
-
-/** Default PlexTraktSync location relative to this script's directory. */
-const DEFAULT_PLEXTRACTSYNC_DIR = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "..",
-  "..",
-  "PlexTraktSync",
-);
 
 /** Time window (hours) — how far back to look for recently played. */
 const DEFAULT_HOURS = 1;
@@ -93,25 +82,22 @@ async function fetchRecentlyPlayed(
  */
 function runPlexTraktSync(
   ids: string[],
-  plextraktsyncDir: string,
   dryRun: boolean,
 ): Promise<{ exitCode: number; output: string }> {
   return new Promise((resolve) => {
-    const script = join(plextraktsyncDir, "plextraktsync.sh");
     const args = ["sync"];
     for (const id of ids) {
       args.push("--id", id);
     }
     if (dryRun) {
-      info(`[DRY RUN] Would run: ${script} ${args.join(" ")}`);
+      info(`[DRY RUN] Would run: plextraktsync ${args.join(" ")}`);
       resolve({ exitCode: 0, output: "" });
       return;
     }
 
-    info(`Running: ${script} sync --id <${ids.length} ids>`);
+    info(`Running: plextraktsync sync --id <${ids.length} ids>`);
 
-    const proc = spawn("bash", [script, ...args], {
-      cwd: plextraktsyncDir,
+    const proc = spawn("plextraktsync", args, {
       stdio: ["ignore", "pipe", "pipe"],
       env: { ...process.env },
     });
@@ -168,11 +154,7 @@ export async function main(argv?: string[]): Promise<void> {
   info(`Plex: ${cfg.plexUrl}`);
   info(`Window: ${args.hours}h`);
 
-  // 2. Determine PlexTraktSync dir
-  const plextraktsyncDir =
-    process.env.PLEXTRACTSYNC_DIR ?? DEFAULT_PLEXTRACTSYNC_DIR;
-
-  // 3. Calculate the timestamp (Unix epoch seconds) for the window
+  // 2. Calculate the timestamp (Unix epoch seconds) for the window
   //    Add a 5-minute overlap for safety so we don't miss items
   //    that were marked watched right at the boundary
   const overlapMinutes = 5;
@@ -180,7 +162,7 @@ export async function main(argv?: string[]): Promise<void> {
     (Date.now() - (args.hours * 3600 + overlapMinutes * 60) * 1000) / 1000,
   );
 
-  // 4. Query Plex for recently played episodes and movies
+  // 3. Query Plex for recently played episodes and movies
   info(`Fetching recently played (since ${new Date(since * 1000).toISOString()})…`);
 
   const allItems: PlexMetadata[] = [];
@@ -211,7 +193,7 @@ export async function main(argv?: string[]): Promise<void> {
     warn(`Failed to fetch recently played movies: ${(err as Error).message}`);
   }
 
-  // 5. Collect ratingKeys (deduplicated)
+  // 4. Collect ratingKeys (deduplicated)
   const seen = new Set<string>();
   const ids: string[] = [];
   for (const item of allItems) {
@@ -230,7 +212,7 @@ export async function main(argv?: string[]): Promise<void> {
     return;
   }
 
-  // 6. Deduplicate by grandparent title for nicer logging
+  // 5. Deduplicate by grandparent title for nicer logging
   const showTitles = [
     ...new Set(
       allItems
@@ -248,15 +230,11 @@ export async function main(argv?: string[]): Promise<void> {
     info(`Movies with activity: ${movieTitles.join(", ")}`);
   }
 
-  // 7. Run PlexTraktSync
+  // 6. Run PlexTraktSync
   info(`Syncing ${ids.length} items to Trakt…`);
-  const { exitCode } = await runPlexTraktSync(
-    ids,
-    plextraktsyncDir,
-    args.dryRun,
-  );
+  const { exitCode } = await runPlexTraktSync(ids, args.dryRun);
 
-  // 8. Summary
+  // 7. Summary
   if (exitCode === 0) {
     summary({
       "Window (hours)": String(args.hours),
