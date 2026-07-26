@@ -12,7 +12,7 @@
  *   just script scripts/plex/sync-recently-played.ts -- --dry-run # print what would sync
  *
  * Dependencies:
- *   - plextraktsync (installed globally, available on PATH)
+ *   - plextraktsync at /root/.local/bin/plextraktsync
  *   - PLEX_TOKEN and PLEX_URL — set via the admin config page or .env
  */
 
@@ -97,7 +97,7 @@ function runPlexTraktSync(
 
     info(`Running: plextraktsync sync --id <${ids.length} ids>`);
 
-    const proc = spawn("plextraktsync", args, {
+    const proc = spawn("/root/.local/bin/plextraktsync", args, {
       stdio: ["ignore", "pipe", "pipe"],
       env: { ...process.env },
     });
