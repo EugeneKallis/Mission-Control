@@ -31,8 +31,8 @@ import { parseArgs } from "../_lib/cli";
 import { banner, error, info, summary, warn } from "../_lib/log";
 import type { ArrInstance } from "@/types";
 
-const RADARR_PRIORITY = ["Radarr", "RadarrKids", "Radarr4K", "RadarrAnime", "RadarrLocal"];
-const SONARR_PRIORITY = ["Sonarr", "SonarrKids", "Sonarr4K", "SonarrAnime", "SonarrLocal"];
+const RADARR_PRIORITY = ["Radarr", "RadarrKids", "Radarr4K", "RadarrLocal"];
+const SONARR_PRIORITY = ["Sonarr", "SonarrKids", "Sonarr4K", "SonarrLocal"];
 
 export async function main(argv?: string[]) {
   const args = parseArgs(
