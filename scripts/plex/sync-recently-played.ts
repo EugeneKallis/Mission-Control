@@ -7,13 +7,15 @@
  * finished watching, avoiding a full library walk every time.
  *
  * Usage:
- *   just script scripts/plex/sync-recently-played.ts              # sync last 1 hour
- *   just script scripts/plex/sync-recently-played.ts -- --hours 2 # sync last 2 hours
- *   just script scripts/plex/sync-recently-played.ts -- --dry-run # print what would sync
+ *   just script scripts/plex/sync-recently-played.ts                          # dry-run (default)
+ *   just script scripts/plex/sync-recently-played.ts -- --no-dry-run          # actually sync
+ *   just script scripts/plex/sync-recently-played.ts -- --hours 2             # last 2 hours
+ *   just script scripts/plex/sync-recently-played.ts -- --binary /usr/bin/plextraktsync
+ *   just script scripts/plex/sync-recently-played.ts -- --timeout 300         # 5 minute timeout
  *
- * Dependencies:
- *   - plextraktsync at /root/.local/bin/plextraktsync
- *   - PLEX_TOKEN and PLEX_URL — set via the admin config page or .env
+ * Env:
+ *   PLEX_TOKEN and PLEX_URL — set via the admin config page or .env
+ *   PLEXTRAKTSYNC_BIN       — path to plextraktsync (overridable via --binary)
  */
 
 import { spawn } from "child_process";
@@ -42,11 +44,25 @@ interface PlexMetadata {
 /** Time window (hours) — how far back to look for recently played. */
 const DEFAULT_HOURS = 1;
 
+/** Spawn timeout in seconds before we SIGTERM the child. */
+const DEFAULT_TIMEOUT_SEC = 120;
+
 /** Plex libtype IDs: 1=movie, 4=episode */
 const PLEX_TYPE_MOVIE = "1";
 const PLEX_TYPE_EPISODE = "4";
 
+/** Default plextraktsync binary path. */
+const DEFAULT_BINARY = process.env.PLEXTRAKTSYNC_BIN || "/root/.local/bin/plextraktsync";
+
 // ── Helpers ──────────────────────────────────────────────────────────────
+
+export function buildPlexTraktSyncArgs(ids: string[]): string[] {
+  const args = ["sync"];
+  for (const id of ids) {
+    args.push("--id", id);
+  }
+  return args;
+}
 
 /**
  * Query Plex's /library/all endpoint with a lastViewedAt filter.
@@ -79,25 +95,31 @@ async function fetchRecentlyPlayed(
 /**
  * Run `plextraktsync sync --id <ids>` for the given rating keys.
  * Returns { exitCode, output }.
+ *
+ * Uses a configurable binary path. Applies a bounded timeout: if the
+ * child does not exit within timeoutSec seconds, it is killed and the
+ * promise resolves with exitCode -1 / SIGTERM.
+ *
+ * Stdout and stderr are forwarded to the parent process in real time
+ * and also accumulated into the returned output string.
  */
-function runPlexTraktSync(
+export function runPlexTraktSync(
+  binary: string,
   ids: string[],
   dryRun: boolean,
+  timeoutSec: number = DEFAULT_TIMEOUT_SEC,
 ): Promise<{ exitCode: number; output: string }> {
+  if (dryRun) {
+    const args = buildPlexTraktSyncArgs(ids);
+    info(`[DRY RUN] Would run: ${binary} ${args.join(" ")}`);
+    return Promise.resolve({ exitCode: 0, output: "" });
+  }
+
+  const args = buildPlexTraktSyncArgs(ids);
+  info(`Running: ${binary} sync --id <${ids.length} ids>`);
+
   return new Promise((resolve) => {
-    const args = ["sync"];
-    for (const id of ids) {
-      args.push("--id", id);
-    }
-    if (dryRun) {
-      info(`[DRY RUN] Would run: plextraktsync ${args.join(" ")}`);
-      resolve({ exitCode: 0, output: "" });
-      return;
-    }
-
-    info(`Running: plextraktsync sync --id <${ids.length} ids>`);
-
-    const proc = spawn("/root/.local/bin/plextraktsync", args, {
+    const proc = spawn(binary, args, {
       stdio: ["ignore", "pipe", "pipe"],
       env: { ...process.env },
     });
@@ -116,12 +138,44 @@ function runPlexTraktSync(
       process.stderr.write(text);
     });
 
+    let settled = false;
+    let killTimer: ReturnType<typeof setTimeout> | null = null;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      warn(`Timeout (${timeoutSec}s) reached — killing ${binary}`);
+      try { proc.kill("SIGTERM"); } catch { /* ignore */ }
+      // Give it 3 seconds to clean up, then SIGKILL.
+      // Keep a reference so close/error can cancel if the process
+      // exits gracefully between SIGTERM and the SIGKILL deadline.
+      killTimer = setTimeout(() => {
+        try { proc.kill("SIGKILL"); } catch { /* ignore */ }
+        killTimer = null;
+      }, 3_000);
+      resolve({ exitCode: -1, output: chunks.join("") });
+    }, timeoutSec * 1000);
+
+    const cancelKillTimer = () => {
+      if (killTimer !== null) {
+        clearTimeout(killTimer);
+        killTimer = null;
+      }
+    };
+
     proc.on("error", (err) => {
+      cancelKillTimer();
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       warn(`Spawn failed: ${err.message}`);
       resolve({ exitCode: 1, output: chunks.join("") });
     });
 
     proc.on("close", (code) => {
+      cancelKillTimer();
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       resolve({ exitCode: code ?? 0, output: chunks.join("") });
     });
   });
@@ -132,8 +186,10 @@ function runPlexTraktSync(
 export async function main(argv?: string[]): Promise<void> {
   const args = parseArgs(
     {
-      dryRun: { type: "boolean", default: false },
+      dryRun: { type: "boolean", default: true },
       hours: { type: "number", default: DEFAULT_HOURS },
+      binary: { type: "string", default: DEFAULT_BINARY },
+      timeout: { type: "number", default: DEFAULT_TIMEOUT_SEC },
     },
     argv,
   );
@@ -153,6 +209,8 @@ export async function main(argv?: string[]): Promise<void> {
 
   info(`Plex: ${cfg.plexUrl}`);
   info(`Window: ${args.hours}h`);
+  info(`Binary: ${args.binary}`);
+  info(`Timeout: ${args.timeout}s`);
 
   // 2. Calculate the timestamp (Unix epoch seconds) for the window
   //    Add a 5-minute overlap for safety so we don't miss items
@@ -232,7 +290,7 @@ export async function main(argv?: string[]): Promise<void> {
 
   // 6. Run PlexTraktSync
   info(`Syncing ${ids.length} items to Trakt…`);
-  const { exitCode } = await runPlexTraktSync(ids, args.dryRun);
+  const { exitCode } = await runPlexTraktSync(args.binary, ids, args.dryRun, args.timeout);
 
   // 7. Summary
   if (exitCode === 0) {

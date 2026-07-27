@@ -61,7 +61,7 @@ describe("sonarr-season-searcher", () => {
     expect(commands[0].body).toEqual({ name: "SeasonSearch", seriesId: 100, seasonNumber: 1 });
   });
 
-  test("LIVE mode (default) triggers SeasonSearch for eligible seasons", async () => {
+  test("LIVE mode (--no-dry-run) triggers SeasonSearch for eligible seasons", async () => {
     const calls = captureFetch({
       "GET /api/v3/series": () => [
         { id: 100, title: "Foo", titleSlug: "foo", path: "/tv/foo", tvdbId: 1, monitored: true },
@@ -73,7 +73,7 @@ describe("sonarr-season-searcher", () => {
     });
 
     const script = await loadScript();
-    await script.main([]); // no --dry-run, so LIVE
+    await script.main(["--no-dry-run"]); // explicitly live
 
     const commands = calls.filter((c) => c.url.endsWith("/api/v3/command"));
     expect(commands.length).toBe(1);

@@ -1,72 +1,73 @@
 #!/usr/bin/env bun
 /**
- * fix-141jav — one-off DB migration setting `source='141jav'` on all
- * scrape rows where source is null.
+ * fix-141jav — one-off DB migration setting source='141jav' on all
+ * scrape rows where source is null or empty.
  *
  * The original Go script backfilled legacy rows that were inserted
- * before the `source` column existed. With the current schema, `source`
- * is non-nullable with a default of `'141jav'`, so this script is a
- * safety check: it counts any nulls and updates them if found.
+ * before the `source` column existed. With the current schema, source
+ * is non-nullable with a default of '141jav', so this script is a
+ * safety check: it counts any nulls/empties and updates them if found.
  *
  * Running it against a healthy DB is a no-op. The script is kept
  * available because the historical migration may still be useful when
  * importing a legacy SQLite dump.
  *
  * Usage:
- *   just script scripts/util/fix-141jav.ts
- *   just script scripts/util/fix-141jav.ts -- --dry-run
+ *   just script scripts/util/fix-141jav.ts                    # dry-run (default)
+ *   just script scripts/util/fix-141jav.ts -- --no-dry-run   # actually update
+ *
+ * Dry-run is the default (safe preview). Pass --no-dry-run to mutate.
  */
 
-import { PrismaClient } from "@prisma/client";
+import { db } from "@/lib/db";
 import { parseArgs } from "../_lib/cli";
 import { banner, error, info, summary } from "../_lib/log";
 
-async function main() {
-  const args = parseArgs({ dryRun: { type: "boolean", default: false } });
+export async function main(argv?: string[]) {
+  const args = parseArgs({ dryRun: { type: "boolean", default: true } }, argv);
   banner("fix-141jav", { dryRun: args.dryRun });
 
-  const prisma = new PrismaClient();
-  try {
-    // Run the count + (optional) update + recount inside a single
-    // transaction so concurrent writers can't sneak rows in between our
-    // `before` and `after` reads. The callback form lets us branch on
-    // the dry-run flag without breaking the array-overload's
-    // PrismaPromise types.
-    const { before, after, updated } = await prisma.$transaction(async (tx) => {
-      const beforeCount = await tx.scrapedItem.count({ where: { source: "" } });
-      if (args.dryRun) {
-        const afterCount = await tx.scrapedItem.count({ where: { source: "" } });
-        return { before: beforeCount, after: afterCount, updated: { count: 0 } };
-      }
-      const result = await tx.scrapedItem.updateMany({
-        where: { source: "" },
-        data: { source: "141jav" },
-      });
-      const afterCount = await tx.scrapedItem.count({ where: { source: "" } });
-      return { before: beforeCount, after: afterCount, updated: { count: result.count } };
-    });
-    info(`Scrape rows with empty source: ${before}`);
+  // Wrap count + update + recount in a transaction so concurrent writers
+  // can't insert new empty-source rows between operations.
+  const { before, updated, after } = await db.$transaction(async (tx) => {
+    const b = await tx.scrapedItem.count({ where: { source: "" } });
 
     if (args.dryRun) {
-      info("Would update to source='141jav' (no changes made)");
-      return;
+      return { before: b, updated: 0, after: b };
     }
 
-    info(`Updated ${updated.count} row(s)`);
-
-    summary({
-      "Before:": before,
-      "Updated:": updated.count,
-      "After:": after,
+    const result = await tx.scrapedItem.updateMany({
+      where: { source: "" },
+      data: { source: "141jav" },
     });
-  } finally {
-    await prisma.$disconnect();
+    const a = await tx.scrapedItem.count({ where: { source: "" } });
+    return { before: b, updated: result.count, after: a };
+  });
+
+  info(`Scrape rows with empty source: ${before}`);
+
+  if (args.dryRun) {
+    info("Would update to source='141jav' (no changes made)");
+    summary({
+      "Before:": String(before),
+      "Mode:": "DRY RUN",
+    });
+    return;
   }
+
+  info(`Updated ${updated} row(s)`);
+  summary({
+    "Before:": String(before),
+    "Updated:": String(updated),
+    "After:": String(after),
+  });
 }
 
 if (import.meta.main) {
-  main().catch((err) => {
-    error("fix-141jav failed", err);
-    process.exit(1);
-  });
+  main()
+    .catch((err) => {
+      error("fix-141jav failed", err);
+      process.exit(1);
+    })
+    .finally(() => db.$disconnect());
 }

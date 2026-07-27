@@ -49,7 +49,7 @@ describe("arr-searcher", () => {
     });
 
     const script = await loadScript();
-    await script.main(["--radarr-only", "--limit", "50"]);
+    await script.main(["--radarr-only", "--limit", "50", "--no-dry-run"]);
 
     // The fixture uses ports 7878 (Radarr), 7880 (RadarrKids), 7879 (Radarr4K).
     // We assert the order in which the script visited each instance.
@@ -71,7 +71,7 @@ describe("arr-searcher", () => {
     });
 
     const script = await loadScript();
-    await script.main(["--radarr-only", "--limit", "50"]);
+    await script.main(["--radarr-only", "--limit", "50", "--no-dry-run"]);
 
     const triggeredIds = calls
       .filter((c) => c.url.endsWith("/api/v3/command"))
@@ -96,7 +96,7 @@ describe("arr-searcher", () => {
     });
 
     const script = await loadScript();
-    await script.main(["--radarr-only", "--limit", "3"]);
+    await script.main(["--radarr-only", "--limit", "3", "--no-dry-run"]);
 
     // 3 instances × 3 triggers = 9.
     const triggers = calls.filter((c) => c.url.endsWith("/api/v3/command"));

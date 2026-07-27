@@ -18,8 +18,12 @@
  *  3. "anime" in Plex keywords
  *  4. TVMaze fallback: isAnime(tvdbId)
  *
+ * Dry-run is the default (safe preview). Pass --no-dry-run to actually add
+ * missing shows and movies to Sonarr/Radarr.
+ *
  * Usage:
- *   just script scripts/plex/plex-to-arr.ts -- --dry-run
+ *   just script scripts/plex/plex-to-arr.ts                       # dry-run (default)
+ *   just script scripts/plex/plex-to-arr.ts -- --no-dry-run       # actually add items
  *   just script scripts/plex/plex-to-arr.ts -- --clean-cache
  *
  * Configuration:
@@ -197,7 +201,7 @@ function findProfileId(profiles: { id: number; name: string }[], name: string): 
 export async function main(argv?: string[]): Promise<void> {
   const args = parseArgs(
     {
-      dryRun: { type: "boolean", default: false },
+      dryRun: { type: "boolean", default: true },
       cleanCache: { type: "boolean", default: false },
     },
     argv,

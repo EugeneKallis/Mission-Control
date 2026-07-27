@@ -4,9 +4,14 @@
  * configured "special" media paths.
  *
  * Walks the special dir, and for each symlink:
- *   - if the target is missing or unreadable → broken link
- *   - if the target is a media file but ffprobe can't read it within
- *     30 s → corrupt
+ *   - if stat() (which follows the link) throws ENOENT → broken link
+ *   - if the link resolves and the target is a media file but ffprobe
+ *     can't read it within the configured timeout → corrupt
+ *
+ * Relative symlink targets are resolved transparently by the OS when
+ * the symlink path itself is passed to stat() or ffprobe.  We always
+ * probe the symlink *path* (not the raw readlink value) so relative
+ * link targets work regardless of the process CWD.
  *
  * Writes a markdown report (default: ./broken-links-<ts>.md). With
  * `--rm` it also removes the broken symlink (never the target).
@@ -19,7 +24,7 @@
  * Requires `ffprobe` on PATH.
  */
 
-import { lstat, readdir, readlink, rm, writeFile } from "fs/promises";
+import { lstat, readdir, readlink, rm, stat, writeFile } from "fs/promises";
 import { join } from "path";
 import { getConfig } from "@/lib/config";
 import { parseArgs } from "../_lib/cli";
@@ -27,12 +32,15 @@ import { banner, error, info, summary, warn } from "../_lib/log";
 
 export const MEDIA_EXTS = new Set([".mkv", ".mp4", ".avi", ".mov", ".wmv", ".flv", ".webm", ".ts", ".m2ts"]);
 
-async function main() {
-  const args = parseArgs({
-    rm: { type: "boolean", default: false },
-    timeout: { type: "number", default: 30 },
-    output: { type: "string", default: "" },
-  });
+export async function main(argv?: string[]) {
+  const args = parseArgs(
+    {
+      rm: { type: "boolean", default: false },
+      timeout: { type: "number", default: 30 },
+      output: { type: "string", default: "" },
+    },
+    argv,
+  );
   banner("Broken-link finder", { dryRun: !args.rm });
 
   const cfg = getConfig();
@@ -100,15 +108,22 @@ async function walk(
     const full = join(dir, e.name);
     if (e.isSymbolicLink()) {
       try {
-        await lstat(full);
-        // lstat succeeded — link resolves. Now check the target.
+        // stat() follows symlinks — throws ENOENT for dangling targets.
+        await stat(full);
+        // Link resolves. Check if the target is media.
         const target = await readlink(full);
         if (await isMedia(target)) {
-          const ok = await ffprobeOk(target, timeoutSec);
+          // Probe the symlink path itself (OS resolves the link transparently),
+          // so relative link targets work regardless of CWD.
+          const ok = await ffprobeOk(full, timeoutSec);
           if (!ok) corrupt.push({ path: full, reason: `ffprobe failed on ${target}` });
         }
-      } catch {
-        broken.push({ path: full, reason: "target missing or unreadable" });
+      } catch (err) {
+        const reason =
+          err && typeof err === "object" && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT"
+            ? "target missing or unreadable"
+            : `stat/ffprobe error: ${(err as Error).message}`;
+        broken.push({ path: full, reason });
       }
     } else if (e.isDirectory()) {
       await walk(full, broken, corrupt, timeoutSec);
@@ -125,7 +140,7 @@ export function isMedia(target: string): boolean {
   return MEDIA_EXTS.has(extOf(target));
 }
 
-async function ffprobeOk(target: string, timeoutSec: number): Promise<boolean> {
+export async function ffprobeOk(target: string, timeoutSec: number): Promise<boolean> {
   const proc = Bun.spawn({
     cmd: ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", target],
     stdout: "pipe",
@@ -140,6 +155,8 @@ async function ffprobeOk(target: string, timeoutSec: number): Promise<boolean> {
     return false;
   }
   if (result !== 0) return false;
+  // Drain stderr to prevent pipe-buffer deadlock on large output.
+  proc.stderr.cancel();
   const text = await new Response(proc.stdout).text();
   return text.trim().length > 0;
 }

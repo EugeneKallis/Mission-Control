@@ -11,10 +11,13 @@
  * Sonarr). Each instance is capped at `--limit` triggers per run so a backlog
  * doesn't get hammered all at once.
  *
+ * Dry-run is the default (safe preview). Pass --no-dry-run to actually
+ * trigger searches.
+ *
  * Usage:
- *   just script scripts/arr/arr-searcher.ts                 # default 50/instance
+ *   just script scripts/arr/arr-searcher.ts                 # dry-run (default 50/instance)
  *   just script scripts/arr/arr-searcher.ts -- --limit 20
- *   just script scripts/arr/arr-searcher.ts -- --dry-run    # log only
+ *   just script scripts/arr/arr-searcher.ts -- --no-dry-run # actually trigger
  *   just script scripts/arr/arr-searcher.ts -- --radarr-only
  *
  * Configuration:
@@ -37,7 +40,7 @@ const SONARR_PRIORITY = ["Sonarr", "SonarrKids", "Sonarr4K", "SonarrLocal"];
 export async function main(argv?: string[]) {
   const args = parseArgs(
     {
-      dryRun: { type: "boolean", default: false },
+      dryRun: { type: "boolean", default: true },
       limit: { type: "number", default: 50 },
       radarrOnly: { type: "boolean", default: false },
       sonarrOnly: { type: "boolean", default: false },

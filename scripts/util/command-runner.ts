@@ -43,12 +43,15 @@ export function buildSshCommand(
   ];
 }
 
-async function main() {
-  const args = parseArgs({
-    host: { type: "string", default: process.env.SSH_HOST || "root@mission-control.local" },
-    key: { type: "string", default: process.env.SSH_KEY || `${process.env.HOME}/.ssh/id_ed25519` },
-    port: { type: "number", default: Number(process.env.SSH_PORT ?? 22) },
-  });
+export async function main(argv?: string[]) {
+  const args = parseArgs(
+    {
+      host: { type: "string", default: process.env.SSH_HOST || "root@mission-control.local" },
+      key: { type: "string", default: process.env.SSH_KEY || `${process.env.HOME}/.ssh/id_ed25519` },
+      port: { type: "number", default: Number(process.env.SSH_PORT ?? 22) },
+    },
+    argv,
+  );
 
   const cmd = args._.join(" ");
   if (!cmd) {

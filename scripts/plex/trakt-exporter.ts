@@ -18,13 +18,16 @@ import { TraktClient } from "@/lib/clients/trakt";
 import { parseArgs } from "../_lib/cli";
 import { banner, error, info, warn } from "../_lib/log";
 
-async function main() {
-  const args = parseArgs({
-    csv: { type: "boolean", default: false },
-    json: { type: "boolean", default: false },
-    year: { type: "number", default: 0 },
-    output: { type: "string", default: "" },
-  });
+export async function main(argv?: string[]) {
+  const args = parseArgs(
+    {
+      csv: { type: "boolean", default: false },
+      json: { type: "boolean", default: false },
+      year: { type: "number", default: 0 },
+      output: { type: "string", default: "" },
+    },
+    argv,
+  );
   banner("Trakt exporter");
 
   const clientId = process.env.TRAKT_CLIENT_ID;

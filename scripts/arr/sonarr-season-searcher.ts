@@ -13,9 +13,12 @@
  * Useful for catch-up after long downtime, since the regular
  * `EpisodeSearch` skips over a season that was searched before.
  *
+ * Dry-run is the default (safe preview). Pass --no-dry-run to actually
+ * trigger SeasonSearch commands.
+ *
  * Usage:
- *   just script scripts/arr/sonarr-season-searcher.ts
- *   just script scripts/arr/sonarr-season-searcher.ts -- --dry-run
+ *   just script scripts/arr/sonarr-season-searcher.ts                    # dry-run (default)
+ *   just script scripts/arr/sonarr-season-searcher.ts -- --no-dry-run    # actually search
  *   just script scripts/arr/sonarr-season-searcher.ts -- --instance Sonarr4K
  *
  * Configuration:
@@ -35,7 +38,7 @@ import type { ArrInstance } from "@/types";
 async function main(argv?: string[]) {
   const args = parseArgs(
     {
-      dryRun: { type: "boolean", default: false },
+      dryRun: { type: "boolean", default: true },
       instance: { type: "string", default: "Sonarr" },
     },
     argv,

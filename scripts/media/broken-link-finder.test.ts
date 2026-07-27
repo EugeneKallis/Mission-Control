@@ -1,14 +1,21 @@
 /**
  * Tests for scripts/media/broken-link-finder.ts
  *
- * The script's only pure logic is file-classification: the extension
- * extractor and the media-extension set. The walk / ffprobe path is
- * I/O and tested implicitly by the run-loop (ffprobe on the live
- * server). We only need to pin the pure helpers so a future edit to
- * the regex or the media set doesn't silently change behavior.
+ * Pure helper tests (extOf, isMedia, MEDIA_EXTS) plus stat-based
+ * symlink detection verification using temp directory fixtures.
+ *
+ * The walk / ffprobe path is I/O and requires ffprobe on PATH; the
+ * run-loop is tested implicitly by the live server. Here we pin the
+ * pure helpers and the core stat-vs-lstat distinction so a future
+ * edit to the regex, media set, or detection strategy doesn't
+ * silently change behavior.
  */
 
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
+import { mkdtempSync, mkdirSync, symlinkSync, writeFileSync, rmSync } from "fs";
+import { join } from "path";
+import { tmpdir } from "os";
+
 import { extOf, isMedia, MEDIA_EXTS } from "./broken-link-finder";
 
 describe("MEDIA_EXTS", () => {
@@ -76,5 +83,73 @@ describe("isMedia", () => {
   test("rejects files with no extension", () => {
     expect(isMedia("")).toBe(false);
     expect(isMedia("/path/to/symlink")).toBe(false);
+  });
+});
+
+describe("symlink detection (stat vs lstat)", () => {
+  const tmpDirs: string[] = [];
+
+  afterEach(() => {
+    for (const d of tmpDirs) {
+      try { rmSync(d, { recursive: true, force: true }); } catch { /* ok */ }
+    }
+    tmpDirs.length = 0;
+  });
+
+  function makeTempDir(): string {
+    const d = mkdtempSync(join(tmpdir(), "bl-test-"));
+    tmpDirs.push(d);
+    return d;
+  }
+
+  test("stat throws ENOENT for dangling symlinks", async () => {
+    const root = makeTempDir();
+    symlinkSync("/nonexistent/target.mkv", join(root, "dangling.mkv"));
+
+    const { stat } = await import("fs/promises");
+    let threw = false;
+    let code: string | undefined;
+    try {
+      await stat(join(root, "dangling.mkv"));
+    } catch (e: any) {
+      threw = true;
+      code = e.code;
+    }
+    expect(threw).toBe(true);
+    expect(code).toBe("ENOENT");
+  });
+
+  test("lstat succeeds for dangling symlinks (link entry exists)", async () => {
+    const root = makeTempDir();
+    symlinkSync("/nonexistent/target.mkv", join(root, "dangling.mkv"));
+
+    const { lstat } = await import("fs/promises");
+    const lst = await lstat(join(root, "dangling.mkv"));
+    expect(lst.isSymbolicLink()).toBe(true);
+  });
+
+  test("stat follows valid relative symlink successfully", async () => {
+    const root = makeTempDir();
+    const targetDir = join(root, "targets");
+    mkdirSync(targetDir, { recursive: true });
+    const realTarget = join(targetDir, "movie.mkv");
+    writeFileSync(realTarget, "not a real video but file exists");
+
+    const linkDir = join(root, "links");
+    mkdirSync(linkDir, { recursive: true });
+    const sym = join(linkDir, "movie.mkv");
+    symlinkSync("../targets/movie.mkv", sym);
+
+    const { stat } = await import("fs/promises");
+    const st = await stat(sym);
+    expect(st.isFile()).toBe(true);
+  });
+
+  test("isMedia correctly classifies symlink path extensions", async () => {
+    // The isMedia helper checks the path string's extension directly.
+    // These are plain string tests — no filesystem needed.
+    expect(isMedia("/some/link/to/video.mkv")).toBe(true);
+    expect(isMedia("/some/link/to/subtitles.srt")).toBe(false);
+    expect(isMedia("/some/link")).toBe(false);
   });
 });

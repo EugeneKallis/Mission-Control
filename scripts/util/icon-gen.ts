@@ -17,10 +17,13 @@
 import { parseArgs } from "../_lib/cli";
 import { banner, error, info } from "../_lib/log";
 
-async function main() {
-  const args = parseArgs({
-    out: { type: "string", default: "public" },
-  });
+export async function main(argv?: string[]) {
+  const args = parseArgs(
+    {
+      out: { type: "string", default: "public" },
+    },
+    argv,
+  );
   banner("icon-gen");
 
   const src = args._[0];

@@ -7,11 +7,12 @@
  * Tags must be synced first because Delay Profiles reference them by
  * tag id; missing tags cause silent drops.
  *
+ * Dry-run is the default (safe preview). Pass --no-dry-run to actually mutate
+ * slave instances.
+ *
  * Usage:
- *   just script scripts/arr/sync-profiles.ts
- *     # interactive: picks master, asks which slaves, walks each profile type
- *   just script scripts/arr/sync-profiles.ts -- --dry-run
- *     # show what would be created, skip the actual writes
+ *   just script scripts/arr/sync-profiles.ts                       # interactive + dry-run
+ *   just script scripts/arr/sync-profiles.ts -- --no-dry-run       # interactive + live
  *
  * Configuration:
  *   - Arr instances are resolved via resolveConfig() from @/lib/config.
@@ -52,7 +53,7 @@ interface DelayProfile {
 }
 
 async function main(argv?: string[]) {
-  const args = parseArgs({ dryRun: { type: "boolean", default: false } }, argv);
+  const args = parseArgs({ dryRun: { type: "boolean", default: true } }, argv);
   banner("Sync profiles", { dryRun: args.dryRun });
 
   const config = await resolveConfig();
@@ -200,11 +201,7 @@ async function syncDelayProfiles(
     const masterLabelById = new Map(masterTags.map((t) => [t.id, t.label] as const));
 
     for (const d of missing) {
-      const newTagIds = d.tags
-        .map((id) => masterLabelById.get(id))
-        .filter((label): label is string => label != null)
-        .map((label) => tagIdByLabel.get(label))
-        .filter((id): id is number => id != null);
+      const newTagIds = remapTagIds(d.tags, masterLabelById, tagIdByLabel);
 
       if (dryRun) {
         info(`  would create delay profile (order=${d.order}, tags=[${newTagIds.join(",")}]) on ${slave.name}`);
@@ -216,7 +213,31 @@ async function syncDelayProfiles(
   }
 }
 
-function delayFingerprint(d: DelayProfile): string {
+/**
+ * Remap tag IDs from a master instance to corresponding IDs on a slave
+ * by looking up each tag's label in the slave's tag map.
+ *
+ * Tags that exist on the master but not on the slave are silently dropped.
+ * Returns an empty array when no tags match.
+ */
+export function remapTagIds(
+  tagIds: number[],
+  masterLabelById: Map<number, string>,
+  tagIdByLabel: Map<string, number>,
+): number[] {
+  return tagIds
+    .map((id) => masterLabelById.get(id))
+    .filter((label): label is string => label != null)
+    .map((label) => tagIdByLabel.get(label))
+    .filter((id): id is number => id != null);
+}
+
+/**
+ * Produce a canonical fingerprint for a delay profile, used to detect
+ * whether two profiles from different instances are semantically
+ * equivalent (same protocol, delays, tags sorted, and enabled state).
+ */
+export function delayFingerprint(d: DelayProfile): string {
   return `${d.enable}|${d.order}|${[...d.tags].sort().join(",")}|${d.preferredProtocol}|${d.usenetDelay}|${d.torrentDelay}`;
 }
 

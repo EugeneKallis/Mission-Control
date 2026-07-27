@@ -19,8 +19,11 @@ import { PlexClient } from "@/lib/clients/plex";
 import { parseArgs } from "../_lib/cli";
 import { banner, error, info } from "../_lib/log";
 
-async function main() {
-  const args = parseArgs({ save: { type: "boolean", default: false } });
+export async function main(argv?: string[]) {
+  const args = parseArgs(
+    { save: { type: "boolean", default: false } },
+    argv,
+  );
   banner("Plex token extractor");
 
   const pin = await PlexClient.createPin();

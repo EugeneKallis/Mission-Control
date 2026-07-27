@@ -5,7 +5,11 @@
 
 import { db } from "@/lib/db";
 
-async function main() {
+export async function main(argv?: string[]) {
+  // No options needed — this is a read-only diagnostic.
+  // Accepting argv keeps the export signature consistent across scripts.
+  void argv;
+
   console.log("=== Energy Prices Diagnostic ===\n");
 
   // Check target rate setting
@@ -16,7 +20,7 @@ async function main() {
   console.log(
     targetRateSetting
       ? `  ${targetRateSetting.value} ¢/kWh`
-      : "  NOT SET\n"
+      : "  NOT SET\n",
   );
 
   // Check last scraped timestamp
@@ -27,7 +31,7 @@ async function main() {
   console.log(
     lastScrapedSetting
       ? `  ${lastScrapedSetting.value}`
-      : "  NEVER SCRAPED"
+      : "  NEVER SCRAPED",
   );
 
   // Count active offers
@@ -56,22 +60,28 @@ async function main() {
 
     console.log("\nTop 10 Cheapest Active Offers:");
     offers.forEach((o, i) => {
+      const rate = o.rate ?? 0;
+      const cost = o.monthlyCost ?? 0;
       console.log(
-        `  ${i + 1}. ${o.supplier}: ${o.rate.toFixed(2)}¢/kWh ($${o.monthlyCost.toFixed(2)}/mo)`
+        `  ${i + 1}. ${o.supplier}: ${rate.toFixed(2)}¢/kWh ($${cost.toFixed(2)}/mo)`,
       );
     });
 
     // Calculate better count if target is set
-    if (targetRateSetting) {
+    if (targetRateSetting?.value) {
       const targetRate = parseFloat(targetRateSetting.value);
-      const betterCount = offers.filter(
-        (o) => o.rate <= targetRate && o.supplier !== "Eversource - Standard Service"
-      ).length;
-      console.log(`\nOffers beating target (${targetRate}¢/kWh): ${betterCount}`);
+      if (!isNaN(targetRate)) {
+        const betterCount = offers.filter(
+          (o) => (o.rate ?? Infinity) <= targetRate && o.supplier !== "Eversource - Standard Service",
+        ).length;
+        console.log(`\nOffers beating target (${targetRate}¢/kWh): ${betterCount}`);
+      }
     }
   }
 }
 
-main()
-  .catch(console.error)
-  .finally(() => db.$disconnect());
+if (import.meta.main) {
+  main()
+    .catch(console.error)
+    .finally(() => db.$disconnect());
+}

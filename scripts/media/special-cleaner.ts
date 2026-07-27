@@ -42,12 +42,15 @@ export function isSmallFile(size: number, cutoff: number): boolean {
   return size > 0 && size < cutoff;
 }
 
-async function main() {
-  const args = parseArgs({
-    delete: { type: "boolean", default: false },
-    threshold: { type: "number", default: DEFAULT_THRESHOLD_MB },
-    workers: { type: "number", default: 4 },
-  });
+export async function main(argv?: string[]) {
+  const args = parseArgs(
+    {
+      delete: { type: "boolean", default: false },
+      threshold: { type: "number", default: DEFAULT_THRESHOLD_MB },
+      workers: { type: "number", default: 4 },
+    },
+    argv,
+  );
   banner("Special cleaner", { dryRun: !args.delete });
 
   const cfg = getConfig();
