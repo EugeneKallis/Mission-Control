@@ -1134,6 +1134,14 @@ object, not Promise-backed). Since it serves both the dashboard page (30s
 poll) and future sidebar badge, this prevents redundant Proxmox API calls
 within the window. The cache is per-process and resets on server restart.
 
+### Dashboard sorting
+
+Expanded node tables sort client-side from their column headers. VM and LXC tables
+sort by ID, name, status, CPU, memory utilization, disk utilization, or uptime;
+storage tables sort by name, type, utilization, or free space. Each node/tab keeps
+its own ascending/descending sort state across status refreshes. Guest tables default
+to ID ascending and storage defaults to name ascending.
+
 ### API surface
 
 | Method | Path | Purpose |

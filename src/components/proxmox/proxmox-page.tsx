@@ -201,7 +201,7 @@ export function ProxmoxPage() {
             )}
             <div className="space-y-3">
               {ep.nodes.map((node) => (
-                <NodeCard key={node.node} node={detailFromApi(node)} />
+                <NodeCard key={node.node} node={detailFromApi(node)} endpointName={ep.name} />
               ))}
             </div>
           </div>

@@ -1,10 +1,119 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { PveNodeDetail, PveGuest, PveStoragePool } from "./proxmox-types";
 
 interface NodeCardProps {
   node: PveNodeDetail;
+  endpointName: string;
+}
+
+type SortDirection = "asc" | "desc";
+type GuestSortKey = "vmid" | "name" | "status" | "cpu" | "memory" | "disk" | "uptime";
+type StorageSortKey = "storage" | "type" | "usage" | "avail";
+
+interface SortState<K extends string> {
+  key: K;
+  direction: SortDirection;
+}
+
+const textCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+
+function ratio(value: number, max: number): number {
+  return max > 0 ? value / max : 0;
+}
+
+function nextSort<K extends string>(current: SortState<K>, key: K): SortState<K> {
+  return {
+    key,
+    direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
+  };
+}
+
+export function sortGuests(guests: PveGuest[], sort: SortState<GuestSortKey>): PveGuest[] {
+  const valueFor = (guest: PveGuest): string | number => {
+    switch (sort.key) {
+      case "vmid": return guest.vmid;
+      case "name": return guest.name;
+      case "status": return guest.status;
+      case "cpu": return guest.cpu;
+      case "memory": return ratio(guest.mem, guest.maxmem);
+      case "disk": return ratio(guest.disk, guest.maxdisk);
+      case "uptime": return guest.uptime;
+    }
+  };
+
+  const multiplier = sort.direction === "asc" ? 1 : -1;
+  return [...guests].sort((a, b) => {
+    const aValue = valueFor(a);
+    const bValue = valueFor(b);
+    const compared = typeof aValue === "string" && typeof bValue === "string"
+      ? textCollator.compare(aValue, bValue)
+      : Number(aValue) - Number(bValue);
+    return compared * multiplier;
+  });
+}
+
+export function sortStorage(pools: PveStoragePool[], sort: SortState<StorageSortKey>): PveStoragePool[] {
+  const valueFor = (pool: PveStoragePool): string | number => {
+    switch (sort.key) {
+      case "storage": return pool.storage;
+      case "type": return pool.type;
+      case "usage": return ratio(pool.used, pool.total);
+      case "avail": return pool.avail;
+    }
+  };
+
+  const multiplier = sort.direction === "asc" ? 1 : -1;
+  return [...pools].sort((a, b) => {
+    const aValue = valueFor(a);
+    const bValue = valueFor(b);
+    const compared = typeof aValue === "string" && typeof bValue === "string"
+      ? textCollator.compare(aValue, bValue)
+      : Number(aValue) - Number(bValue);
+    return compared * multiplier;
+  });
+}
+
+function SortHeader<K extends string>({
+  label,
+  scope,
+  sortKey,
+  sort,
+  onSort,
+  className,
+  align = "left",
+}: {
+  label: string;
+  scope: string;
+  sortKey: K;
+  sort: SortState<K>;
+  onSort: (key: K) => void;
+  className: string;
+  align?: "left" | "right";
+}) {
+  const active = sort.key === sortKey;
+  const nextDirection = active && sort.direction === "asc" ? "descending" : "ascending";
+
+  return (
+    <div
+      role="columnheader"
+      aria-sort={active ? (sort.direction === "asc" ? "ascending" : "descending") : undefined}
+      className={className}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={`flex w-full items-center gap-1 hover:text-white transition-colors ${align === "right" ? "justify-end" : "justify-start"} ${active ? "text-gray-300" : ""}`}
+        aria-label={`Sort by ${label} in ${scope}, ${active ? `currently ${sort.direction === "asc" ? "ascending" : "descending"}` : "not currently sorted"}. Activate to sort ${nextDirection}.`}
+      >
+        <span>{label}</span>
+        <span aria-hidden="true" className="text-[9px]">
+          {active ? (sort.direction === "asc" ? "▲" : "▼") : "↕"}
+        </span>
+      </button>
+    </div>
+  );
 }
 
 function humanBytes(bytes: number): string {
@@ -50,11 +159,11 @@ function ProgressBar({ value, max, color = "bg-blue-500" }: { value: number; max
 
 function GuestRow({ guest }: { guest: PveGuest }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 rounded-lg transition-colors">
-      <span className="text-gray-400 text-xs font-mono w-12 shrink-0">{guest.vmid}</span>
-      <span className="flex-1 text-sm font-medium truncate">{guest.name}</span>
-      <StatusPill status={guest.status} />
-      <div className="w-24 shrink-0 hidden sm:block">
+    <div role="row" className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 rounded-lg transition-colors">
+      <span role="cell" className="text-gray-400 text-xs font-mono w-12 shrink-0">{guest.vmid}</span>
+      <span role="cell" className="flex-1 text-sm font-medium truncate">{guest.name}</span>
+      <span role="cell"><StatusPill status={guest.status} /></span>
+      <div role="cell" className="w-24 shrink-0 hidden sm:block">
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-gray-400 w-8 text-right">{(guest.cpu * 100).toFixed(0)}%</span>
           <div className="flex-1">
@@ -62,45 +171,61 @@ function GuestRow({ guest }: { guest: PveGuest }) {
           </div>
         </div>
       </div>
-      <div className="w-32 shrink-0 hidden md:block">
+      <div role="cell" className="w-32 shrink-0 hidden md:block">
         <div className="flex items-center gap-1.5">
           <ProgressBar value={guest.mem} max={guest.maxmem} color="bg-purple-500" />
           <span className="text-xs text-gray-400 w-20 text-right">{humanBytes(guest.mem)}/{humanBytes(guest.maxmem)}</span>
         </div>
       </div>
-      <div className="w-32 shrink-0 hidden lg:block">
+      <div role="cell" className="w-32 shrink-0 hidden lg:block">
         <div className="flex items-center gap-1.5">
           <ProgressBar value={guest.disk} max={guest.maxdisk} color="bg-emerald-500" />
           <span className="text-xs text-gray-400 w-20 text-right">{humanBytes(guest.disk)}/{humanBytes(guest.maxdisk)}</span>
         </div>
       </div>
-      {guest.status === "running" && (
-        <span className="text-xs text-gray-500 w-14 text-right shrink-0 hidden xl:block">{humanUptime(guest.uptime)}</span>
-      )}
+      <span role="cell" className="text-xs text-gray-500 w-14 text-right shrink-0 hidden xl:block">
+        {guest.status === "running" ? humanUptime(guest.uptime) : "—"}
+      </span>
     </div>
   );
 }
 
 function StorageRow({ pool }: { pool: PveStoragePool }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 rounded-lg transition-colors">
-      <span className="flex-1 text-sm font-medium truncate">{pool.storage}</span>
-      <span className="text-xs text-gray-400 w-16 shrink-0">{pool.type}</span>
-      <div className="w-48 shrink-0">
+    <div role="row" className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 rounded-lg transition-colors">
+      <span role="cell" className="flex-1 text-sm font-medium truncate">{pool.storage}</span>
+      <span role="cell" className="text-xs text-gray-400 w-16 shrink-0">{pool.type}</span>
+      <div role="cell" className="w-48 shrink-0">
         <div className="flex items-center gap-1.5">
           <ProgressBar value={pool.used} max={pool.total} color="bg-emerald-500" />
           <span className="text-xs text-gray-400 w-24 text-right">{humanBytes(pool.used)}/{humanBytes(pool.total)}</span>
         </div>
       </div>
-      <span className="text-xs text-gray-500 w-16 text-right shrink-0">{humanBytes(pool.avail)} free</span>
+      <span role="cell" className="text-xs text-gray-500 w-16 text-right shrink-0">{humanBytes(pool.avail)} free</span>
     </div>
   );
 }
 
-export function NodeCard({ node }: NodeCardProps) {
+export function NodeCard({ node, endpointName }: NodeCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<"vms" | "lxc" | "storage">("lxc");
+  const [vmSort, setVmSort] = useState<SortState<GuestSortKey>>({ key: "vmid", direction: "asc" });
+  const [lxcSort, setLxcSort] = useState<SortState<GuestSortKey>>({ key: "vmid", direction: "asc" });
+  const [storageSort, setStorageSort] = useState<SortState<StorageSortKey>>({ key: "storage", direction: "asc" });
   const n = node.node;
+
+  const sortedVms = useMemo(() => sortGuests(node.vms, vmSort), [node.vms, vmSort]);
+  const sortedContainers = useMemo(() => sortGuests(node.containers, lxcSort), [node.containers, lxcSort]);
+  const sortedStorage = useMemo(() => sortStorage(node.storage, storageSort), [node.storage, storageSort]);
+  const guestSort = tab === "vms" ? vmSort : lxcSort;
+  const tableScope = `${endpointName} ${n.node} ${tab === "lxc" ? "LXC containers" : tab === "vms" ? "VMs" : "storage"}`;
+  const handleGuestSort = (key: GuestSortKey) => {
+    if (tab === "vms") {
+      setVmSort((current) => nextSort(current, key));
+    } else {
+      setLxcSort((current) => nextSort(current, key));
+    }
+  };
 
   const hasVms = node.vms.length > 0;
   const hasLxc = node.containers.length > 0;
@@ -185,43 +310,45 @@ export function NodeCard({ node }: NodeCardProps) {
           </div>
 
           {/* Content */}
-          <div className="px-3 pb-3">
+          <div role="table" aria-label={tableScope} className="px-3 pb-3">
             {/* Column headers */}
             {tab !== "storage" && (
-              <div className="flex items-center gap-3 px-4 py-1.5 text-[10px] text-gray-500 uppercase tracking-wide">
-                <span className="w-12 shrink-0">ID</span>
-                <span className="flex-1">Name</span>
-                <span className="w-16 shrink-0">Status</span>
-                <span className="w-24 shrink-0 hidden sm:block">CPU</span>
-                <span className="w-32 shrink-0 hidden md:block">Memory</span>
-                <span className="w-32 shrink-0 hidden lg:block">Disk</span>
-                <span className="w-14 shrink-0 hidden xl:block">Uptime</span>
+              <div role="row" className="flex items-center gap-3 px-4 py-1.5 text-[10px] text-gray-500 uppercase tracking-wide">
+                <SortHeader label="ID" scope={tableScope} sortKey="vmid" sort={guestSort} onSort={handleGuestSort} className="w-12 shrink-0" />
+                <SortHeader label="Name" scope={tableScope} sortKey="name" sort={guestSort} onSort={handleGuestSort} className="flex-1" />
+                <SortHeader label="Status" scope={tableScope} sortKey="status" sort={guestSort} onSort={handleGuestSort} className="w-16 shrink-0" />
+                <SortHeader label="CPU" scope={tableScope} sortKey="cpu" sort={guestSort} onSort={handleGuestSort} className="w-24 shrink-0 hidden sm:flex" />
+                <SortHeader label="Memory" scope={tableScope} sortKey="memory" sort={guestSort} onSort={handleGuestSort} className="w-32 shrink-0 hidden md:flex" />
+                <SortHeader label="Disk" scope={tableScope} sortKey="disk" sort={guestSort} onSort={handleGuestSort} className="w-32 shrink-0 hidden lg:flex" />
+                <SortHeader label="Uptime" scope={tableScope} sortKey="uptime" sort={guestSort} onSort={handleGuestSort} className="w-14 shrink-0 hidden xl:flex" />
               </div>
             )}
 
             {tab === "lxc" && (
               node.containers.length === 0
                 ? <p className="text-gray-500 text-sm py-4 text-center">No LXC containers on this node</p>
-                : node.containers.map((ct) => <GuestRow key={ct.vmid} guest={{ ...ct, type: "lxc" }} />)
+                : sortedContainers.map((ct) => <GuestRow key={ct.vmid} guest={{ ...ct, type: "lxc" }} />)
             )}
 
             {tab === "vms" && (
               node.vms.length === 0
                 ? <p className="text-gray-500 text-sm py-4 text-center">No VMs on this node</p>
-                : node.vms.map((vm) => <GuestRow key={vm.vmid} guest={{ ...vm, type: "vm" }} />)
+                : sortedVms.map((vm) => <GuestRow key={vm.vmid} guest={{ ...vm, type: "vm" }} />)
             )}
 
             {tab === "storage" && (
               node.storage.length === 0
                 ? <p className="text-gray-500 text-sm py-4 text-center">No storage pools on this node</p>
-                : <div className="px-4 py-1.5">
-                    <div className="flex items-center gap-3 py-1.5 text-[10px] text-gray-500 uppercase tracking-wide">
-                      <span className="flex-1">Name</span>
-                      <span className="w-16 shrink-0">Type</span>
-                      <span className="w-48 shrink-0">Usage</span>
-                      <span className="w-16 shrink-0 text-right">Free</span>
+                : <div className="overflow-x-auto">
+                    <div className="min-w-[36rem] px-4 py-1.5">
+                      <div role="row" className="flex items-center gap-3 py-1.5 text-[10px] text-gray-500 uppercase tracking-wide">
+                        <SortHeader label="Name" scope={tableScope} sortKey="storage" sort={storageSort} onSort={(key) => setStorageSort((current) => nextSort(current, key))} className="flex-1" />
+                        <SortHeader label="Type" scope={tableScope} sortKey="type" sort={storageSort} onSort={(key) => setStorageSort((current) => nextSort(current, key))} className="w-16 shrink-0" />
+                        <SortHeader label="Usage" scope={tableScope} sortKey="usage" sort={storageSort} onSort={(key) => setStorageSort((current) => nextSort(current, key))} className="w-48 shrink-0" />
+                        <SortHeader label="Free" scope={tableScope} sortKey="avail" sort={storageSort} onSort={(key) => setStorageSort((current) => nextSort(current, key))} className="w-16 shrink-0" align="right" />
+                      </div>
+                      {sortedStorage.map((s) => <StorageRow key={s.storage} pool={s} />)}
                     </div>
-                    {node.storage.map((s) => <StorageRow key={s.storage} pool={s} />)}
                   </div>
             )}
           </div>
