@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/toast-provider";
 import { formatSeconds } from "@/lib/format";
+import { HistoryTitleFilters } from "@/components/history/history-title-filters";
 
 interface HistoryItem {
   id: number;
@@ -18,6 +19,11 @@ interface HistoryItem {
   triggeredBy: string;
   macro: { name: string } | null;
   workerTimer: { name: string } | null;
+  agentTask: { name: string } | null;
+}
+
+function historyTitle(item: HistoryItem): string {
+  return item.workerTimer?.name ?? item.macro?.name ?? item.agentTask?.name ?? "Unknown";
 }
 
 function statusPill(status: string) {
@@ -60,7 +66,25 @@ export default function HistoryPage() {
   const [items, setItems] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [clearOpen, setClearOpen] = useState(false);
+  const [selectedTitles, setSelectedTitles] = useState<string[]>([]);
   const { showToast } = useToast();
+
+  const titleFilters = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const item of items) {
+      const title = historyTitle(item);
+      counts.set(title, (counts.get(title) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .map(([title, count]) => ({ title, count }))
+      .sort((a, b) => b.count - a.count || a.title.localeCompare(b.title));
+  }, [items]);
+
+  const filteredItems = useMemo(() => {
+    if (selectedTitles.length === 0) return items;
+    const selected = new Set(selectedTitles);
+    return items.filter((item) => selected.has(historyTitle(item)));
+  }, [items, selectedTitles]);
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -99,6 +123,7 @@ export default function HistoryPage() {
       const res = await fetch("/api/history", { method: "DELETE" });
       if (res.ok) {
         setItems([]);
+        setSelectedTitles([]);
         showToast("History cleared", "success");
       } else {
         showToast("Failed to clear history", "error");
@@ -146,9 +171,22 @@ export default function HistoryPage() {
             <p>No command history yet.</p>
           </div>
         ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto space-y-2" style={{ scrollbarWidth: "thin", scrollbarColor: "#3B4B3F transparent" }}>
-            {items.map((item) => (
-              <Link
+          <>
+            <HistoryTitleFilters
+              filters={titleFilters}
+              selectedTitles={selectedTitles}
+              onSelectedTitlesChange={setSelectedTitles}
+            />
+            <p className="shrink-0 text-xs text-[#849587]" aria-live="polite">
+              Showing {filteredItems.length} of {items.length} {items.length === 1 ? "run" : "runs"}
+            </p>
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-2" style={{ scrollbarWidth: "thin", scrollbarColor: "#3B4B3F transparent" }}>
+              {filteredItems.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-sm text-[#849587]">
+                  No history matches the selected filters.
+                </div>
+              ) : filteredItems.map((item) => (
+                <Link
                 key={item.id}
                 href={`/history/${item.id}`}
                 className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-lg gap-3 transition-all duration-200 hover:scale-[1.005]"
@@ -157,7 +195,7 @@ export default function HistoryPage() {
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="min-w-0">
                     <div className="text-sm font-medium text-[#E5E2E1] truncate">
-                      {item.workerTimer?.name ?? item.macro?.name ?? "Unknown"}
+                      {historyTitle(item)}
                       {item.workerTimer && (
                         <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-none" style={{ background: "rgba(0, 255, 156, 0.1)", color: "#00FF9C" }}>
                           timer
@@ -175,9 +213,10 @@ export default function HistoryPage() {
                   <span>{formatDuration(item.startTime, item.endTime)}</span>
                   <span className="material-symbols-outlined text-sm">chevron_right</span>
                 </div>
-              </Link>
-            ))}
-          </div>
+                </Link>
+              ))}
+            </div>
+          </>
         )}
       </div>
 

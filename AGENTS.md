@@ -815,7 +815,9 @@ Phase 9 makes the history tab a true database-driven view:
   single-row `UPDATE` helper. It only touches the `output` column;
   `status` and `endTime` remain the runner's responsibility at the end.
 - `/history` polls `/api/history` every 5 s (skipped while
-  `document.hidden`, refreshed on `visibilitychange`).
+  `document.hidden`, refreshed on `visibilitychange`). The list also derives
+  checkbox filters from the displayed history titles, with per-title counts and
+  a Clear all filters control; filtering is client-side.
 - `/history/[id]` polls `/api/history/:id` every **2 s** while
   `status === "running"` and drops to 5 s once the row finalises. The
   terminal pane is rendered from `item.output` directly — no SSE.

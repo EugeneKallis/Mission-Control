@@ -17,6 +17,11 @@ interface HistoryDetail {
   triggeredBy: string;
   macro: { name: string } | null;
   workerTimer: { name: string } | null;
+  agentTask: { name: string } | null;
+}
+
+function historyTitle(item: HistoryDetail): string {
+  return item.workerTimer?.name ?? item.macro?.name ?? item.agentTask?.name ?? "Unknown";
 }
 
 function formatTime(iso: string): string {
@@ -136,7 +141,7 @@ export default function HistoryDetailPage() {
             <>
               <div className="flex items-center gap-3 flex-wrap mb-1">
                 <h1 className="text-2xl font-bold text-[#E5E2E1] tracking-tight" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
-                  Log: {item.workerTimer?.name ?? item.macro?.name ?? "Unknown"}
+                  Log: {historyTitle(item)}
                   {item.workerTimer && (
                     <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-none" style={{ background: "rgba(0, 255, 156, 0.1)", color: "#00FF9C" }}>
                       timer
