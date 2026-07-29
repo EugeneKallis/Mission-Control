@@ -879,10 +879,10 @@ Port from `cmd/`:
   (Radarr→RadarrKids→Radarr4K, Sonarr→SonarrKids→Sonarr4K). Radarr: movies with
   `status=="released" && !hasFile && monitored`. Sonarr: `/api/v3/wanted/missing`
   paginated (50/page). Trigger `MoviesSearch`/`EpisodeSearch`. Flags: `--limit` (per
-  type), `--dry-run`.
+  type), `--run`.
 - **radarr_sync** → `radarr-sync.ts`: delete 4K Radarr movies not in main (by TMDB id),
-  `deleteFiles=true`. `--dry-run`.
-- **sonarr_sync** → `sonarr-sync.ts`: same for Sonarr4K vs Sonarr (TVDB id). `--dry-run`.
+  `deleteFiles=true`. `--run`.
+- **sonarr_sync** → `sonarr-sync.ts`: same for Sonarr4K vs Sonarr (TVDB id). `--run`.
 - **sonarr_season_searcher** → `sonarr-season-searcher.ts`: for fully-aired seasons with
   no downloaded episodes, trigger `SeasonSearch`.
 - **sync_profiles** → `sync-profiles.ts`: interactive (prompt) sync of Tags, Quality
@@ -892,11 +892,11 @@ Port from `cmd/`:
 ### 18.B Media management scripts (`scripts/media/`)
 Port from `cmd/`:
 - **debrid_cleaner** → `debrid-cleaner.ts`: find rclone/debrid dirs not referenced by any
-  media symlink → delete. `--dry-run`, `--media-path`, `--media-base-path`.
+  media symlink → delete. `--run`, `--media-path`, `--media-base-path`.
 - **special_cleaner** → `special-cleaner.ts`: delete small files (<75 MB), empty dirs in
-  "special" paths; worker pool. `--delete`, `--workers`.
+  "special" paths; worker pool. `--run`, `--workers`.
 - **broken_link_finder** → `broken-link-finder.ts`: find broken symlinks + corrupt media
-  (via `ffprobe` 30s timeout) in special dirs; worker pool; write report file; `--rm`.
+  (via `ffprobe` 30s timeout) in special dirs; worker pool; write report file; `--run`.
 
 ### 18.C Torrent / download scripts (`scripts/torrent/` or `src/workers/`)
 - **magnet_bridge** → `src/workers/magnet-bridge.ts` (long-running) + optional API mode:
@@ -914,7 +914,7 @@ Port from `cmd/`:
 - **trakt_exporter** → `trakt-exporter.ts`: device-code flow, export watched shows as
   txt/CSV/JSON. `--csv`, `--json`, `--year`. Env: `TRAKT_CLIENT_ID/SECRET`.
 - **plex_to_arr.py** → `scripts/plex/plex-to-arr.ts`: the Python script — syncs Plex CW +
-  Watchlist to Sonarr/Radarr, auto-detect anime, add+search. `--dry-run`,
+  Watchlist to Sonarr/Radarr, auto-detect anime, add+search. `--run`,
   `--clean-cache`.
 
 ### 18.E Utility scripts (`scripts/util/`)
@@ -928,11 +928,11 @@ Port from `cmd/`:
 - **github_release.py** → `scripts/util/github-release.ts`: poll GitHub for latest
   releases of tracked repos within a time window (arg: hours).
 - **cleanup_orphans.py / .sh** → `scripts/media/cleanup-orphans.ts`: find/delete
-  orphaned debrid files with no media symlink. `--run`.
+  orphaned debrid files with no media symlink. `--run` (now the canonical flag).
 - **clean_broken_links.sh / clean_special.sh / find_debrid_symlinks.sh /
   find_nzbdav_symlinks.sh** → `scripts/media/*.ts`: lightweight alternatives to the Go
   agents (broken links, <75MB symlinks, debrid/nzbdav symlink finders). All dry-run by
-  default, `--delete`/`--run` to act.
+  default, `--run` to act.
 
 ### 18.F Justfile
 Add per-script just recipes or keep the generic `just script scripts/foo.ts` and

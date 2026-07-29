@@ -6,12 +6,17 @@
  * to 192, 180, 32, 16, and a multi-resolution .ico. Output goes to
  * public/ by default so the existing manifest picks them up.
  *
- * Usage:
- *   just script scripts/util/icon-gen.ts -- ./my-logo.png
- *   just script scripts/util/icon-gen.ts -- ./logo.png --out public
+ * Dry-run by default (safe preview). Pass --run to write files.
+ * In preview mode, lists the five output targets without importing
+ * sharp or touching the filesystem.
  *
- * Requires the `sharp` package at runtime; if missing the script
- * suggests the install command.
+ * Usage:
+ *   just script scripts/util/icon-gen.ts -- ./my-logo.png            # dry-run (preview)
+ *   just script scripts/util/icon-gen.ts -- ./logo.png --run         # actually write
+ *   just script scripts/util/icon-gen.ts -- ./logo.png --run --out custom/public
+ *
+ * Requires the `sharp` package at runtime when --run is given; if missing
+ * the script suggests the install command.
  */
 
 import { parseArgs } from "../_lib/cli";
@@ -20,16 +25,33 @@ import { banner, error, info } from "../_lib/log";
 export async function main(argv?: string[]) {
   const args = parseArgs(
     {
+      run: { type: "boolean", default: false },
       out: { type: "string", default: "public" },
     },
     argv,
   );
-  banner("icon-gen");
+  banner("icon-gen", { dryRun: !args.run });
 
   const src = args._[0];
   if (!src) {
     error("Usage: icon-gen <source.png> [--out public]");
     process.exit(1);
+  }
+
+  // Preview mode: list output targets without importing sharp.
+  if (!args.run) {
+    const targets: { name: string; size: number }[] = [
+      { name: "icon-192.png", size: 192 },
+      { name: "apple-touch-icon.png", size: 180 },
+      { name: "favicon-32x32.png", size: 32 },
+      { name: "favicon-16x16.png", size: 16 },
+      { name: "favicon.ico", size: 48 },
+    ];
+    info("Would generate from " + src + ":");
+    for (const t of targets) {
+      info(`  ${args.out}/${t.name} (${t.size}×${t.size})`);
+    }
+    return;
   }
 
   let sharp: typeof import("sharp");

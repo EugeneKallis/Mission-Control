@@ -11,13 +11,13 @@
  * Sonarr). Each instance is capped at `--limit` triggers per run so a backlog
  * doesn't get hammered all at once.
  *
- * Dry-run is the default (safe preview). Pass --no-dry-run to actually
- * trigger searches.
+ * Dry-run is the default (safe preview). Pass --run to actually trigger
+ * searches.
  *
  * Usage:
  *   just script scripts/arr/arr-searcher.ts                 # dry-run (default 50/instance)
  *   just script scripts/arr/arr-searcher.ts -- --limit 20
- *   just script scripts/arr/arr-searcher.ts -- --no-dry-run # actually trigger
+ *   just script scripts/arr/arr-searcher.ts -- --run        # actually trigger
  *   just script scripts/arr/arr-searcher.ts -- --radarr-only
  *
  * Configuration:
@@ -36,30 +36,33 @@ import type { ArrInstance } from "@/types";
 
 const RADARR_PRIORITY = ["Radarr", "RadarrKids", "Radarr4K", "RadarrLocal"];
 const SONARR_PRIORITY = ["Sonarr", "SonarrKids", "Sonarr4K", "SonarrLocal"];
+const EXCLUDED_INSTANCES = new Set(["RadarrAnime", "SonarrAnime"]);
 
 export async function main(argv?: string[]) {
   const args = parseArgs(
     {
-      dryRun: { type: "boolean", default: true },
+      run: { type: "boolean", default: false },
       limit: { type: "number", default: 50 },
       radarrOnly: { type: "boolean", default: false },
       sonarrOnly: { type: "boolean", default: false },
     },
     argv,
   );
+  const dryRun = !args.run;
 
-  banner("Arr searcher", { dryRun: args.dryRun });
+  banner("Arr searcher", { dryRun });
 
   const config = await resolveConfig();
-  const radarr = sortByPriority(config.arrInstances.filter((i) => i.type === "radarr"), RADARR_PRIORITY);
-  const sonarr = sortByPriority(config.arrInstances.filter((i) => i.type === "sonarr"), SONARR_PRIORITY);
+  const searchableInstances = config.arrInstances.filter((i) => !EXCLUDED_INSTANCES.has(i.name));
+  const radarr = sortByPriority(searchableInstances.filter((i) => i.type === "radarr"), RADARR_PRIORITY);
+  const sonarr = sortByPriority(searchableInstances.filter((i) => i.type === "sonarr"), SONARR_PRIORITY);
 
   let totalTriggered = 0;
   let totalSkipped = 0;
 
   if (!args.sonarrOnly) {
     for (const inst of radarr) {
-      const result = await searchRadarr(inst, args.limit, args.dryRun);
+      const result = await searchRadarr(inst, args.limit, dryRun);
       totalTriggered += result.triggered;
       totalSkipped += result.skipped;
     }
@@ -67,7 +70,7 @@ export async function main(argv?: string[]) {
 
   if (!args.radarrOnly) {
     for (const inst of sonarr) {
-      const result = await searchSonarr(inst, args.limit, args.dryRun);
+      const result = await searchSonarr(inst, args.limit, dryRun);
       totalTriggered += result.triggered;
       totalSkipped += result.skipped;
     }
@@ -76,7 +79,7 @@ export async function main(argv?: string[]) {
   summary({
     "Triggered:": totalTriggered,
     "Skipped (already triggered / filtered):": totalSkipped,
-    "Mode:": args.dryRun ? "DRY RUN" : "LIVE",
+    "Mode:": dryRun ? "DRY RUN" : "LIVE",
   });
 }
 

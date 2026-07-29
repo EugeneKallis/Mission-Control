@@ -6,12 +6,11 @@
  * Radarr is a stray (we don't keep 4K copies of movies we don't have in 1080p).
  * Deletes with `deleteFiles=true` so the underlying files go too.
  *
- * Defaults to dry-run. Pass `--no-dry-run` to actually delete.
+ * Defaults to dry-run. Pass `--run` to actually delete.
  *
  * Usage:
  *   just script scripts/arr/radarr-sync.ts                       # dry run
- *   just script scripts/arr/radarr-sync.ts -- --no-dry-run       # actually delete
- *   just script scripts/arr/radarr-sync.ts -- --dry-run=false    # equivalent
+ *   just script scripts/arr/radarr-sync.ts -- --run       # actually delete
  *
  * Configuration:
  *   - Arr instances are resolved via resolveConfig() from @/lib/config.
@@ -29,8 +28,9 @@ const MAIN_NAME = "Radarr";
 const TARGET_NAME = "Radarr4K";
 
 async function main(argv?: string[]) {
-  const args = parseArgs({ dryRun: { type: "boolean", default: true } }, argv);
-  banner("Radarr 4K sync", { dryRun: args.dryRun });
+  const args = parseArgs({ run: { type: "boolean", default: false } }, argv);
+  const dryRun = !args.run;
+  banner("Radarr 4K sync", { dryRun });
 
   const config = await resolveConfig();
   const main = config.arrInstances.find((i) => i.name === MAIN_NAME);
@@ -68,7 +68,7 @@ async function main(argv?: string[]) {
 
   let removed = 0;
   for (const m of orphans) {
-    if (args.dryRun) {
+    if (dryRun) {
       info(`  would delete: [${m.id}] ${m.title} (tmdb=${m.tmdbId ?? "n/a"})`);
       continue;
     }
@@ -83,7 +83,7 @@ async function main(argv?: string[]) {
   summary({
     "Orphans found:": orphans.length,
     "Deleted:": removed,
-    "Mode:": args.dryRun ? "DRY RUN" : "LIVE",
+    "Mode:": dryRun ? "DRY RUN" : "LIVE",
   });
 }
 

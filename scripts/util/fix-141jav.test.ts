@@ -39,11 +39,11 @@ describe("fix-141jav", () => {
     }));
 
     const script = await loadScript();
-    const result = await script.main(["--dry-run"]);
+    const result = await script.main([]);
     expect(result).toBeUndefined();
   });
 
-  test("live mode (--no-dry-run) calls updateMany within transaction", async () => {
+  test("live mode (--run) calls updateMany within transaction", async () => {
     let capturedWhere: unknown = null;
     let capturedData: unknown = null;
 
@@ -66,7 +66,7 @@ describe("fix-141jav", () => {
     }));
 
     const script = await loadScript();
-    const result = await script.main(["--no-dry-run"]);
+    const result = await script.main(["--run"]);
     expect(result).toBeUndefined();
     expect(capturedWhere).toEqual({ source: "" });
     expect(capturedData).toEqual({ source: "141jav" });
@@ -93,7 +93,7 @@ describe("fix-141jav", () => {
     }));
 
     const script = await loadScript();
-    const result = await script.main(["--no-dry-run"]);
+    const result = await script.main(["--run"]);
     expect(result).toBeUndefined();
     expect(updateCalled).toBe(true);
   });
@@ -123,6 +123,6 @@ describe("fix-141jav", () => {
     const script = await loadScript();
     // We can't easily capture summary output, but we can verify
     // the transaction callback is called and doesn't throw.
-    await expect(script.main(["--no-dry-run"])).resolves.toBeUndefined();
+    await expect(script.main(["--run"])).resolves.toBeUndefined();
   });
 });

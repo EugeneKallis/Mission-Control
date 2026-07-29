@@ -8,7 +8,7 @@
  *
  * Usage:
  *   just script scripts/plex/sync-recently-played.ts                          # dry-run (default)
- *   just script scripts/plex/sync-recently-played.ts -- --no-dry-run          # actually sync
+ *   just script scripts/plex/sync-recently-played.ts -- --run                 # actually sync
  *   just script scripts/plex/sync-recently-played.ts -- --hours 2             # last 2 hours
  *   just script scripts/plex/sync-recently-played.ts -- --binary /usr/bin/plextraktsync
  *   just script scripts/plex/sync-recently-played.ts -- --timeout 300         # 5 minute timeout
@@ -186,15 +186,16 @@ export function runPlexTraktSync(
 export async function main(argv?: string[]): Promise<void> {
   const args = parseArgs(
     {
-      dryRun: { type: "boolean", default: true },
+      run: { type: "boolean", default: false },
       hours: { type: "number", default: DEFAULT_HOURS },
       binary: { type: "string", default: DEFAULT_BINARY },
       timeout: { type: "number", default: DEFAULT_TIMEOUT_SEC },
     },
     argv,
   );
+  const dryRun = !args.run;
 
-  banner("Plex Recently-Played Sync", { dryRun: args.dryRun });
+  banner("Plex Recently-Played Sync", { dryRun });
 
   // 1. Load config (env vars + DB fallback via admin config page)
   const cfg = await resolveConfig();
@@ -290,7 +291,7 @@ export async function main(argv?: string[]): Promise<void> {
 
   // 6. Run PlexTraktSync
   info(`Syncing ${ids.length} items to Trakt…`);
-  const { exitCode } = await runPlexTraktSync(args.binary, ids, args.dryRun, args.timeout);
+  const { exitCode } = await runPlexTraktSync(args.binary, ids, dryRun, args.timeout);
 
   // 7. Summary
   if (exitCode === 0) {
@@ -299,7 +300,7 @@ export async function main(argv?: string[]): Promise<void> {
       "Items synced": String(ids.length),
       "Shows": String(showTitles.length),
       "Movies": String(movieTitles.length),
-      "Status": args.dryRun ? "DRY RUN" : "Success",
+      "Status": dryRun ? "DRY RUN" : "Success",
     });
   } else {
     error(`PlexTraktSync exited with code ${exitCode}`);

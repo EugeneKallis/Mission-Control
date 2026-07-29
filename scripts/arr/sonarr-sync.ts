@@ -5,11 +5,11 @@
  * Compares by TVDB id. Anything in Sonarr4K whose TVDB id is missing from main
  * Sonarr is a stray. Deletes with `deleteFiles=true`.
  *
- * Defaults to dry-run. Pass `--no-dry-run` to actually delete.
+ * Defaults to dry-run. Pass `--run` to actually delete.
  *
  * Usage:
  *   just script scripts/arr/sonarr-sync.ts                       # dry run
- *   just script scripts/arr/sonarr-sync.ts -- --no-dry-run       # actually delete
+ *   just script scripts/arr/sonarr-sync.ts -- --run       # actually delete
  *
  * Configuration:
  *   - Arr instances are resolved via resolveConfig() from @/lib/config.
@@ -27,8 +27,9 @@ const MAIN_NAME = "Sonarr";
 const TARGET_NAME = "Sonarr4K";
 
 async function main(argv?: string[]) {
-  const args = parseArgs({ dryRun: { type: "boolean", default: true } }, argv);
-  banner("Sonarr 4K sync", { dryRun: args.dryRun });
+  const args = parseArgs({ run: { type: "boolean", default: false } }, argv);
+  const dryRun = !args.run;
+  banner("Sonarr 4K sync", { dryRun });
 
   const config = await resolveConfig();
   const main = config.arrInstances.find((i) => i.name === MAIN_NAME);
@@ -68,7 +69,7 @@ async function main(argv?: string[]) {
 
   let removed = 0;
   for (const s of orphans) {
-    if (args.dryRun) {
+    if (dryRun) {
       info(`  would delete: [${s.id}] ${s.title} (tvdb=${s.tvdbId ?? "n/a"})`);
       continue;
     }
@@ -83,7 +84,7 @@ async function main(argv?: string[]) {
   summary({
     "Orphans found:": orphans.length,
     "Deleted:": removed,
-    "Mode:": args.dryRun ? "DRY RUN" : "LIVE",
+    "Mode:": dryRun ? "DRY RUN" : "LIVE",
   });
 }
 

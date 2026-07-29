@@ -13,12 +13,12 @@
  * probe the symlink *path* (not the raw readlink value) so relative
  * link targets work regardless of the process CWD.
  *
- * Writes a markdown report (default: ./broken-links-<ts>.md). With
- * `--rm` it also removes the broken symlink (never the target).
+ * Writes a markdown report (default: ./broken-links-<ts>.md). Pass
+ * `--run` to also remove broken symlinks (never the target).
  *
  * Usage:
- *   just script scripts/media/broken-link-finder.ts              # report only
- *   just script scripts/media/broken-link-finder.ts -- --rm      # also remove
+ *   just script scripts/media/broken-link-finder.ts              # report only (dry-run)
+ *   just script scripts/media/broken-link-finder.ts -- --run     # also remove
  *   just script scripts/media/broken-link-finder.ts -- --timeout 60
  *
  * Requires `ffprobe` on PATH.
@@ -35,13 +35,13 @@ export const MEDIA_EXTS = new Set([".mkv", ".mp4", ".avi", ".mov", ".wmv", ".flv
 export async function main(argv?: string[]) {
   const args = parseArgs(
     {
-      rm: { type: "boolean", default: false },
+      run: { type: "boolean", default: false },
       timeout: { type: "number", default: 30 },
       output: { type: "string", default: "" },
     },
     argv,
   );
-  banner("Broken-link finder", { dryRun: !args.rm });
+  banner("Broken-link finder", { dryRun: !args.run });
 
   const cfg = getConfig();
   const root = join(cfg.mediaBasePath, "special");
@@ -73,7 +73,7 @@ export async function main(argv?: string[]) {
   await writeFile(reportPath, lines.join("\n"), "utf8");
   info(`Report written to ${reportPath}`);
 
-  if (args.rm) {
+  if (args.run) {
     for (const b of broken) {
       try {
         await rm(b.path, { force: true });
@@ -88,7 +88,7 @@ export async function main(argv?: string[]) {
     "Broken links:": broken.length,
     "Corrupt media:": corrupt.length,
     "Report:": reportPath,
-    "Mode:": args.rm ? "LIVE" : "REPORT ONLY",
+    "Mode:": args.run ? "LIVE" : "REPORT ONLY",
   });
 }
 

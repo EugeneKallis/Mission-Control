@@ -53,7 +53,7 @@ describe("sonarr-season-searcher", () => {
     });
 
     const script = await loadScript();
-    await script.main(["--no-dry-run"]);
+    await script.main(["--run"]);
 
     // Exactly one SeasonSearch, for series 100 season 1.
     const commands = calls.filter((c) => c.url.endsWith("/api/v3/command"));
@@ -61,7 +61,7 @@ describe("sonarr-season-searcher", () => {
     expect(commands[0].body).toEqual({ name: "SeasonSearch", seriesId: 100, seasonNumber: 1 });
   });
 
-  test("LIVE mode (--no-dry-run) triggers SeasonSearch for eligible seasons", async () => {
+  test("LIVE mode (--run) triggers SeasonSearch for eligible seasons", async () => {
     const calls = captureFetch({
       "GET /api/v3/series": () => [
         { id: 100, title: "Foo", titleSlug: "foo", path: "/tv/foo", tvdbId: 1, monitored: true },
@@ -73,13 +73,13 @@ describe("sonarr-season-searcher", () => {
     });
 
     const script = await loadScript();
-    await script.main(["--no-dry-run"]); // explicitly live
+    await script.main(["--run"]); // explicitly live
 
     const commands = calls.filter((c) => c.url.endsWith("/api/v3/command"));
     expect(commands.length).toBe(1);
   });
 
-  test("--dry-run skips SeasonSearch commands and only logs", async () => {
+  test("dry-run (no --run) skips SeasonSearch commands and only logs", async () => {
     const calls = captureFetch({
       "GET /api/v3/series": () => [
         { id: 100, title: "Foo", titleSlug: "foo", path: "/tv/foo", tvdbId: 1, monitored: true },
@@ -94,7 +94,7 @@ describe("sonarr-season-searcher", () => {
     });
 
     const script = await loadScript();
-    await script.main(["--dry-run"]);
+    await script.main([]);
 
     const commands = calls.filter((c) => c.url.endsWith("/api/v3/command"));
     expect(commands.length).toBe(0);

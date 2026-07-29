@@ -17,8 +17,9 @@ These scripts use `tsconfig.scripts.json` for type-checking, separate from the N
 ## Conventions
 
 - **Safe defaults.** Every mutating script defaults to dry-run mode. Pass
-  `--no-dry-run` (or the script-specific `--delete` / `--rm` flag) to actually
-  perform mutations. The banner always shows whether the run is LIVE or dry-run.
+  `--run` to actually perform mutations. The banner always shows whether the
+  run is LIVE or dry-run. The only exception is `command-runner.ts`, which is
+  intentionally always-live (it is a passthrough SSH executor).
 
 - **Export `main(argv?)`.** Scripts export `async function main(argv?: string[])`
   so unit tests can drive the entry point with controlled arguments. An

@@ -95,7 +95,7 @@ describe("plex-to-arr", () => {
     const origLog = console.log;
     console.log = () => {};
     try {
-      await main(["--dry-run"]);
+      await main([]);
     } finally {
       console.log = origLog;
     }
@@ -124,7 +124,7 @@ describe("plex-to-arr", () => {
     const origLog = console.log;
     console.log = () => {};
     try {
-      await main(["--dry-run"]);
+      await main([]);
     } finally {
       console.log = origLog;
     }
@@ -156,7 +156,7 @@ describe("plex-to-arr", () => {
     const origLog = console.log;
     console.log = () => {};
     try {
-      await main(["--dry-run"]);
+      await main([]);
     } finally {
       console.log = origLog;
     }

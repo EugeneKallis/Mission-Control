@@ -45,13 +45,13 @@ export function isSmallFile(size: number, cutoff: number): boolean {
 export async function main(argv?: string[]) {
   const args = parseArgs(
     {
-      delete: { type: "boolean", default: false },
+      run: { type: "boolean", default: false },
       threshold: { type: "number", default: DEFAULT_THRESHOLD_MB },
       workers: { type: "number", default: 4 },
     },
     argv,
   );
-  banner("Special cleaner", { dryRun: !args.delete });
+  banner("Special cleaner", { dryRun: !args.run });
 
   const cfg = getConfig();
   const root = join(cfg.mediaBasePath, "special");
@@ -82,7 +82,7 @@ export async function main(argv?: string[]) {
         try {
           const st = await lstat(path);
           if (!st.isFile()) continue;
-          if (args.delete) {
+          if (args.run) {
             await rm(path, { force: true });
             removed++;
             bytesReclaimed += st.size;
@@ -105,7 +105,7 @@ export async function main(argv?: string[]) {
     warn(`Empty-dir walk failed: ${(err as Error).message}`);
   }
   for (const dir of emptyDirs) {
-    if (args.delete) {
+    if (args.run) {
       try {
         await rm(dir, { recursive: true, force: true });
       } catch (err) {
@@ -121,7 +121,7 @@ export async function main(argv?: string[]) {
     "Empty dirs:": emptyDirs.length,
     "Removed:": removed,
     "Bytes reclaimed:": humanBytes(bytesReclaimed),
-    "Mode:": args.delete ? "LIVE" : "DRY RUN",
+    "Mode:": args.run ? "LIVE" : "DRY RUN",
   });
 }
 

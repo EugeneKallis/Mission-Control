@@ -24,15 +24,16 @@ import { parseArgs } from "../_lib/cli";
 import { banner, error, info, summary } from "../_lib/log";
 
 export async function main(argv?: string[]) {
-  const args = parseArgs({ dryRun: { type: "boolean", default: true } }, argv);
-  banner("fix-141jav", { dryRun: args.dryRun });
+  const args = parseArgs({ run: { type: "boolean", default: false } }, argv);
+  const dryRun = !args.run;
+  banner("fix-141jav", { dryRun });
 
   // Wrap count + update + recount in a transaction so concurrent writers
   // can't insert new empty-source rows between operations.
   const { before, updated, after } = await db.$transaction(async (tx) => {
     const b = await tx.scrapedItem.count({ where: { source: "" } });
 
-    if (args.dryRun) {
+    if (dryRun) {
       return { before: b, updated: 0, after: b };
     }
 
@@ -46,7 +47,7 @@ export async function main(argv?: string[]) {
 
   info(`Scrape rows with empty source: ${before}`);
 
-  if (args.dryRun) {
+  if (dryRun) {
     info("Would update to source='141jav' (no changes made)");
     summary({
       "Before:": String(before),

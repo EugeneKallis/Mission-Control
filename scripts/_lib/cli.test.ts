@@ -8,7 +8,7 @@ import { parseArgs } from "./cli";
 
 describe("parseArgs", () => {
   const schema = {
-    dryRun: { type: "boolean" as const, default: false },
+    run: { type: "boolean" as const, default: false },
     limit: { type: "number" as const, default: 50 },
     workers: { type: "number" as const, default: 4 },
     watchDir: { type: "string" as const, alias: "w" },
@@ -16,7 +16,7 @@ describe("parseArgs", () => {
 
   test("applies defaults when no flags are passed", () => {
     const args = parseArgs(schema, []);
-    expect(args.dryRun).toBe(false);
+    expect(args.run).toBe(false);
     expect(args.limit).toBe(50);
     expect(args.workers).toBe(4);
     expect(args.watchDir).toBe("");
@@ -30,15 +30,15 @@ describe("parseArgs", () => {
   });
 
   test("parses --key=value form", () => {
-    const args = parseArgs(schema, ["--limit=25", "--dry-run=true"]);
+    const args = parseArgs(schema, ["--limit=25", "--run=true"]);
     expect(args.limit).toBe(25);
-    expect(args.dryRun).toBe(true);
+    expect(args.run).toBe(true);
   });
 
   test("parses short aliases", () => {
-    const args = parseArgs(schema, ["-w", "/var/watch", "--dry-run"]);
+    const args = parseArgs(schema, ["-w", "/var/watch", "--run"]);
     expect(args.watchDir).toBe("/var/watch");
-    expect(args.dryRun).toBe(true);
+    expect(args.run).toBe(true);
   });
 
   test("captures positional args", () => {
@@ -60,21 +60,21 @@ describe("parseArgs", () => {
   });
 
   test("accepts boolean true/false/1/0", () => {
-    expect(parseArgs(schema, ["--dry-run=true"]).dryRun).toBe(true);
-    expect(parseArgs(schema, ["--dry-run=false"]).dryRun).toBe(false);
-    expect(parseArgs(schema, ["--dry-run=1"]).dryRun).toBe(true);
-    expect(parseArgs(schema, ["--dry-run=0"]).dryRun).toBe(false);
+    expect(parseArgs(schema, ["--run=true"]).run).toBe(true);
+    expect(parseArgs(schema, ["--run=false"]).run).toBe(false);
+    expect(parseArgs(schema, ["--run=1"]).run).toBe(true);
+    expect(parseArgs(schema, ["--run=0"]).run).toBe(false);
   });
 
   test("--no-flag negates a boolean flag", () => {
-    expect(parseArgs(schema, ["--no-dry-run"]).dryRun).toBe(false);
-    expect(parseArgs(schema, ["--no-dry-run", "--limit", "3"]).dryRun).toBe(false);
-    expect(parseArgs(schema, ["--no-dry-run"]).limit).toBe(50);
+    expect(parseArgs(schema, ["--no-run"]).run).toBe(false);
+    expect(parseArgs(schema, ["--no-run", "--limit", "3"]).run).toBe(false);
+    expect(parseArgs(schema, ["--no-run"]).limit).toBe(50);
   });
 
   test("--no-flag works with the kebab form", () => {
-    // schema has `dryRun`; --no-dry-run should still match via kebab→camel.
-    expect(parseArgs(schema, ["--no-dry-run"]).dryRun).toBe(false);
+    // schema has `run`; --no-run should still match via kebab→camel.
+    expect(parseArgs(schema, ["--no-run"]).run).toBe(false);
   });
 
   test("--no-flag rejects non-boolean targets", () => {

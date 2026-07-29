@@ -10,7 +10,7 @@
  *
  * Usage:
  *   just script scripts/media/debrid-cleaner.ts                    # dry run
- *   just script scripts/media/debrid-cleaner.ts -- --delete        # actually rm
+ *   just script scripts/media/debrid-cleaner.ts -- --run           # actually rm
  *   just script scripts/media/debrid-cleaner.ts -- --media-base-path /custom/media
  *   just script scripts/media/debrid-cleaner.ts -- --media-path /custom/media  # alias
  *
@@ -30,12 +30,12 @@ import { banner, error, info, summary, warn } from "../_lib/log";
 export async function main(argv?: string[]) {
   const args = parseArgs(
     {
-      delete: { type: "boolean", default: false },
+      run: { type: "boolean", default: false },
       mediaBasePath: { type: "string", default: "", alias: "mediaPath" },
     },
     argv,
   );
-  banner("Debrid cleaner", { dryRun: !args.delete });
+  banner("Debrid cleaner", { dryRun: !args.run });
 
   const cfg = getConfig();
   const rclonePath = cfg.rclonePath;
@@ -81,7 +81,7 @@ export async function main(argv?: string[]) {
   let bytesReclaimed = 0;
   for (const folder of orphans) {
     const full = join(rclonePath, folder);
-    if (args.delete) {
+    if (args.run) {
       try {
         const size = await dirSize(full);
         await rm(full, { recursive: true, force: true });
@@ -100,7 +100,7 @@ export async function main(argv?: string[]) {
     "Orphans:": orphans.length,
     "Removed:": removed,
     "Bytes reclaimed:": humanBytes(bytesReclaimed),
-    "Mode:": args.delete ? "LIVE" : "DRY RUN",
+    "Mode:": args.run ? "LIVE" : "DRY RUN",
   });
 }
 

@@ -7,12 +7,12 @@
  * Tags must be synced first because Delay Profiles reference them by
  * tag id; missing tags cause silent drops.
  *
- * Dry-run is the default (safe preview). Pass --no-dry-run to actually mutate
+ * Dry-run is the default (safe preview). Pass --run to actually mutate
  * slave instances.
  *
  * Usage:
  *   just script scripts/arr/sync-profiles.ts                       # interactive + dry-run
- *   just script scripts/arr/sync-profiles.ts -- --no-dry-run       # interactive + live
+ *   just script scripts/arr/sync-profiles.ts -- --run       # interactive + live
  *
  * Configuration:
  *   - Arr instances are resolved via resolveConfig() from @/lib/config.
@@ -53,8 +53,9 @@ interface DelayProfile {
 }
 
 async function main(argv?: string[]) {
-  const args = parseArgs({ dryRun: { type: "boolean", default: true } }, argv);
-  banner("Sync profiles", { dryRun: args.dryRun });
+  const args = parseArgs({ run: { type: "boolean", default: false } }, argv);
+  const dryRun = !args.run;
+  banner("Sync profiles", { dryRun });
 
   const config = await resolveConfig();
   const rl = createInterface({ input: stdin, output: stdout });
@@ -77,9 +78,9 @@ async function main(argv?: string[]) {
     info(`Master: ${master.name}`);
     info(`Slaves: ${slaves.map((s) => s.name).join(", ")}`);
 
-    await syncTags(rl, master, slaves, args.dryRun);
-    await syncQualityProfiles(rl, master, slaves, args.dryRun);
-    await syncDelayProfiles(rl, master, slaves, args.dryRun);
+    await syncTags(rl, master, slaves, dryRun);
+    await syncQualityProfiles(rl, master, slaves, dryRun);
+    await syncDelayProfiles(rl, master, slaves, dryRun);
 
     info("Done.");
   } finally {

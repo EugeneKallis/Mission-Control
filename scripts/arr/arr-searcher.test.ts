@@ -27,11 +27,12 @@ async function loadScript() {
         { type: "radarr", name: "Radarr", url: "http://127.0.0.1:7878", apiKey: "radarr-key" },
         { type: "radarr", name: "RadarrKids", url: "http://127.0.0.1:7880", apiKey: "radarrkids-key" },
         { type: "radarr", name: "Radarr4K", url: "http://127.0.0.1:7879", apiKey: "radarr4k-key" },
-        { type: "radarr", name: "RadarrAnime", url: "http://127.0.0.1:7881", apiKey: "" },
+        { type: "radarr", name: "RadarrAnime", url: "http://127.0.0.1:7881", apiKey: "radarranime-key" },
         { type: "radarr", name: "RadarrLocal", url: "http://127.0.0.1:7882", apiKey: "" },
         { type: "sonarr", name: "Sonarr", url: "http://127.0.0.1:8989", apiKey: "sonarr-key" },
         { type: "sonarr", name: "SonarrKids", url: "http://127.0.0.1:8991", apiKey: "sonarrkids-key" },
         { type: "sonarr", name: "Sonarr4K", url: "http://127.0.0.1:8990", apiKey: "sonarr4k-key" },
+        { type: "sonarr", name: "SonarrAnime", url: "http://127.0.0.1:8992", apiKey: "sonarranime-key" },
       ],
     }),
   }));
@@ -49,7 +50,7 @@ describe("arr-searcher", () => {
     });
 
     const script = await loadScript();
-    await script.main(["--radarr-only", "--limit", "50", "--no-dry-run"]);
+    await script.main(["--radarr-only", "--limit", "50", "--run"]);
 
     // The fixture uses ports 7878 (Radarr), 7880 (RadarrKids), 7879 (Radarr4K).
     // We assert the order in which the script visited each instance.
@@ -57,6 +58,20 @@ describe("arr-searcher", () => {
       .filter((c) => c.method === "GET" && c.url.endsWith("/api/v3/movie"))
       .map((c) => Number(new URL(c.url).port));
     expect(ports).toEqual([7878, 7880, 7879]);
+  });
+
+  test("does not query Anime instances", async () => {
+    const calls = captureFetch({
+      "GET /api/v3/movie": () => [],
+      "GET /api/v3/wanted/missing": () => ({ records: [], totalRecords: 0 }),
+    });
+
+    const script = await loadScript();
+    await script.main(["--limit", "50", "--run"]);
+
+    const ports = calls.map((call) => Number(new URL(call.url).port));
+    expect(ports).not.toContain(7881);
+    expect(ports).not.toContain(8992);
   });
 
   test("missing-movie filter excludes announced / hasFile / unmonitored", async () => {
@@ -71,7 +86,7 @@ describe("arr-searcher", () => {
     });
 
     const script = await loadScript();
-    await script.main(["--radarr-only", "--limit", "50", "--no-dry-run"]);
+    await script.main(["--radarr-only", "--limit", "50", "--run"]);
 
     const triggeredIds = calls
       .filter((c) => c.url.endsWith("/api/v3/command"))
@@ -96,14 +111,14 @@ describe("arr-searcher", () => {
     });
 
     const script = await loadScript();
-    await script.main(["--radarr-only", "--limit", "3", "--no-dry-run"]);
+    await script.main(["--radarr-only", "--limit", "3", "--run"]);
 
     // 3 instances × 3 triggers = 9.
     const triggers = calls.filter((c) => c.url.endsWith("/api/v3/command"));
     expect(triggers.length).toBe(9);
   });
 
-  test("--dry-run logs without issuing command POSTs", async () => {
+  test("dry-run (no --run) logs without issuing command POSTs", async () => {
     const calls = captureFetch({
       "GET /api/v3/movie": () => [
         { id: 1, title: "Real Missing", status: "released", hasFile: false, monitored: true, titleSlug: "a" },
@@ -111,7 +126,7 @@ describe("arr-searcher", () => {
     });
 
     const script = await loadScript();
-    await script.main(["--radarr-only", "--dry-run"]);
+    await script.main(["--radarr-only"]);
 
     expect(calls.some((c) => c.url.endsWith("/api/v3/command"))).toBe(false);
   });

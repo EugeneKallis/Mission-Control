@@ -13,12 +13,12 @@
  * Useful for catch-up after long downtime, since the regular
  * `EpisodeSearch` skips over a season that was searched before.
  *
- * Dry-run is the default (safe preview). Pass --no-dry-run to actually
- * trigger SeasonSearch commands.
+ * Dry-run is the default (safe preview). Pass --run to actually trigger
+ * SeasonSearch commands.
  *
  * Usage:
  *   just script scripts/arr/sonarr-season-searcher.ts                    # dry-run (default)
- *   just script scripts/arr/sonarr-season-searcher.ts -- --no-dry-run    # actually search
+ *   just script scripts/arr/sonarr-season-searcher.ts -- --run           # actually search
  *   just script scripts/arr/sonarr-season-searcher.ts -- --instance Sonarr4K
  *
  * Configuration:
@@ -38,12 +38,13 @@ import type { ArrInstance } from "@/types";
 async function main(argv?: string[]) {
   const args = parseArgs(
     {
-      dryRun: { type: "boolean", default: true },
+      run: { type: "boolean", default: false },
       instance: { type: "string", default: "Sonarr" },
     },
     argv,
   );
-  banner("Sonarr season searcher", { dryRun: args.dryRun });
+  const dryRun = !args.run;
+  banner("Sonarr season searcher", { dryRun });
 
   const config = await resolveConfig();
   const inst = config.arrInstances.find(
@@ -83,7 +84,7 @@ async function main(argv?: string[]) {
       const now = Date.now();
       if (eps.some((e) => e.airDateUtc && new Date(e.airDateUtc).getTime() > now)) continue;
 
-      if (args.dryRun) {
+      if (dryRun) {
         info(`  would SeasonSearch: [${s.id}] ${s.title} S${String(seasonNum).padStart(2, "0")} (${eps.length} eps, none have files)`);
         continue;
       }
@@ -98,7 +99,7 @@ async function main(argv?: string[]) {
 
   summary({
     "Seasons searched:": seasonsSearched,
-    "Mode:": args.dryRun ? "DRY RUN" : "LIVE",
+    "Mode:": dryRun ? "DRY RUN" : "LIVE",
   });
 }
 

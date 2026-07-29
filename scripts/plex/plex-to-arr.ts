@@ -18,12 +18,12 @@
  *  3. "anime" in Plex keywords
  *  4. TVMaze fallback: isAnime(tvdbId)
  *
- * Dry-run is the default (safe preview). Pass --no-dry-run to actually add
+ * Dry-run is the default (safe preview). Pass --run to actually add
  * missing shows and movies to Sonarr/Radarr.
  *
  * Usage:
  *   just script scripts/plex/plex-to-arr.ts                       # dry-run (default)
- *   just script scripts/plex/plex-to-arr.ts -- --no-dry-run       # actually add items
+ *   just script scripts/plex/plex-to-arr.ts -- --run              # actually add items
  *   just script scripts/plex/plex-to-arr.ts -- --clean-cache
  *
  * Configuration:
@@ -201,13 +201,14 @@ function findProfileId(profiles: { id: number; name: string }[], name: string): 
 export async function main(argv?: string[]): Promise<void> {
   const args = parseArgs(
     {
-      dryRun: { type: "boolean", default: true },
+      run: { type: "boolean", default: false },
       cleanCache: { type: "boolean", default: false },
     },
     argv,
   );
+  const dryRun = !args.run;
 
-  banner("plex-to-arr", { dryRun: args.dryRun });
+  banner("plex-to-arr", { dryRun });
 
   if (args.cleanCache) await cleanCache();
   const cache = await loadCache();
@@ -350,7 +351,7 @@ export async function main(argv?: string[]): Promise<void> {
     info(`Checking: ${showTitle} (S${String(item.parentIndex).padStart(2, "0")}E${String(item.index).padStart(2, "0")})`);
 
     // Check cache first (non-dry-run only)
-    if (!args.dryRun && showTitle in cache.shows) {
+    if (!dryRun && showTitle in cache.shows) {
       info(`  Skipped (cached): ${showTitle}`);
       showsSkipped++;
       continue;
@@ -361,7 +362,7 @@ export async function main(argv?: string[]): Promise<void> {
     try {
       const results = await sonarr.lookupSeries(showTitle);
       exists = results.some((r) => r.id > 0);
-      if (!args.dryRun) {
+      if (!dryRun) {
         if (exists) {
           cache.shows[showTitle] = { addedAt: Date.now(), tvdbId: results[0]?.tvdbId ?? 0 };
         } else {
@@ -382,7 +383,7 @@ export async function main(argv?: string[]): Promise<void> {
     // Add to Sonarr
     info(`  Missing — adding…`);
     try {
-      await addShowToSonarr(sonarr, showTitle, item, sonarrDefaultProfile, sonarrAnimeProfile, sonarrRoot, args.dryRun);
+      await addShowToSonarr(sonarr, showTitle, item, sonarrDefaultProfile, sonarrAnimeProfile, sonarrRoot, dryRun);
       showsAdded++;
     } catch (err) {
       warn(`  Failed: ${(err as Error).message}`);
@@ -403,7 +404,7 @@ export async function main(argv?: string[]): Promise<void> {
     }
 
     const cacheKey = String(item.tmdbId);
-    if (!args.dryRun && cacheKey in cache.movies) {
+    if (!dryRun && cacheKey in cache.movies) {
       info(`  Skipped (cached): ${movieTitle}`);
       moviesSkipped++;
       continue;
@@ -413,7 +414,7 @@ export async function main(argv?: string[]): Promise<void> {
     try {
       const results = await radarr.lookupMovie(`tmdb:${item.tmdbId}`);
       exists = results.some((r) => r.id > 0);
-      if (!args.dryRun) {
+      if (!dryRun) {
         if (exists) {
           cache.movies[cacheKey] = { addedAt: Date.now(), title: movieTitle };
         } else {
@@ -433,7 +434,7 @@ export async function main(argv?: string[]): Promise<void> {
 
     info(`  Missing — adding…`);
     try {
-      await addMovieToRadarr(radarr, movieTitle, item.tmdbId, radarrDefaultProfile, radarrAnimeProfile, radarrRoot, args.dryRun);
+      await addMovieToRadarr(radarr, movieTitle, item.tmdbId, radarrDefaultProfile, radarrAnimeProfile, radarrRoot, dryRun);
       moviesAdded++;
     } catch (err) {
       warn(`  Failed: ${(err as Error).message}`);
@@ -442,14 +443,14 @@ export async function main(argv?: string[]): Promise<void> {
 
   // 7. Summary
   summary({
-    "Shows added:": args.dryRun ? `${showsAdded} (dry-run)` : String(showsAdded),
+    "Shows added:": dryRun ? `${showsAdded} (dry-run)` : String(showsAdded),
     "Shows skipped:": String(showsSkipped),
-    "Movies added:": args.dryRun ? `${moviesAdded} (dry-run)` : String(moviesAdded),
+    "Movies added:": dryRun ? `${moviesAdded} (dry-run)` : String(moviesAdded),
     "Movies skipped:": String(moviesSkipped),
-    "Mode:": args.dryRun ? "DRY RUN" : "LIVE",
+    "Mode:": dryRun ? "DRY RUN" : "LIVE",
   });
 
-  if (!args.dryRun) await saveCache(cache);
+  if (!dryRun) await saveCache(cache);
 }
 
 // ── Add helpers ───────────────────────────────────────────────────────────

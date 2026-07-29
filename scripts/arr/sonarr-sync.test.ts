@@ -60,7 +60,7 @@ describe("sonarr-sync", () => {
     expect(deletes.length).toBe(0);
   });
 
-  test("LIVE mode (--no-dry-run) issues DELETE for each orphan with deleteFiles=true", async () => {
+  test("LIVE mode (--run) issues DELETE for each orphan with deleteFiles=true", async () => {
     const recent: { url: string } = { url: "" };
     const calls = captureFetch(
       {
@@ -79,7 +79,7 @@ describe("sonarr-sync", () => {
     );
 
     const script = await loadScript();
-    await script.main(["--no-dry-run"]);
+    await script.main(["--run"]);
 
     const deletes = calls.filter((c) => c.method === "DELETE");
     expect(deletes.length).toBe(1);

@@ -696,13 +696,14 @@ src/workers/magnet-bridge.ts # Long-running Decypharr poller — moves finished 
 - **CLI:** use `parseArgs()` from `scripts/_lib/cli.ts`. Supports
   `--flag value`, `--flag=value`, short aliases, and kebab→camel
   conversion. Boolean flags default to `false` and can be negated via
-  `--no-flag` (handled by string parsing: `--dry-run=false`).
+  `--no-flag` (handled by string parsing: `--run=false`).
 - **Logging:** use `info()` / `warn()` / `error()` / `banner()` /
   `summary()` from `scripts/_lib/log.ts` for consistent `[script]`
   output. Free `console.log` is fine for in-loop traces.
-- **Dry-run by default.** Every mutating script accepts a flag
-  (typically `--delete`, `--run`, or omitting `--dry-run`) so a fresh
-  operator can preview before acting.
+- **Dry-run by default.** Every mutating script defaults to dry-run mode.
+  Pass `--run` to actually perform mutations. The only exception is
+  `command-runner.ts`, which is intentionally always-live (it is a
+  passthrough SSH executor).
 - **Module entry-point guard:** scripts guard `main()` with
   `if (import.meta.main) { main().catch(...) }` so they can be
   imported by tests without auto-running.
