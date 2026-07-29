@@ -65,7 +65,7 @@ const TABLE_LABELS: Record<TableKey, { label: string; description: string }> = {
   scrapeResults: {
     label: "Scrape results (current)",
     description:
-      "The v2 scraper results table — the one the /scraper page reads from.",
+      "The v2 scraper results table \u2014 the one the /scraper page reads from.",
   },
   scrapedItems: {
     label: "Scraped items (legacy)",
@@ -77,10 +77,6 @@ const TABLE_LABELS: Record<TableKey, { label: string; description: string }> = {
       "Per-magnet file metadata attached to legacy scraped items. Skipped silently if a parent item isn't present.",
   },
 };
-
-// ── Helpers ──────────────────────────────────────────────────────────────
-
-
 
 // ── Sub-components ───────────────────────────────────────────────────────
 
@@ -99,7 +95,7 @@ function PathInput({
     <div className="space-y-2">
       <label
         htmlFor="db-path"
-        className="block text-xs font-medium text-[#849587] uppercase tracking-wider"
+        className="block text-xs font-medium text-on-surface-variant uppercase tracking-wider"
       >
         Source database path
       </label>
@@ -109,7 +105,7 @@ function PathInput({
           type="text"
           spellCheck={false}
           autoComplete="off"
-          className="flex-1 bg-[#131313] border border-[#3B4B3F] rounded px-3 py-2 text-sm font-mono text-[#E5E2E1] outline-none focus:border-[#618B6B] placeholder:text-[#3B4B3F]"
+          className="flex-1 bg-surface-container-lowest border border-outline-variant/30 rounded-[var(--radius-button)] px-3 py-2 text-sm font-mono text-on-surface outline-none focus:border-primary placeholder:text-outline-variant"
           placeholder="/path/to/ServerTool/config.db"
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -123,19 +119,14 @@ function PathInput({
         <button
           onClick={onSubmit}
           disabled={loading || !value.trim()}
-          className="px-4 py-2 text-xs font-semibold rounded-none transition-colors inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{
-            background: "#201F1F",
-            color: "#E5E2E1",
-            border: "1px solid rgba(59, 75, 63, 0.3)",
-          }}
+          className="px-4 py-2 text-xs font-semibold rounded-[var(--radius-button)] transition-colors inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed bg-surface text-on-surface border border-outline-variant/30 hover:bg-surface-container"
         >
           {loading ? (
             <>
               <span className="material-symbols-outlined text-sm animate-spin">
                 progress_activity
               </span>
-              Probing…
+              Probing\u2026
             </>
           ) : (
             <>
@@ -145,7 +136,7 @@ function PathInput({
           )}
         </button>
       </div>
-      <p className="text-xs text-[#3B4B3F] font-mono">
+      <p className="text-xs text-on-surface-variant/60 font-mono">
         hint: ~/ServerTool/config.db
       </p>
     </div>
@@ -161,28 +152,26 @@ function PreviewPanel({
 }) {
   return (
     <div
-      className="rounded-lg overflow-hidden"
-      style={{ background: "#201F1F", border: "1px solid rgba(59, 75, 63, 0.3)" }}
+      className="rounded-[var(--radius-card)] overflow-hidden bg-surface border border-outline-variant/30"
     >
       <div
-        className="flex items-center justify-between gap-2 px-4 py-2.5"
-        style={{ borderBottom: "1px solid rgba(59, 75, 63, 0.15)" }}
+        className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-outline-variant/15"
       >
         <div className="flex items-center gap-2 min-w-0">
-          <span className="material-symbols-outlined text-sm text-[#618B6B]">
+          <span className="material-symbols-outlined text-sm text-primary">
             database
           </span>
-          <span className="text-sm font-medium text-[#E5E2E1] truncate">
+          <span className="text-sm font-medium text-on-surface truncate">
             {info.dbPath}
           </span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <span className="text-xs text-[#849587] font-mono">
+          <span className="text-xs text-on-surface-variant font-mono">
             {humanBytes(info.dbSizeBytes)}
           </span>
           <button
             onClick={onClear}
-            className="text-[#3B4B3F] hover:text-[#849587] transition-colors"
+            className="text-on-surface-variant/50 hover:text-on-surface-variant transition-colors"
             title="Use a different file"
           >
             <span className="material-symbols-outlined text-sm">close</span>
@@ -197,24 +186,21 @@ function PreviewPanel({
           return (
             <div
               key={key}
-              className="flex items-center gap-3 px-3 py-2 rounded"
-              style={{
-                background: present ? "rgba(14, 14, 14, 0.5)" : "transparent",
-                border: present
-                  ? "1px solid rgba(59, 75, 63, 0.15)"
-                  : "1px dashed rgba(59, 75, 63, 0.2)",
-                opacity: present ? 1 : 0.5,
-              }}
+              className={`flex items-center gap-3 px-3 py-2 rounded-[var(--radius-button)] ${
+                present
+                  ? "bg-surface-container-lowest/50 border border-outline-variant/15"
+                  : "border border-dashed border-outline-variant/20 opacity-50"
+              }`}
             >
               <span
                 className="material-symbols-outlined text-base"
-                style={{ color: present ? "#618B6B" : "#3B4B3F" }}
+                style={{ color: present ? "#34D399" : "#475569" }}
               >
                 {present ? "check_circle" : "remove_circle"}
               </span>
               <div className="flex-1 min-w-0">
-                <div className="text-sm text-[#E5E2E1]">{label}</div>
-                <div className="text-[11px] text-[#849587] truncate">
+                <div className="text-sm text-on-surface">{label}</div>
+                <div className="text-[11px] text-on-surface-variant truncate">
                   {present
                     ? `${count.toLocaleString()} ${count === 1 ? "row" : "rows"}`
                     : "not present in source"}
@@ -222,9 +208,9 @@ function PreviewPanel({
               </div>
               <div
                 className="text-sm font-mono tabular-nums"
-                style={{ color: present ? "#E5E2E1" : "#3B4B3F" }}
+                style={{ color: present ? "#F1F5F9" : "#475569" }}
               >
-                {present ? count.toLocaleString() : "—"}
+                {present ? count.toLocaleString() : "\u2014"}
               </div>
             </div>
           );
@@ -232,8 +218,7 @@ function PreviewPanel({
       </div>
       {ALL_TABLES.every((key) => !info.present[key]) && (
         <div
-          className="px-4 py-2 text-xs text-[#FFB4AB]"
-          style={{ borderTop: "1px solid rgba(59, 75, 63, 0.15)" }}
+          className="px-4 py-2 text-xs text-error border-t border-outline-variant/15"
         >
           None of the expected tables were found in this file. Make sure you
           pointed at the ServerTool config.db (not a sidecar file like
@@ -257,7 +242,7 @@ function TableSelector({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium text-[#E5E2E1] uppercase tracking-wider">
+        <h2 className="text-sm font-medium text-on-surface uppercase tracking-wider">
           Tables to migrate
         </h2>
         <div className="flex gap-1">
@@ -270,11 +255,11 @@ function TableSelector({
             disabled={ALL_TABLES.every(
               (k) => !info.present[k] || selected[k],
             )}
-            className="px-2 py-1 text-[11px] text-[#849587] hover:text-[#E5E2E1] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="px-2 py-1 text-[11px] text-on-surface-variant hover:text-on-surface disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >
             Select all
           </button>
-          <span className="text-[#3B4B3F]">·</span>
+          <span className="text-on-surface-variant/40">&middot;</span>
           <button
             onClick={() => {
               for (const k of ALL_TABLES) {
@@ -282,7 +267,7 @@ function TableSelector({
               }
             }}
             disabled={!anySelected}
-            className="px-2 py-1 text-[11px] text-[#849587] hover:text-[#E5E2E1] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="px-2 py-1 text-[11px] text-on-surface-variant hover:text-on-surface disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >
             Clear
           </button>
@@ -297,43 +282,41 @@ function TableSelector({
           return (
             <label
               key={key}
-              className={`flex items-start gap-3 p-3 rounded transition-colors ${
+              className={`flex items-start gap-3 p-3 rounded-[var(--radius-button)] transition-colors ${
                 present
-                  ? "cursor-pointer hover:bg-[#1C1B1B]"
+                  ? "cursor-pointer hover:bg-surface-container/80"
                   : "cursor-not-allowed opacity-50"
+              } bg-surface border ${
+                checked ? "border-primary/40" : "border-outline-variant/30"
               }`}
-              style={{
-                background: "#201F1F",
-                border: `1px solid ${checked ? "rgba(97, 139, 107, 0.4)" : "rgba(59, 75, 63, 0.3)"}`,
-              }}
             >
               <input
                 type="checkbox"
                 checked={checked}
                 disabled={!present}
                 onChange={() => onToggle(key)}
-                className="mt-1 accent-[#618B6B]"
+                className="mt-1 accent-primary"
               />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-[#E5E2E1]">{label}</span>
+                  <span className="text-sm text-on-surface">{label}</span>
                   {present && (
-                    <span className="text-xs text-[#849587] font-mono">
+                    <span className="text-xs text-on-surface-variant font-mono">
                       {count.toLocaleString()} {count === 1 ? "row" : "rows"}
                     </span>
                   )}
                   {!present && (
-                    <span className="text-xs text-[#FFB4AB]">not present</span>
+                    <span className="text-xs text-error">not present</span>
                   )}
                 </div>
-                <div className="text-xs text-[#849587] mt-0.5">{description}</div>
+                <div className="text-xs text-on-surface-variant mt-0.5">{description}</div>
               </div>
             </label>
           );
         })}
       </div>
-      <p className="text-xs text-[#3B4B3F]">
-        Migration is idempotent — running it twice will only insert rows that
+      <p className="text-xs text-on-surface-variant/60">
+        Migration is idempotent \u2014 running it twice will only insert rows that
         aren&apos;t already in the target DB. Already-present rows are skipped.
       </p>
     </div>
@@ -352,33 +335,28 @@ function MigrationResultPanel({ result }: { result: MigrationResult }) {
   const anyInserted = totalInserted > 0;
   return (
     <div
-      className="rounded-lg overflow-hidden"
-      style={{ background: "#201F1F", border: "1px solid rgba(59, 75, 63, 0.3)" }}
+      className="rounded-[var(--radius-card)] overflow-hidden bg-surface border border-outline-variant/30"
     >
       <div
-        className="flex items-center gap-2 px-4 py-2.5"
-        style={{
-          borderBottom: "1px solid rgba(59, 75, 63, 0.15)",
-          background: anyInserted
-            ? "rgba(97, 139, 107, 0.08)"
-            : "rgba(255, 180, 171, 0.08)",
-        }}
+        className={`flex items-center gap-2 px-4 py-2.5 border-b border-outline-variant/15 ${
+          anyInserted ? "bg-success/10" : "bg-error/10"
+        }`}
       >
         <span
           className="material-symbols-outlined text-sm"
-          style={{ color: anyInserted ? "#618B6B" : "#FFB4AB" }}
+          style={{ color: anyInserted ? "#34D399" : "#F87171" }}
         >
           {anyInserted ? "check_circle" : "info"}
         </span>
-        <span className="text-sm font-medium text-[#E5E2E1]">
+        <span className="text-sm font-medium text-on-surface">
           {anyInserted
             ? `Copied ${totalInserted.toLocaleString()} ${
                 totalInserted === 1 ? "row" : "rows"
               }${totalSkipped > 0 ? ` (${totalSkipped} already present)` : ""}`
-            : "Nothing new to copy — every selected row was already present."}
+            : "Nothing new to copy \u2014 every selected row was already present."}
         </span>
       </div>
-      <div className="divide-y divide-[rgba(59,75,63,0.15)]">
+      <div className="divide-y divide-outline-variant/15">
         {ALL_TABLES.map((key) => {
           const stats = result[key];
           const { label } = TABLE_LABELS[key];
@@ -387,11 +365,11 @@ function MigrationResultPanel({ result }: { result: MigrationResult }) {
               key={key}
               className="flex items-center gap-3 px-4 py-2.5"
             >
-              <span className="material-symbols-outlined text-sm text-[#3B4B3F]">
+              <span className="material-symbols-outlined text-sm text-on-surface-variant/40">
                 {stats.total === 0 ? "remove" : stats.inserted > 0 ? "arrow_forward" : "check"}
               </span>
-              <span className="flex-1 text-sm text-[#E5E2E1]">{label}</span>
-              <span className="text-xs text-[#849587] font-mono tabular-nums">
+              <span className="flex-1 text-sm text-on-surface">{label}</span>
+              <span className="text-xs text-on-surface-variant font-mono tabular-nums">
                 {stats.total === 0
                   ? "skipped"
                   : `${stats.inserted.toLocaleString()} inserted` +
@@ -455,7 +433,7 @@ export function MigratePage() {
         scrapedItems: newInfo.present.scrapedItems,
         scrapedItemFiles: newInfo.present.scrapedItemFiles,
       });
-      // Clear any prior result — the source changed.
+      // Clear any prior result \u2014 the source changed.
       setResult(null);
     } catch (e: any) {
       setInfo(null);
@@ -545,13 +523,10 @@ export function MigratePage() {
     <div className="p-4 md:p-6 min-h-full flex flex-col gap-6 stagger-1 max-w-5xl mx-auto w-full">
       {/* Header */}
       <div>
-        <h1
-          className="text-2xl font-bold text-[#E5E2E1] tracking-tight"
-          style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
-        >
+        <h1 className="text-2xl font-bold text-on-surface tracking-tight font-display">
           Migrate from ServerTool
         </h1>
-        <p className="text-sm text-[#849587] mt-1 max-w-2xl">
+        <p className="text-sm text-on-surface-variant mt-1 max-w-2xl">
           Copy your existing ServerTool SQLite database into Mission Control.
           Source rows that already exist here are skipped, so you can re-run
           this safely.
@@ -569,11 +544,7 @@ export function MigratePage() {
       {/* Error */}
       {previewError && (
         <div
-          className="rounded-lg px-4 py-3 text-sm text-[#FFB4AB] flex items-start gap-2"
-          style={{
-            background: "rgba(255, 180, 171, 0.08)",
-            border: "1px solid rgba(255, 180, 171, 0.3)",
-          }}
+          className="rounded-[var(--radius-card)] px-4 py-3 text-sm text-error flex items-start gap-2 bg-error/10 border border-error/30"
         >
           <span className="material-symbols-outlined text-base shrink-0 mt-0.5">
             error
@@ -593,19 +564,14 @@ export function MigratePage() {
             <button
               onClick={() => setConfirmOpen(true)}
               disabled={!anySelected || migrating}
-              className="px-5 py-2.5 text-sm font-semibold rounded-none transition-colors inline-flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{
-                background: "#618B6B",
-                color: "white",
-                border: "1px solid #618B6B",
-              }}
+              className="px-5 py-2.5 text-sm font-semibold rounded-[var(--radius-button)] transition-colors inline-flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed bg-primary text-on-primary hover:bg-primary-dim"
             >
               {migrating ? (
                 <>
                   <span className="material-symbols-outlined text-sm animate-spin">
                     progress_activity
                   </span>
-                  Migrating…
+                  Migrating\u2026
                 </>
               ) : (
                 <>
@@ -630,13 +596,13 @@ export function MigratePage() {
         onConfirm={() => void handleMigrate()}
         title="Confirm migration"
         variant="primary"
-        confirmLabel={migrating ? "Migrating…" : "Run migration"}
+        confirmLabel={migrating ? "Migrating\u2026" : "Run migration"}
         icon="cloud_upload"
       >
-        <div className="space-y-3 text-sm text-[#849587]">
+        <div className="space-y-3 text-sm text-on-surface-variant">
           <p>
             Copy the following from{" "}
-            <code className="text-[#E5E2E1] font-mono text-xs break-all">
+            <code className="text-on-surface font-mono text-xs break-all">
               {info?.dbPath}
             </code>{" "}
             into the Mission Control database:
@@ -645,21 +611,21 @@ export function MigratePage() {
             {ALL_TABLES.filter((k) => selected[k]).map((key) => {
               const count = info?.counts[key] ?? 0;
               return (
-                <li key={key} className="flex items-center gap-2 text-[#E5E2E1]">
-                  <span className="material-symbols-outlined text-sm text-[#618B6B]">
+                <li key={key} className="flex items-center gap-2 text-on-surface">
+                  <span className="material-symbols-outlined text-sm text-primary">
                     check
                   </span>
                   <span className="flex-1">{TABLE_LABELS[key].label}</span>
-                  <span className="text-xs text-[#849587] font-mono">
+                  <span className="text-xs text-on-surface-variant font-mono">
                     {count.toLocaleString()} {count === 1 ? "row" : "rows"}
                   </span>
                 </li>
               );
             })}
           </ul>
-          <p className="text-xs text-[#3B4B3F]">
+          <p className="text-xs text-on-surface-variant/60">
             Already-present rows will be skipped. Nothing in the source DB is
-            modified. This runs as a single database transaction — if anything
+            modified. This runs as a single database transaction \u2014 if anything
             fails, no changes are written.
           </p>
         </div>

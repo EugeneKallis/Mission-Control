@@ -22,10 +22,10 @@ export function BlFinderRow({
     <div
       className="flex items-center gap-3 px-3 py-2.5 rounded-none transition-all"
       style={{
-        background: row.status === "checking" ? "rgba(86, 255, 167, 0.04)" : "#201F1F",
+        background: row.status === "checking" ? "rgba(86, 255, 167, 0.04)" : "#334155",
         border: row.status === "checking"
           ? "1px solid rgba(86, 255, 167, 0.4)"
-          : "1px solid rgba(59, 75, 63, 0.3)",
+          : "1px solid rgba(71, 85, 105, 0.3)",
         animation: row.status === "checking" ? "pulse-border 1.5s ease-in-out infinite" : undefined,
       }}
     >
@@ -34,12 +34,12 @@ export function BlFinderRow({
       <div className="flex-1 min-w-0">
         <div
           className="text-sm font-mono truncate"
-          style={{ color: "#E5E2E1" }}
+          style={{ color: "#F1F5F9" }}
           title={row.filePath}
         >
           {row.filePath}
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-[10px] mt-0.5" style={{ color: "#849587" }}>
+        <div className="flex flex-wrap items-center gap-2 text-[10px] mt-0.5" style={{ color: "#A3B2C6" }}>
           {row.mediaDir && <span className="font-mono">[{row.mediaDir}]</span>}
           <span>last checked: {lastCheckedDisplay}</span>
           <span>·</span>
@@ -72,7 +72,7 @@ export function BlFinderRow({
         <button
           onClick={() => onRecheck(row.id)}
           className="p-1.5 rounded-none"
-          style={{ background: "transparent", color: "#849587" }}
+          style={{ background: "transparent", color: "#A3B2C6" }}
           title="Recheck now"
           aria-label="Recheck"
         >
@@ -81,7 +81,7 @@ export function BlFinderRow({
         <button
           onClick={() => onIgnore(row.id)}
           className="p-1.5 rounded-none"
-          style={{ background: "transparent", color: "#849587" }}
+          style={{ background: "transparent", color: "#A3B2C6" }}
           title={row.isIgnored ? "Un-ignore" : "Ignore"}
           aria-label="Ignore"
         >
@@ -111,9 +111,9 @@ export function BlFinderRow({
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, { bg: string; fg: string; icon: string }> = {
-    pending:   { bg: "rgba(132, 149, 135, 0.15)", fg: "#849587", icon: "schedule" },
-    checking:  { bg: "rgba(86, 255, 167, 0.15)",   fg: "#56FFA7", icon: "progress_activity" },
-    ok:        { bg: "rgba(86, 255, 167, 0.15)",   fg: "#56FFA7", icon: "check_circle" },
+    pending:   { bg: "rgba(132, 149, 135, 0.15)", fg: "#A3B2C6", icon: "schedule" },
+    checking:  { bg: "rgba(86, 255, 167, 0.15)",   fg: "#67E8F9", icon: "progress_activity" },
+    ok:        { bg: "rgba(86, 255, 167, 0.15)",   fg: "#67E8F9", icon: "check_circle" },
     broken:    { bg: "rgba(255, 180, 171, 0.15)",  fg: "#FFB4AB", icon: "broken_image" },
   };
   const c = colors[status] ?? colors.pending;

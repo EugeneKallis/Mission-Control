@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
  *
  * Mirrors the warning modal in scraper.templ: shows a full-screen overlay,
  * records a sessionStorage timestamp on entry, hides the overlay, and
- * re-shows it after 1 minute of user inactivity. Activity events (mousemove,
+ * re-shows it after 30 seconds of user inactivity. Activity events (mousemove,
  * scroll, keypress) reset the inactivity timer.
  */
 const STORAGE_KEY = "scraper_warning_accepted";
@@ -42,7 +42,6 @@ export function AccessGate() {
   };
 
   useEffect(() => {
-    // Start state: accepted if there is a recent session.
     const lastAccepted = sessionStorage.getItem(STORAGE_KEY);
     if (lastAccepted) {
       const age = Date.now() - parseInt(lastAccepted, 10);
@@ -95,22 +94,23 @@ export function AccessGate() {
       }}
     >
       <div
-        className="max-w-xl w-full p-10 relative overflow-hidden mx-4 rounded-none"
-        style={{ background: "#131313", border: "2px solid rgba(59, 75, 63, 0.3)" }}
+        className="max-w-xl w-full p-10 relative overflow-hidden mx-4 rounded-[var(--radius-modal)]"
+        style={{ background: "#1E293B", border: "1px solid rgba(71, 85, 105, 0.3)" }}
       >
-        <h1
-          className="text-4xl font-black mb-2 uppercase tracking-tighter"
-          style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", color: "#E5E2E1" }}
-        >
-          Restricted Access
-        </h1>
+        <div className="flex items-center gap-3 mb-4">
+          <span className="material-symbols-outlined text-warning text-3xl">warning</span>
+          <h1
+            className="text-3xl font-black uppercase tracking-tighter font-display text-on-surface"
+          >
+            Restricted Access
+          </h1>
+        </div>
         <h2
-          className="text-lg font-bold mb-8 uppercase tracking-widest pb-4"
-          style={{ color: "#849587", borderBottom: "1px solid rgba(59, 75, 63, 0.3)" }}
+          className="text-sm font-semibold uppercase tracking-widest pb-4 mb-6 text-on-surface-variant border-b border-outline-variant/30"
         >
           Authorized Personnel Only
         </h2>
-        <p className="mb-10 text-base leading-relaxed" style={{ color: "#849587" }}>
+        <p className="mb-8 text-sm leading-relaxed text-on-surface-variant">
           You are entering a restricted area.
           <br />
           Please confirm your authorization to proceed.
@@ -120,29 +120,13 @@ export function AccessGate() {
             id="enter-btn"
             type="button"
             onClick={accept}
-            className="flex-1 flex items-center justify-center gap-2 py-4 text-lg font-bold uppercase tracking-wider rounded-none transition-all"
-            style={{
-              background: "linear-gradient(135deg, #56FFA7, #00FF9C)",
-              color: "#002110",
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.boxShadow =
-                "0 0 20px 4px rgba(0,255,156,0.3)";
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
-            }}
+            className="flex-1 flex items-center justify-center gap-2 py-4 text-base font-bold uppercase tracking-wider rounded-[var(--radius-button)] transition-all duration-200 bg-primary text-on-primary hover:bg-primary-dim hover:shadow-[0_0_20px_4px_rgba(34,211,238,0.3)] active:scale-[0.98]"
           >
             Enter Site
           </button>
           <a
             href="/"
-            className="flex-1 flex items-center justify-center py-4 text-lg font-bold uppercase tracking-wider text-center rounded-none transition-all"
-            style={{
-              background: "#1C1B1B",
-              border: "1px solid rgba(59, 75, 63, 0.3)",
-              color: "#E5E2E1",
-            }}
+            className="flex-1 flex items-center justify-center py-4 text-base font-bold uppercase tracking-wider text-center rounded-[var(--radius-button)] transition-all duration-200 bg-surface border border-outline-variant/30 text-on-surface hover:bg-surface-container"
           >
             Exit
           </a>

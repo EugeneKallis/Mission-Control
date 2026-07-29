@@ -422,14 +422,9 @@ export function ScraperPage({
                 <button
                   type="button"
                   onClick={() => setHideAllConfirmOpen(true)}
-                  className="flex items-center gap-2 py-2 px-4 text-sm font-semibold rounded-none transition-all"
-                  style={{
-                    background: "rgba(245, 158, 11, 0.15)",
-                    color: "#f59e0b",
-                    border: "1px solid rgba(245, 158, 11, 0.3)",
-                  }}
+                  className="flex items-center gap-2 py-2 px-4 text-sm font-semibold rounded-[var(--radius-button)] transition-all bg-warning/15 text-warning border border-warning/30"
                 >
-                  <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>
+                  <span className="material-symbols-outlined text-lg">
                     visibility_off
                   </span>
                   Hide All
@@ -439,14 +434,9 @@ export function ScraperPage({
                 <button
                   id="undo-hide-btn"
                   onClick={() => void undoHide(source)}
-                  className="flex items-center gap-2 py-2 px-4 text-sm font-semibold rounded-none transition-all"
-                  style={{
-                    background: "#201F1F",
-                    border: "1px solid rgba(59, 75, 63, 0.3)",
-                    color: "#E5E2E1",
-                  }}
+                  className="flex items-center gap-2 py-2 px-4 text-sm font-semibold rounded-[var(--radius-button)] transition-all hover:bg-surface-container active:scale-[0.98] bg-surface text-on-surface border border-outline-variant/30"
                 >
-                  <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>
+                  <span className="material-symbols-outlined text-lg">
                     undo
                   </span>
                   Undo
@@ -474,27 +464,22 @@ export function ScraperPage({
                   id="scrape-now-btn"
                   onClick={() => void triggerScrape(source)}
                   disabled={isScraping}
-                  className={`font-semibold py-2 px-4 rounded-none transition-all flex items-center gap-2 text-sm ${
-                    isScraping ? "cursor-not-allowed opacity-70" : ""
+                  className={`font-semibold py-2 px-4 rounded-[var(--radius-button)] transition-all flex items-center gap-2 text-sm ${
+                    isScraping
+                      ? "cursor-not-allowed opacity-70 bg-surface text-on-surface-variant"
+                      : "bg-primary text-on-primary hover:bg-primary-dim active:scale-[0.98]"
                   }`}
-                  style={{
-                    background: isScraping ? "#1C1B1B" : "linear-gradient(135deg, #56FFA7, #00FF9C)",
-                    color: isScraping ? "#849587" : "#002110",
-                  }}
                 >
                   {isScraping ? (
                     <>
-                      <span
-                        className="material-symbols-outlined animate-spin"
-                        style={{ fontSize: "18px" }}
-                      >
+                      <span className="material-symbols-outlined text-lg animate-spin">
                         progress_activity
                       </span>
                       Scraping…
                     </>
                   ) : (
                     <>
-                      <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>
+                      <span className="material-symbols-outlined text-lg">
                         cloud_download
                       </span>
                       Scrape Now
@@ -505,14 +490,9 @@ export function ScraperPage({
               <div className="inline">
                 <button
                   onClick={() => void clearAndRescrape(source)}
-                  className="flex items-center gap-2 py-2 px-4 text-sm font-semibold rounded-none transition-all"
-                  style={{
-                    background: "rgba(255, 180, 171, 0.1)",
-                    color: "#FFB4AB",
-                    border: "1px solid rgba(255, 180, 171, 0.3)",
-                  }}
+                  className="flex items-center gap-2 py-2 px-4 text-sm font-semibold rounded-[var(--radius-button)] transition-all bg-error/15 text-error border border-error/30"
                 >
-                  <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>
+                  <span className="material-symbols-outlined text-lg">
                     refresh
                   </span>
                   Clear &amp; Rescrape
@@ -522,8 +502,7 @@ export function ScraperPage({
 
             {/* Source tabs */}
             <div
-              className="flex overflow-x-auto w-full justify-start md:justify-center"
-              style={{ borderBottom: "1px solid rgba(59, 75, 63, 0.3)" }}
+              className="flex overflow-x-auto w-full justify-start md:justify-center border-b border-outline-variant/30"
             >
               {SOURCES.map((s) => {
                 const active = source === s;
@@ -536,22 +515,9 @@ export function ScraperPage({
                       // Scroll back to the top so the header is visible.
                       containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
                     }}
-                    className="px-8 py-2.5 text-sm font-semibold transition-all border-b-2"
-                    style={{
-                      color: active ? "#E5E2E1" : "#849587",
-                      borderColor: active ? "#f43f5e" : "transparent",
-                      background: "transparent",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!active) {
-                        e.currentTarget.style.color = "#E5E2E1";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!active) {
-                        e.currentTarget.style.color = "#849587";
-                      }
-                    }}
+                    className={`px-8 py-2.5 text-sm font-semibold transition-all border-b-2 bg-transparent ${
+                      active ? "text-on-surface border-rose-500" : "text-on-surface-variant border-transparent hover:text-on-surface"
+                    }`}
                   >
                     {s === "141jav" ? "141JAV" : s === "projectjav" ? "ProjectJAV" : "PornRips"}
                   </button>
@@ -560,18 +526,18 @@ export function ScraperPage({
             </div>
           </div>
 
-          <p className="text-center text-xs italic mb-4" style={{ color: "#849587" }}>
+          <p className="text-center text-xs italic mb-4 text-on-surface-variant">
             Source: {source}
           </p>
         </div>
 
         {/* ── Card grid (each card is a snap target) ────────────────── */}
         {loading ? (
-          <p className="text-center py-12 italic" style={{ color: "#849587" }}>
+          <p className="text-center py-12 italic text-on-surface-variant">
             Loading…
           </p>
         ) : results.length === 0 ? (
-          <p className="text-center py-12 italic" style={{ color: "#849587" }}>
+          <p className="text-center py-12 italic text-on-surface-variant">
             No results found.
           </p>
         ) : (
@@ -591,14 +557,9 @@ export function ScraperPage({
       {/* ── Back-to-top button (fixed, bottom-right) ──────────────── */}
       <button
         onClick={scrollToTop}
-        className="fixed bottom-5 right-5 p-3 rounded-full shadow-lg transition-all duration-300 z-50"
-        style={{
-          background: "#00FF9C",
-          color: "#002110",
-          opacity: showBackToTop ? 1 : 0,
-          transform: showBackToTop ? "translateY(0)" : "translateY(2rem)",
-          pointerEvents: showBackToTop ? "auto" : "none",
-        }}
+        className={`fixed bottom-5 right-5 p-3 rounded-full shadow-lg transition-all duration-300 z-50 ${
+          showBackToTop ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-8 pointer-events-none"
+        } bg-primary text-on-primary`}
         aria-label="Back to top"
       >
         <span className="material-symbols-outlined">arrow_upward</span>

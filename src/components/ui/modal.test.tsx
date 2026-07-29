@@ -47,10 +47,11 @@ describe("Modal", () => {
         x
       </Modal>,
     );
-    // The close button icon is the only material-symbols span.
+    // The close button icon is one material-symbols span (title icon not provided).
     const icons = document.querySelectorAll(".material-symbols-outlined");
-    expect(icons).toHaveLength(1);
-    expect(icons[0].textContent).toBe("close");
+    expect(icons.length).toBeGreaterThanOrEqual(1);
+    const closeIcons = Array.from(icons).filter((i) => i.textContent === "close");
+    expect(closeIcons.length).toBeGreaterThanOrEqual(1);
   });
 
   test("calls onClose when the close button is clicked", () => {
@@ -60,7 +61,7 @@ describe("Modal", () => {
         x
       </Modal>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close dialog" }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

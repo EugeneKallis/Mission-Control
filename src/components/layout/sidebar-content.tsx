@@ -161,20 +161,18 @@ export function SidebarContent({
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Brand header */}
-      <div
-        className="h-14 flex items-center justify-between px-5 shrink-0"
-        style={{ borderBottom: "1px solid rgba(59, 75, 63, 0.3)" }}
-      >
+      <div className="h-14 flex items-center justify-between px-5 shrink-0 border-b border-outline-variant/30">
         <Link
           href="/"
-          className="text-lg font-bold text-primary font-display hover:opacity-80 transition-opacity"
+          className="flex items-center gap-2.5 text-lg font-bold text-primary font-display tracking-tight hover:opacity-80 transition-opacity"
           aria-label="Go to home"
         >
+          <span className="material-symbols-outlined text-primary text-2xl">dashboard_customize</span>
           {brand}
         </Link>
         <div className="text-[11px] text-on-surface-variant text-right leading-tight">
-          <div>v{version}</div>
-          {uptime && <div>{uptime}</div>}
+          <div className="font-medium">v{version}</div>
+          {uptime && <div className="text-[10px]">{uptime}</div>}
         </div>
       </div>
 
@@ -183,8 +181,8 @@ export function SidebarContent({
         {/* Macros section (collapsible) */}
         <details open={!macrosCollapsed} className="group">
           <summary className="list-none cursor-pointer outline-none">
-            <div className="flex items-center gap-3 px-5 py-2 text-on-surface hover:bg-surface-container-high transition-colors mx-2">
-              <span className="material-symbols-outlined text-green-500 text-xl">
+            <div className="flex items-center gap-3 px-5 py-2 text-on-surface hover:bg-surface-container/60 transition-colors mx-2 rounded-[var(--radius-button)]">
+              <span className="material-symbols-outlined text-primary text-xl">
                 terminal
               </span>
               <span className="flex-1 text-sm font-semibold">Macros</span>
@@ -214,7 +212,7 @@ export function SidebarContent({
                     <button
                       key={macro.id}
                       onClick={() => handleMacroClick(macro)}
-                      className="w-full text-left pl-7 pr-3 py-1.5 text-xs text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-2"
+                      className="w-full text-left pl-7 pr-3 py-1.5 text-xs text-on-surface-variant hover:text-on-surface hover:bg-surface-container/60 transition-colors flex items-center gap-2 rounded-[var(--radius-button)] mx-1"
                       title={macro.description || macro.name}
                     >
                       <span className="material-symbols-outlined text-sm text-primary/60">
@@ -234,7 +232,7 @@ export function SidebarContent({
           </div>
         </details>
 
-        <div className="my-3 mx-4 h-px" style={{ background: "rgba(59, 75, 63, 0.4)" }} />
+        <div className="my-3 mx-5 h-px bg-outline-variant/30" />
 
         <NavItem
           label="Energy Prices"
@@ -256,7 +254,7 @@ export function SidebarContent({
         <NavItem label="Scheduled Tasks" icon="schedule_send" href="/agent-tasks" color="primary" />
 
         {/* Divider */}
-        <div className="my-3 mx-4 h-px" style={{ background: "rgba(59, 75, 63, 0.4)" }} />
+        <div className="my-3 mx-5 h-px bg-outline-variant/30" />
 
         {/* Nav items — exact matches from original */}
         <NavItem label="History" icon="history" href="/history" color="amber" />
@@ -265,7 +263,7 @@ export function SidebarContent({
         <NavItem label="Debrid Viewer" icon="cloud" href="/debrid" color="teal" />
 
         {/* Divider */}
-        <div className="my-3 mx-4 h-px" style={{ background: "rgba(59, 75, 63, 0.4)" }} />
+        <div className="my-3 mx-5 h-px bg-outline-variant/30" />
 
         <NavItem label="Server Status" icon="dns" href="/status" color="green" />
         <NavItem label="Proxmox" icon="dns" href="/pve" color="green" />
@@ -287,7 +285,7 @@ export function SidebarContent({
         />
 
         {/* Divider */}
-        <div className="my-3 mx-4 h-px" style={{ background: "rgba(59, 75, 63, 0.4)" }} />
+        <div className="my-3 mx-5 h-px bg-outline-variant/30" />
 
         <NavItem label="Admin" icon="admin_panel_settings" href="/admin" color="violet" />
         <NavItem label="Config" icon="settings" href="/admin/config" color="violet" />
@@ -295,7 +293,7 @@ export function SidebarContent({
       </nav>
 
       {/* Real-Debrid status badge */}
-      <div className="px-4 py-3 shrink-0" style={{ borderTop: "1px solid rgba(59, 75, 63, 0.3)" }}>
+      <div className="px-4 py-3 shrink-0 border-t border-outline-variant/30">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs">
             <span
@@ -305,7 +303,7 @@ export function SidebarContent({
             >
               bolt
             </span>
-            <span className="text-on-surface-variant">RD</span>
+            <span className="text-on-surface-variant">Real-Debrid</span>
           </div>
           <span
             className={`text-xs font-semibold font-mono ${

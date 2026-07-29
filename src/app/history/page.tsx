@@ -28,9 +28,9 @@ function historyTitle(item: HistoryItem): string {
 
 function statusPill(status: string) {
   const colors: Record<string, { bg: string; fg: string; border: string }> = {
-    running: { bg: "rgba(76, 214, 255, 0.1)", fg: "#4CD6FF", border: "rgba(76, 214, 255, 0.3)" },
-    success: { bg: "rgba(97, 139, 107, 0.1)", fg: "#618B6B", border: "rgba(97, 139, 107, 0.3)" },
-    failed: { bg: "rgba(255, 180, 171, 0.1)", fg: "#FFB4AB", border: "rgba(255, 180, 171, 0.3)" },
+    running: { bg: "rgba(34, 211, 238, 0.1)", fg: "#22D3EE", border: "rgba(34, 211, 238, 0.3)" },
+    success: { bg: "rgba(52, 211, 153, 0.1)", fg: "#34D399", border: "rgba(52, 211, 153, 0.3)" },
+    failed: { bg: "rgba(248, 113, 113, 0.1)", fg: "#F87171", border: "rgba(248, 113, 113, 0.3)" },
   };
   const c = colors[status] || colors.running;
   return (
@@ -45,7 +45,7 @@ function statusPill(status: string) {
 }
 
 function formatDuration(start: string, end: string | null): string {
-  if (!end) return "—";
+  if (!end) return "\u2014";
   const sec = Math.round((new Date(end).getTime() - new Date(start).getTime()) / 1000);
   return formatSeconds(sec);
 }
@@ -139,23 +139,28 @@ export default function HistoryPage() {
       <div className="flex flex-col h-full gap-5 stagger-1 p-4 md:p-6">
         {/* Header */}
         <div className="flex items-center justify-between shrink-0">
-          <h1 className="text-2xl font-bold text-[#E5E2E1] tracking-tight" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
-            Command History
-          </h1>
+          <div>
+            <h1 className="text-2xl font-bold text-on-surface tracking-tight">
+              Command History
+            </h1>
+            <p className="text-xs text-on-surface-variant mt-0.5">
+              Recent macro and task executions
+            </p>
+          </div>
           <div className="flex items-center gap-2">
             <button
               onClick={fetchHistory}
-              className="px-4 py-2 text-xs font-semibold rounded-none transition-colors"
-              style={{ background: "#201F1F", color: "#E5E2E1", border: "1px solid rgba(59, 75, 63, 0.3)" }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 bg-surface-container text-on-surface hover:bg-surface-container-high active:scale-[0.98]"
             >
+              <span className="material-symbols-outlined text-sm">refresh</span>
               Refresh
             </button>
             {items.length > 0 && (
               <button
                 onClick={() => setClearOpen(true)}
-                className="px-4 py-2 text-xs font-semibold rounded-none transition-colors"
-                style={{ background: "rgba(255, 180, 171, 0.1)", color: "#FFB4AB", border: "1px solid rgba(255, 180, 171, 0.3)" }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 bg-error/10 text-error border border-error/30 hover:bg-error/20 active:scale-[0.98]"
               >
+                <span className="material-symbols-outlined text-sm">delete</span>
                 Clear History
               </button>
             )}
@@ -164,11 +169,12 @@ export default function HistoryPage() {
 
         {/* List */}
         {loading ? (
-          <div className="flex-1 flex items-center justify-center text-[#849587]">Loading...</div>
+          <div className="flex-1 flex items-center justify-center text-on-surface-variant">Loading...</div>
         ) : items.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-[#849587] gap-3">
-            <span className="material-symbols-outlined text-4xl">history</span>
-            <p>No command history yet.</p>
+          <div className="flex-1 flex flex-col items-center justify-center text-on-surface-variant gap-3">
+            <span className="material-symbols-outlined text-5xl text-on-surface-variant/30">history</span>
+            <p className="text-sm">No command history yet.</p>
+            <p className="text-xs text-on-surface-variant/60">Run a macro to see its output here.</p>
           </div>
         ) : (
           <>
@@ -177,42 +183,41 @@ export default function HistoryPage() {
               selectedTitles={selectedTitles}
               onSelectedTitlesChange={setSelectedTitles}
             />
-            <p className="shrink-0 text-xs text-[#849587]" aria-live="polite">
+            <p className="shrink-0 text-xs text-on-surface-variant" aria-live="polite">
               Showing {filteredItems.length} of {items.length} {items.length === 1 ? "run" : "runs"}
             </p>
-            <div className="flex-1 min-h-0 overflow-y-auto space-y-2" style={{ scrollbarWidth: "thin", scrollbarColor: "#3B4B3F transparent" }}>
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
               {filteredItems.length === 0 ? (
-                <div className="flex h-full items-center justify-center text-sm text-[#849587]">
+                <div className="flex h-full items-center justify-center text-sm text-on-surface-variant">
                   No history matches the selected filters.
                 </div>
               ) : filteredItems.map((item) => (
                 <Link
-                key={item.id}
-                href={`/history/${item.id}`}
-                className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-lg gap-3 transition-all duration-200 hover:scale-[1.005]"
-                style={{ background: "#201F1F", border: "1px solid rgba(59, 75, 63, 0.3)" }}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-[#E5E2E1] truncate">
-                      {historyTitle(item)}
-                      {item.workerTimer && (
-                        <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-none" style={{ background: "rgba(0, 255, 156, 0.1)", color: "#00FF9C" }}>
-                          timer
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      {statusPill(item.status)}
-                      <span className="text-xs text-[#849587]">{item.triggeredBy}</span>
+                  key={item.id}
+                  href={`/history/${item.id}`}
+                  className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-[var(--radius-card)] gap-3 transition-all duration-200 hover:bg-surface-container border border-outline-variant/20 bg-surface-container-lowest/40"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-on-surface truncate">
+                        {historyTitle(item)}
+                        {item.workerTimer && (
+                          <span className="ml-2 inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded bg-primary/10 text-primary">
+                            timer
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        {statusPill(item.status)}
+                        <span className="text-xs text-on-surface-variant">{item.triggeredBy}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-4 shrink-0 text-xs text-[#849587]">
-                  <span>{formatTime(item.startTime)}</span>
-                  <span>{formatDuration(item.startTime, item.endTime)}</span>
-                  <span className="material-symbols-outlined text-sm">chevron_right</span>
-                </div>
+                  <div className="flex items-center gap-4 shrink-0 text-xs text-on-surface-variant">
+                    <span>{formatTime(item.startTime)}</span>
+                    <span className="font-mono">{formatDuration(item.startTime, item.endTime)}</span>
+                    <span className="material-symbols-outlined text-sm text-on-surface-variant/50">chevron_right</span>
+                  </div>
                 </Link>
               ))}
             </div>
@@ -229,7 +234,7 @@ export default function HistoryPage() {
         confirmLabel="Clear All"
         variant="danger"
       >
-        <p className="text-sm text-[#849587]">
+        <p className="text-sm text-on-surface-variant">
           Are you sure you want to delete all command history? This cannot be undone.
         </p>
       </ConfirmDialog>

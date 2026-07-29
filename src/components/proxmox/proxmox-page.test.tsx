@@ -3,7 +3,7 @@
  */
 
 import { test, expect, mock, afterEach } from "bun:test";
-import { render, screen } from "@/test-utils/render";
+import { fireEvent, render, screen, waitFor } from "@/test-utils/render";
 
 // ── Fixtures ───────────────────────────────────────────────────────────────
 
@@ -41,6 +41,20 @@ const MOCK_SNAPSHOT = {
   fetchedAt: new Date().toISOString(),
 };
 
+const MOCK_SNAPSHOT_OFFLINE = {
+  endpoints: [
+    {
+      id: 1,
+      name: "Offline Cluster",
+      apiUrl: "https://192.168.1.99:8006",
+      online: false,
+      error: "Connection refused",
+      nodes: [],
+    },
+  ],
+  fetchedAt: new Date().toISOString(),
+};
+
 const originalFetch = globalThis.fetch;
 
 afterEach(() => {
@@ -48,13 +62,24 @@ afterEach(() => {
 });
 
 /**
- * Mock fetch routed by URL: /api/pve/status gets the snapshot, everything
- * else (the endpoints list) gets an empty array.
+ * Mock fetch routed by URL: /api/pve/status gets the snapshot, /api/pve/endpoints
+ * gets endpoints list, everything else gets an empty array.
  */
-function mockFetch(data: unknown, status = 200) {
+const DEFAULT_ENDPOINTS = [
+  { id: 1, name: "Main Cluster", apiUrl: "https://192.168.1.10:8006", apiToken: "", verifyTls: false, enabled: true, order: 0 },
+];
+
+function mockFetch(data: unknown, status = 200, endpoints = DEFAULT_ENDPOINTS) {
   globalThis.fetch = mock((url: string | URL | Request) => {
     const path = typeof url === "string" ? url : url instanceof URL ? url.href : url.url;
-    const body = path.includes("/api/pve/status") ? data : [];
+    let body: unknown;
+    if (path.includes("/api/pve/status")) {
+      body = data;
+    } else if (path.includes("/api/pve/endpoints")) {
+      body = endpoints;
+    } else {
+      body = [];
+    }
     return Promise.resolve(
       new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } }),
     );
@@ -67,19 +92,19 @@ test("renders loading state initially", async () => {
 
   const { ProxmoxPage } = await import("./proxmox-page");
   render(<ProxmoxPage />);
-  expect(screen.getByText("Loading…")).toBeTruthy();
+  expect(screen.getByText(/Loading.*status/)).toBeTruthy();
 });
 
 test("renders not-configured state when no endpoints exist", async () => {
-  mockFetch({ endpoints: [], fetchedAt: new Date().toISOString() });
+  mockFetch({ endpoints: [], fetchedAt: new Date().toISOString() }, 200, []);
   const { ProxmoxPage } = await import("./proxmox-page?bust=" + Math.random());
 
   render(<ProxmoxPage />);
   // Wait for effects to run
   await new Promise((r) => setTimeout(r, 10));
 
-  expect(screen.getByText("No Proxmox servers configured")).toBeTruthy();
-  expect(screen.getByText(/add your Proxmox API endpoint/)).toBeTruthy();
+  expect(screen.getByText("No Proxmox endpoints configured.")).toBeTruthy();
+  expect(screen.getByText("Add Endpoint")).toBeTruthy();
 });
 
 test("renders endpoint with nodes and guests", async () => {
@@ -89,27 +114,149 @@ test("renders endpoint with nodes and guests", async () => {
   render(<ProxmoxPage />);
   await new Promise((r) => setTimeout(r, 10));
 
-  // Endpoint header
-  expect(screen.getByText("Main Cluster")).toBeTruthy();
-  expect(screen.getByText("Online")).toBeTruthy();
-
   // Node name
   expect(screen.getByText("pve-1")).toBeTruthy();
 
+  // Endpoint name (from configured endpoints list)
+  expect(screen.getByRole("heading", { name: "Main Cluster" })).toBeTruthy();
+
   // Summary stats in header
   expect(screen.getByText(/1 endpoint/)).toBeTruthy();
-  expect(screen.getByText(/node/)).toBeTruthy();
   expect(screen.getByText(/1 VM/)).toBeTruthy();
-  expect(screen.getByText(/1 LXC/)).toBeTruthy();
+  expect(screen.getByText(/1 container/)).toBeTruthy();
 });
 
-test("renders error state on fetch failure", async () => {
-  mockFetch({ error: "Failed to fetch Proxmox status" }, 500);
+test("renders error state on fetch failure (no data)", async () => {
+  mockFetch({ error: "Internal error" }, 500);
   const { ProxmoxPage } = await import("./proxmox-page?bust=" + Math.random());
 
   render(<ProxmoxPage />);
   await new Promise((r) => setTimeout(r, 10));
 
-  expect(screen.getByText("Failed to fetch Proxmox status")).toBeTruthy();
-  expect(screen.getByText("Retry")).toBeTruthy();
+  expect(screen.getByText("Server error")).toBeTruthy();
+  expect(screen.getByText("Cluster status is temporarily unavailable.")).toBeTruthy();
+  expect(screen.queryByText(/No endpoints are enabled/)).toBeNull();
+  expect(screen.getByText("Refresh")).toBeTruthy();
+});
+
+test("keeps stale status visible and reports a failed refresh", async () => {
+  let statusCalls = 0;
+  globalThis.fetch = mock((url: string | URL | Request) => {
+    const path = typeof url === "string" ? url : url instanceof URL ? url.href : url.url;
+    if (path.includes("/api/pve/status")) {
+      statusCalls += 1;
+      if (statusCalls === 1) {
+        return Promise.resolve(new Response(JSON.stringify(MOCK_SNAPSHOT), { status: 200 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify({ error: "Unavailable" }), { status: 500 }));
+    }
+    return Promise.resolve(new Response(JSON.stringify(DEFAULT_ENDPOINTS), { status: 200 }));
+  }) as unknown as typeof globalThis.fetch;
+
+  const { ProxmoxPage } = await import("./proxmox-page?bust=" + Math.random());
+  render(<ProxmoxPage />);
+
+  await waitFor(() => expect(screen.getByText("pve-1")).toBeTruthy());
+  fireEvent.click(screen.getByText("Refresh"));
+
+  await waitFor(() => {
+    expect(screen.getByText(/Refresh failed — showing last known status/)).toBeTruthy();
+  });
+  expect(screen.getByText("pve-1")).toBeTruthy();
+});
+
+test("shows online status pill for a healthy endpoint", async () => {
+  mockFetch(MOCK_SNAPSHOT);
+  const { ProxmoxPage } = await import("./proxmox-page?bust=" + Math.random());
+
+  render(<ProxmoxPage />);
+  await new Promise((r) => setTimeout(r, 10));
+
+  expect(screen.getByText("Online")).toBeTruthy();
+});
+
+test("shows offline status and error detail for a failed endpoint", async () => {
+  const endpoints = [
+    { id: 1, name: "Offline Cluster", apiUrl: "https://192.168.1.99:8006", apiToken: "", verifyTls: false, enabled: true, order: 0 },
+  ];
+  mockFetch(MOCK_SNAPSHOT_OFFLINE, 200, endpoints);
+  const { ProxmoxPage } = await import("./proxmox-page?bust=" + Math.random());
+
+  render(<ProxmoxPage />);
+  await new Promise((r) => setTimeout(r, 10));
+
+  expect(screen.getByText("Offline")).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Offline Cluster" })).toBeTruthy();
+  expect(screen.getByText(/Connection refused/)).toBeTruthy();
+});
+
+test("shows endpoint URL next to the endpoint name", async () => {
+  mockFetch(MOCK_SNAPSHOT);
+  const { ProxmoxPage } = await import("./proxmox-page?bust=" + Math.random());
+
+  render(<ProxmoxPage />);
+  await new Promise((r) => setTimeout(r, 10));
+
+  // The endpoint name should be "Main Cluster" (from endpoints list) not the raw URL
+  expect(screen.getByRole("heading", { name: "Main Cluster" })).toBeTruthy();
+  // The URL should also appear as metadata (in the font-mono span)
+  const urlSpans = screen.getAllByText("https://192.168.1.10:8006");
+  expect(urlSpans.length).toBeGreaterThanOrEqual(1);
+});
+
+test("shows last-updated timestamp", async () => {
+  const snapshot = {
+    ...MOCK_SNAPSHOT,
+    fetchedAt: "2025-01-15T12:00:00.000Z",
+  };
+  mockFetch(snapshot, 200, DEFAULT_ENDPOINTS);
+  const { ProxmoxPage } = await import("./proxmox-page?bust=" + Math.random());
+
+  render(<ProxmoxPage />);
+  await new Promise((r) => setTimeout(r, 10));
+
+  expect(screen.getByText(/Last updated/)).toBeTruthy();
+});
+
+test("shows no-nodes placeholder when endpoint has zero nodes", async () => {
+  const snapshot = {
+    endpoints: [
+      {
+        id: 1,
+        name: "Empty Cluster",
+        apiUrl: "https://192.168.1.10:8006",
+        online: true,
+        nodes: [],
+      },
+    ],
+    fetchedAt: new Date().toISOString(),
+  };
+  const endpoints = [
+    { id: 1, name: "Empty Cluster", apiUrl: "https://192.168.1.10:8006", apiToken: "", verifyTls: false, enabled: true, order: 0 },
+  ];
+  mockFetch(snapshot, 200, endpoints);
+  const { ProxmoxPage } = await import("./proxmox-page?bust=" + Math.random());
+
+  render(<ProxmoxPage />);
+  await new Promise((r) => setTimeout(r, 10));
+
+  expect(screen.getByText("No nodes available on this endpoint.")).toBeTruthy();
+});
+
+test("does not show not-configured empty state alongside error", async () => {
+  // When there are endpoints but they failed, we should NOT show
+  // "No Proxmox endpoints configured."
+  const endpoints = [
+    { id: 1, name: "Offline Cluster", apiUrl: "https://192.168.1.99:8006", apiToken: "", verifyTls: false, enabled: true, order: 0 },
+  ];
+  mockFetch(MOCK_SNAPSHOT_OFFLINE, 200, endpoints);
+  const { ProxmoxPage } = await import("./proxmox-page?bust=" + Math.random());
+
+  render(<ProxmoxPage />);
+  await new Promise((r) => setTimeout(r, 10));
+
+  expect(screen.queryByText("No Proxmox endpoints configured.")).toBeNull();
+  // Should show the per-endpoint error instead
+  // The heading still shows the endpoint name
+  expect(screen.getByRole("heading", { name: "Offline Cluster" })).toBeTruthy();
 });

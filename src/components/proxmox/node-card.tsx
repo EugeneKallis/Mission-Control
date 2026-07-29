@@ -104,12 +104,12 @@ function SortHeader<K extends string>({
       <button
         type="button"
         onClick={() => onSort(sortKey)}
-        className={`flex w-full items-center gap-1 hover:text-white transition-colors ${align === "right" ? "justify-end" : "justify-start"} ${active ? "text-gray-300" : ""}`}
+        className={`flex w-full items-center gap-1 hover:text-on-surface transition-colors ${align === "right" ? "justify-end" : "justify-start"} ${active ? "text-on-surface-variant" : ""}`}
         aria-label={`Sort by ${label} in ${scope}, ${active ? `currently ${sort.direction === "asc" ? "ascending" : "descending"}` : "not currently sorted"}. Activate to sort ${nextDirection}.`}
       >
         <span>{label}</span>
         <span aria-hidden="true" className="text-[9px]">
-          {active ? (sort.direction === "asc" ? "▲" : "▼") : "↕"}
+          {active ? (sort.direction === "asc" ? "\u25B2" : "\u25BC") : "\u2195"}
         </span>
       </button>
     </div>
@@ -134,24 +134,24 @@ function humanUptime(seconds: number): string {
 
 function StatusPill({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    online: "bg-green-500/20 text-green-400",
-    running: "bg-green-500/20 text-green-400",
-    offline: "bg-red-500/20 text-red-400",
-    stopped: "bg-red-500/20 text-red-400",
-    unknown: "bg-yellow-500/20 text-yellow-400",
+    online: "bg-success/20 text-success",
+    running: "bg-success/20 text-success",
+    offline: "bg-error/20 text-error",
+    stopped: "bg-error/20 text-error",
+    unknown: "bg-warning/20 text-warning",
   };
   return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[status] || "bg-gray-500/20 text-gray-400"}`}>
+    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[status] || "bg-surface-container-high/30 text-on-surface-variant"}`}>
       {status}
     </span>
   );
 }
 
-function ProgressBar({ value, max, color = "bg-blue-500" }: { value: number; max: number; color?: string }) {
+function ProgressBar({ value, max, color = "bg-primary" }: { value: number; max: number; color?: string }) {
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
-  const barColor = pct > 90 ? "bg-red-500" : pct > 75 ? "bg-yellow-500" : color;
+  const barColor = pct > 90 ? "bg-error" : pct > 75 ? "bg-warning" : color;
   return (
-    <div className="w-full bg-gray-700/50 rounded-full h-2.5 overflow-hidden">
+    <div className="w-full bg-outline-variant/30 rounded-full h-2 overflow-hidden">
       <div className={`h-full rounded-full ${barColor} transition-all duration-500`} style={{ width: `${pct}%` }} />
     </div>
   );
@@ -159,32 +159,32 @@ function ProgressBar({ value, max, color = "bg-blue-500" }: { value: number; max
 
 function GuestRow({ guest }: { guest: PveGuest }) {
   return (
-    <div role="row" className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 rounded-lg transition-colors">
-      <span role="cell" className="text-gray-400 text-xs font-mono w-12 shrink-0">{guest.vmid}</span>
-      <span role="cell" className="flex-1 text-sm font-medium truncate">{guest.name}</span>
+    <div role="row" className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-container/50 rounded-[var(--radius-button)] transition-colors">
+      <span role="cell" className="text-on-surface-variant text-xs font-mono w-12 shrink-0">{guest.vmid}</span>
+      <span role="cell" className="flex-1 text-sm font-medium text-on-surface truncate">{guest.name}</span>
       <span role="cell"><StatusPill status={guest.status} /></span>
       <div role="cell" className="w-24 shrink-0 hidden sm:block">
         <div className="flex items-center gap-1.5">
-          <span className="text-xs text-gray-400 w-8 text-right">{(guest.cpu * 100).toFixed(0)}%</span>
+          <span className="text-xs text-on-surface-variant w-8 text-right">{(guest.cpu * 100).toFixed(0)}%</span>
           <div className="flex-1">
-            <ProgressBar value={guest.cpu * guest.cpus * 100} max={guest.cpus * 100} color="bg-cyan-500" />
+            <ProgressBar value={guest.cpu * guest.cpus * 100} max={guest.cpus * 100} color="bg-primary" />
           </div>
         </div>
       </div>
       <div role="cell" className="w-32 shrink-0 hidden md:block">
         <div className="flex items-center gap-1.5">
-          <ProgressBar value={guest.mem} max={guest.maxmem} color="bg-purple-500" />
-          <span className="text-xs text-gray-400 w-20 text-right">{humanBytes(guest.mem)}/{humanBytes(guest.maxmem)}</span>
+          <ProgressBar value={guest.mem} max={guest.maxmem} color="bg-secondary" />
+          <span className="text-xs text-on-surface-variant w-20 text-right">{humanBytes(guest.mem)}/{humanBytes(guest.maxmem)}</span>
         </div>
       </div>
       <div role="cell" className="w-32 shrink-0 hidden lg:block">
         <div className="flex items-center gap-1.5">
-          <ProgressBar value={guest.disk} max={guest.maxdisk} color="bg-emerald-500" />
-          <span className="text-xs text-gray-400 w-20 text-right">{humanBytes(guest.disk)}/{humanBytes(guest.maxdisk)}</span>
+          <ProgressBar value={guest.disk} max={guest.maxdisk} color="bg-success" />
+          <span className="text-xs text-on-surface-variant w-20 text-right">{humanBytes(guest.disk)}/{humanBytes(guest.maxdisk)}</span>
         </div>
       </div>
-      <span role="cell" className="text-xs text-gray-500 w-14 text-right shrink-0 hidden xl:block">
-        {guest.status === "running" ? humanUptime(guest.uptime) : "—"}
+      <span role="cell" className="text-xs text-on-surface-variant/60 w-14 text-right shrink-0 hidden xl:block">
+        {guest.status === "running" ? humanUptime(guest.uptime) : "\u2014"}
       </span>
     </div>
   );
@@ -192,16 +192,16 @@ function GuestRow({ guest }: { guest: PveGuest }) {
 
 function StorageRow({ pool }: { pool: PveStoragePool }) {
   return (
-    <div role="row" className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 rounded-lg transition-colors">
-      <span role="cell" className="flex-1 text-sm font-medium truncate">{pool.storage}</span>
-      <span role="cell" className="text-xs text-gray-400 w-16 shrink-0">{pool.type}</span>
+    <div role="row" className="flex items-center gap-3 px-4 py-2 hover:bg-surface-container/50 rounded-[var(--radius-button)] transition-colors">
+      <span role="cell" className="flex-1 text-sm font-medium text-on-surface truncate">{pool.storage}</span>
+      <span role="cell" className="text-xs text-on-surface-variant w-16 shrink-0">{pool.type}</span>
       <div role="cell" className="w-48 shrink-0">
         <div className="flex items-center gap-1.5">
-          <ProgressBar value={pool.used} max={pool.total} color="bg-emerald-500" />
-          <span className="text-xs text-gray-400 w-24 text-right">{humanBytes(pool.used)}/{humanBytes(pool.total)}</span>
+          <ProgressBar value={pool.used} max={pool.total} color="bg-success" />
+          <span className="text-xs text-on-surface-variant w-24 text-right">{humanBytes(pool.used)}/{humanBytes(pool.total)}</span>
         </div>
       </div>
-      <span role="cell" className="text-xs text-gray-500 w-16 text-right shrink-0">{humanBytes(pool.avail)} free</span>
+      <span role="cell" className="text-xs text-on-surface-variant/60 w-16 text-right shrink-0">{humanBytes(pool.avail)} free</span>
     </div>
   );
 }
@@ -232,78 +232,78 @@ export function NodeCard({ node, endpointName }: NodeCardProps) {
   const hasStorage = node.storage.length > 0;
 
   return (
-    <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl overflow-hidden">
+    <div className="bg-surface-container border border-outline-variant/20 rounded-[var(--radius-card)] overflow-hidden">
       {/* Header */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-4 px-5 py-4 hover:bg-white/5 transition-colors text-left"
+        className="w-full flex items-center gap-4 px-5 py-4 hover:bg-surface-container-high/30 transition-colors text-left"
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <span className="text-lg font-semibold truncate">{n.node}</span>
+          <span className="text-base font-semibold text-on-surface truncate">{n.node}</span>
           <StatusPill status={n.status} />
         </div>
 
         {/* CPU */}
         <div className="w-28 shrink-0 hidden sm:block">
-          <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">CPU</div>
+          <div className="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">CPU</div>
           <div className="flex items-center gap-1.5">
-            <ProgressBar value={n.cpu * n.maxcpu * 100} max={n.maxcpu * 100} color="bg-blue-500" />
-            <span className="text-xs text-gray-400 w-8 text-right">{(n.cpu * 100).toFixed(0)}%</span>
+            <ProgressBar value={n.cpu * n.maxcpu * 100} max={n.maxcpu * 100} color="bg-primary" />
+            <span className="text-xs text-on-surface-variant w-8 text-right">{(n.cpu * 100).toFixed(0)}%</span>
           </div>
         </div>
 
         {/* RAM */}
         <div className="w-36 shrink-0 hidden md:block">
-          <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">RAM</div>
+          <div className="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">RAM</div>
           <div className="flex items-center gap-1.5">
-            <ProgressBar value={n.mem} max={n.maxmem} color="bg-purple-500" />
-            <span className="text-xs text-gray-400 w-14 text-right">{humanBytes(n.mem)}</span>
+            <ProgressBar value={n.mem} max={n.maxmem} color="bg-secondary" />
+            <span className="text-xs text-on-surface-variant w-14 text-right">{humanBytes(n.mem)}</span>
           </div>
         </div>
 
         {/* Disk */}
         <div className="w-36 shrink-0 hidden lg:block">
-          <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">Disk</div>
+          <div className="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">Disk</div>
           <div className="flex items-center gap-1.5">
-            <ProgressBar value={n.disk} max={n.maxdisk} color="bg-emerald-500" />
-            <span className="text-xs text-gray-400 w-14 text-right">{humanBytes(n.disk)}</span>
+            <ProgressBar value={n.disk} max={n.maxdisk} color="bg-success" />
+            <span className="text-xs text-on-surface-variant w-14 text-right">{humanBytes(n.disk)}</span>
           </div>
         </div>
 
         {/* Uptime */}
         {n.status === "online" && (
           <div className="w-16 shrink-0 hidden xl:block">
-            <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">Up</div>
-            <div className="text-xs text-gray-400">{humanUptime(n.uptime)}</div>
+            <div className="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">Up</div>
+            <div className="text-xs text-on-surface-variant">{humanUptime(n.uptime)}</div>
           </div>
         )}
 
         {/* Expand indicator */}
-        <svg className={`w-4 h-4 text-gray-500 transition-transform ${expanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className={`w-4 h-4 text-on-surface-variant transition-transform ${expanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
       {/* Expanded content */}
       {expanded && (
-        <div className="border-t border-gray-700/50">
+        <div className="border-t border-outline-variant/15">
           {/* Tabs */}
           <div className="flex gap-1 px-4 pt-3 pb-1">
             <button
               onClick={() => setTab("lxc")}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${tab === "lxc" ? "bg-blue-500/20 text-blue-400" : "text-gray-400 hover:text-white hover:bg-white/5"}`}
+              className={`px-3 py-1.5 text-xs font-medium rounded-[var(--radius-button)] transition-colors ${tab === "lxc" ? "bg-primary/20 text-primary" : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/50"}`}
             >
               LXC {hasLxc ? `(${node.containers.length})` : ""}
             </button>
             <button
               onClick={() => setTab("vms")}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${tab === "vms" ? "bg-blue-500/20 text-blue-400" : "text-gray-400 hover:text-white hover:bg-white/5"}`}
+              className={`px-3 py-1.5 text-xs font-medium rounded-[var(--radius-button)] transition-colors ${tab === "vms" ? "bg-primary/20 text-primary" : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/50"}`}
             >
               VMs {hasVms ? `(${node.vms.length})` : ""}
             </button>
             <button
               onClick={() => setTab("storage")}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${tab === "storage" ? "bg-blue-500/20 text-blue-400" : "text-gray-400 hover:text-white hover:bg-white/5"}`}
+              className={`px-3 py-1.5 text-xs font-medium rounded-[var(--radius-button)] transition-colors ${tab === "storage" ? "bg-primary/20 text-primary" : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/50"}`}
             >
               Storage {hasStorage ? `(${node.storage.length})` : ""}
             </button>
@@ -313,7 +313,7 @@ export function NodeCard({ node, endpointName }: NodeCardProps) {
           <div role="table" aria-label={tableScope} className="px-3 pb-3">
             {/* Column headers */}
             {tab !== "storage" && (
-              <div role="row" className="flex items-center gap-3 px-4 py-1.5 text-[10px] text-gray-500 uppercase tracking-wide">
+              <div role="row" className="flex items-center gap-3 px-4 py-1.5 text-[10px] text-on-surface-variant uppercase tracking-wide">
                 <SortHeader label="ID" scope={tableScope} sortKey="vmid" sort={guestSort} onSort={handleGuestSort} className="w-12 shrink-0" />
                 <SortHeader label="Name" scope={tableScope} sortKey="name" sort={guestSort} onSort={handleGuestSort} className="flex-1" />
                 <SortHeader label="Status" scope={tableScope} sortKey="status" sort={guestSort} onSort={handleGuestSort} className="w-16 shrink-0" />
@@ -326,22 +326,22 @@ export function NodeCard({ node, endpointName }: NodeCardProps) {
 
             {tab === "lxc" && (
               node.containers.length === 0
-                ? <p className="text-gray-500 text-sm py-4 text-center">No LXC containers on this node</p>
+                ? <p className="text-on-surface-variant text-sm py-4 text-center">No LXC containers on this node</p>
                 : sortedContainers.map((ct) => <GuestRow key={ct.vmid} guest={{ ...ct, type: "lxc" }} />)
             )}
 
             {tab === "vms" && (
               node.vms.length === 0
-                ? <p className="text-gray-500 text-sm py-4 text-center">No VMs on this node</p>
+                ? <p className="text-on-surface-variant text-sm py-4 text-center">No VMs on this node</p>
                 : sortedVms.map((vm) => <GuestRow key={vm.vmid} guest={{ ...vm, type: "vm" }} />)
             )}
 
             {tab === "storage" && (
               node.storage.length === 0
-                ? <p className="text-gray-500 text-sm py-4 text-center">No storage pools on this node</p>
+                ? <p className="text-on-surface-variant text-sm py-4 text-center">No storage pools on this node</p>
                 : <div className="overflow-x-auto">
                     <div className="min-w-[36rem] px-4 py-1.5">
-                      <div role="row" className="flex items-center gap-3 py-1.5 text-[10px] text-gray-500 uppercase tracking-wide">
+                      <div role="row" className="flex items-center gap-3 py-1.5 text-[10px] text-on-surface-variant uppercase tracking-wide">
                         <SortHeader label="Name" scope={tableScope} sortKey="storage" sort={storageSort} onSort={(key) => setStorageSort((current) => nextSort(current, key))} className="flex-1" />
                         <SortHeader label="Type" scope={tableScope} sortKey="type" sort={storageSort} onSort={(key) => setStorageSort((current) => nextSort(current, key))} className="w-16 shrink-0" />
                         <SortHeader label="Usage" scope={tableScope} sortKey="usage" sort={storageSort} onSort={(key) => setStorageSort((current) => nextSort(current, key))} className="w-48 shrink-0" />

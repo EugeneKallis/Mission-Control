@@ -48,7 +48,7 @@ describe("NavItem", () => {
     mockUsePathname.mockReturnValue("/history");
     const { container } = render(<NavItem label="History" icon="history" href="/history" />);
     const link = container.querySelector("a");
-    expect(link?.className).toContain("bg-surface-container-high");
+    expect(link?.className).toContain("bg-surface-container");
     expect(link?.className).toContain("text-on-surface");
   });
 

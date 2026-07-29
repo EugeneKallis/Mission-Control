@@ -41,20 +41,20 @@ export function NavItem({ label, icon, href, color = "primary", badge, badgeTitl
     <Link
       href={href}
       className={`
-        flex items-center gap-3 px-5 py-2 text-sm font-medium transition-colors mx-2
-        ${isActive ? "bg-surface-container-high text-on-surface" : "text-on-surface-variant hover:bg-surface-container-high"}
+        flex items-center gap-3 px-5 py-2 text-sm font-medium transition-colors mx-2 rounded-[var(--radius-button)]
+        ${isActive ? "bg-surface-container text-on-surface shadow-sm" : "text-on-surface-variant hover:bg-surface-container/60 hover:text-on-surface"}
         ${accentColors[color] ?? accentColors.primary}
       `}
     >
-      <span className="material-symbols-outlined text-xl">{icon}</span>
+      <span className={`material-symbols-outlined text-xl ${isActive ? "text-primary" : ""}`}>{icon}</span>
       <span>{label}</span>
       {showBadge && (
         <span
-          className="ml-auto inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 text-[10px] font-mono font-semibold rounded-none"
+          className="ml-auto inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 text-[10px] font-mono font-semibold rounded-[var(--radius-pill)]"
           style={{
-            background: "#3D1F1F",
-            color: "#FFB4AB",
-            border: "1px solid rgba(255, 180, 171, 0.35)",
+            background: "rgba(248, 113, 113, 0.12)",
+            color: "#F87171",
+            border: "1px solid rgba(248, 113, 113, 0.35)",
           }}
           title={`${badge} ${badgeTitle}`}
         >

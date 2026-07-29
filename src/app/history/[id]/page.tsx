@@ -45,7 +45,7 @@ function formatDuration(start: string, end: string | null): string {
 function statusPill(status: string) {
   const colors: Record<string, { bg: string; fg: string; border: string }> = {
     running: { bg: "rgba(76, 214, 255, 0.1)", fg: "#4CD6FF", border: "rgba(76, 214, 255, 0.3)" },
-    success: { bg: "rgba(97, 139, 107, 0.1)", fg: "#618B6B", border: "rgba(97, 139, 107, 0.3)" },
+    success: { bg: "rgba(52, 211, 153, 0.1)", fg: "#34D399", border: "rgba(52, 211, 153, 0.3)" },
     failed: { bg: "rgba(255, 180, 171, 0.1)", fg: "#FFB4AB", border: "rgba(255, 180, 171, 0.3)" },
   };
   const c = colors[status] || colors.running;
@@ -128,29 +128,29 @@ export default function HistoryDetailPage() {
       <div className="p-4 md:p-6 h-full flex flex-col gap-5">
         {/* Back + header */}
         <div className="shrink-0">
-          <Link href="/history" className="text-[#618B6B] hover:underline text-sm inline-flex items-center gap-1 mb-3">
+          <Link href="/history" className="text-[#34D399] hover:underline text-sm inline-flex items-center gap-1 mb-3">
             <span className="material-symbols-outlined text-sm">arrow_back</span>
             Back
           </Link>
 
           {loading ? (
-            <div className="text-[#849587]">Loading...</div>
+            <div className="text-[#A3B2C6]">Loading...</div>
           ) : error ? (
             <div className="text-[#FFB4AB]">{error}</div>
           ) : item ? (
             <>
               <div className="flex items-center gap-3 flex-wrap mb-1">
-                <h1 className="text-2xl font-bold text-[#E5E2E1] tracking-tight" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+                <h1 className="text-2xl font-bold text-[#F1F5F9] tracking-tight" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
                   Log: {historyTitle(item)}
                   {item.workerTimer && (
-                    <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-none" style={{ background: "rgba(0, 255, 156, 0.1)", color: "#00FF9C" }}>
+                    <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-none" style={{ background: "rgba(34, 211, 238, 0.1)", color: "#22D3EE" }}>
                       timer
                     </span>
                   )}
                 </h1>
                 {statusPill(item.status)}
               </div>
-              <div className="flex items-center gap-4 text-xs text-[#849587]">
+              <div className="flex items-center gap-4 text-xs text-[#A3B2C6]">
                 <span>Started: {formatTime(item.startTime)}</span>
                 <span>Duration: {formatDuration(item.startTime, item.endTime)}</span>
                 <span>Triggered by: {item.triggeredBy}</span>
@@ -160,7 +160,7 @@ export default function HistoryDetailPage() {
                 <button
                   onClick={fetchItem}
                   className="px-3 py-1.5 text-[10px] font-semibold rounded-none transition-colors"
-                  style={{ background: "#201F1F", color: "#E5E2E1", border: "1px solid rgba(59, 75, 63, 0.3)" }}
+                  style={{ background: "#334155", color: "#F1F5F9", border: "1px solid rgba(71, 85, 105, 0.3)" }}
                 >
                   Refresh
                 </button>
@@ -173,20 +173,20 @@ export default function HistoryDetailPage() {
         {item && (
           <div
             className="flex-1 min-h-0 relative rounded-lg overflow-hidden"
-            style={{ background: "#0E0E0E", border: "1px solid rgba(59, 75, 63, 0.3)" }}
+            style={{ background: "#0B1121", border: "1px solid rgba(71, 85, 105, 0.3)" }}
           >
             <div
               className="absolute inset-0 pointer-events-none z-10 opacity-[0.03]"
               style={{
-                background: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 255, 156, 0.08) 2px, rgba(0, 255, 156, 0.08) 4px)",
+                background: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(34, 211, 238, 0.08) 2px, rgba(34, 211, 238, 0.08) 4px)",
               }}
             />
             <pre
               className="absolute inset-0 p-4 font-mono text-xs leading-relaxed overflow-auto whitespace-pre-wrap"
               style={{
-                color: "#E5E2E1",
+                color: "#F1F5F9",
                 scrollbarWidth: "thin",
-                scrollbarColor: "#3B4B3F transparent",
+                scrollbarColor: "#475569 transparent",
               }}
             >
               {terminalText || (isRunning ? "Waiting for first flush…" : "No output recorded.")}

@@ -14,7 +14,7 @@ export const TextInput = forwardRef<HTMLInputElement, InputProps>(
         )}
         <input
           ref={ref}
-          className={`w-full bg-surface-container-high border-b-2 border-outline-variant px-3 py-2.5 text-sm text-on-surface font-mono transition-colors focus:border-primary outline-none rounded-none ${className}`}
+          className={`w-full bg-surface-container-high border border-outline-variant/50 px-3 py-2.5 text-sm text-on-surface font-mono transition-colors focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none rounded-[var(--radius-button)] ${className}`}
           {...props}
         />
         {hint && <p className="text-[11px] text-on-surface-variant">{hint}</p>}
@@ -38,7 +38,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
         )}
         <select
           ref={ref}
-          className={`w-full bg-surface-container-high border-b-2 border-outline-variant px-3 py-2.5 text-sm text-on-surface transition-colors focus:border-primary outline-none rounded-none ${className}`}
+          className={`w-full bg-surface-container-high border border-outline-variant/50 px-3 py-2.5 text-sm text-on-surface transition-colors focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none rounded-[var(--radius-button)] ${className}`}
           {...props}
         >
           {children}

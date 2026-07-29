@@ -6,7 +6,7 @@ import { useLiveStream } from "@/hooks/use-live-stream";
 import { formatSeconds } from "@/lib/format";
 
 function formatDuration(start: string, end: string | null): string {
-  if (!end) return "running…";
+  if (!end) return "running\u2026";
   return formatSeconds(Math.round((new Date(end).getTime() - new Date(start).getTime()) / 1000));
 }
 import { useToast } from "@/components/toast-provider";
@@ -24,9 +24,9 @@ interface HistoryItem {
 
 function statusPill(status: string) {
   const colors: Record<string, { bg: string; fg: string; border: string }> = {
-    running: { bg: "rgba(76, 214, 255, 0.1)", fg: "#4CD6FF", border: "rgba(76, 214, 255, 0.3)" },
-    success: { bg: "rgba(97, 139, 107, 0.1)", fg: "#618B6B", border: "rgba(97, 139, 107, 0.3)" },
-    failed: { bg: "rgba(255, 180, 171, 0.1)", fg: "#FFB4AB", border: "rgba(255, 180, 171, 0.3)" },
+    running: { bg: "rgba(34, 211, 238, 0.1)", fg: "#4CD6FF", border: "rgba(34, 211, 238, 0.3)" },
+    success: { bg: "rgba(52, 211, 153, 0.1)", fg: "#34D399", border: "rgba(52, 211, 153, 0.3)" },
+    failed: { bg: "rgba(248, 113, 113, 0.1)", fg: "#F87171", border: "rgba(248, 113, 113, 0.3)" },
   };
   const c = colors[status] || colors.running;
   return (
@@ -129,41 +129,40 @@ export function MacroLogPanel({
 
   return (
     <div
-      className="flex flex-col rounded-lg overflow-hidden shrink-0"
+      className="flex flex-col rounded-[var(--radius-card)] overflow-hidden shrink-0"
       style={{
-        background: "#0E0E0E",
-        border: "1px solid rgba(59, 75, 63, 0.3)",
+        background: "#0B1121",
+        border: "1px solid rgba(71, 85, 105, 0.3)",
         height: "400px",
       }}
     >
       {/* Header bar */}
       <div
-        className="flex items-center gap-2 px-3 py-2 shrink-0"
-        style={{ background: "#131313", borderBottom: "1px solid rgba(59, 75, 63, 0.3)" }}
+        className="flex items-center gap-2 px-3 py-2 shrink-0 bg-surface border-b border-outline-variant/30"
       >
-        <span className="material-symbols-outlined text-sm text-[#618B6B]">terminal</span>
-        <span className="text-xs font-medium text-[#E5E2E1] truncate">
+        <span className="material-symbols-outlined text-sm text-primary">terminal</span>
+        <span className="text-xs font-medium text-on-surface truncate">
           {runningMacroId !== null ? `Running: ${runningMacroName}` : "Log History"}
         </span>
         <div className="ml-auto flex items-center gap-2">
           <div
             className={`w-1.5 h-1.5 rounded-full ${
-              isConnected ? "bg-[#618B6B] animate-pulse" : "bg-[#FFB4AB]"
+              isConnected ? "bg-primary animate-pulse" : "bg-error"
             }`}
           />
-          <span className="text-[10px] text-[#849587] font-mono">
+          <span className="text-[10px] text-on-surface-variant font-mono">
             {isConnected ? "LIVE" : "OFFLINE"}
           </span>
           <button
             onClick={handleExport}
-            className="p-1 text-[#849587] hover:text-[#E5E2E1] transition-colors"
+            className="p-1 text-on-surface-variant hover:text-on-surface transition-colors"
             title="Export current log"
           >
             <span className="material-symbols-outlined text-sm">download</span>
           </button>
           <button
             onClick={onClose}
-            className="p-1 text-[#849587] hover:text-[#E5E2E1] transition-colors"
+            className="p-1 text-on-surface-variant hover:text-on-surface transition-colors"
             title="Close panel"
           >
             <span className="material-symbols-outlined text-sm">close</span>
@@ -174,18 +173,18 @@ export function MacroLogPanel({
       {/* Terminal + History split */}
       <div className="flex-1 min-h-0 flex">
         {/* Terminal (left) */}
-        <div className="flex-1 min-w-0 flex flex-col" style={{ borderRight: "1px solid rgba(59, 75, 63, 0.15)" }}>
+        <div className="flex-1 min-w-0 flex flex-col" style={{ borderRight: "1px solid rgba(71, 85, 105, 0.15)" }}>
           <div
             ref={containerRef}
             onScroll={handleScroll}
             className="flex-1 p-3 font-mono text-[11px] leading-relaxed overflow-y-auto terminal-glow"
-            style={{ color: "#E5E2E1" }}
+            style={{ color: "#E2E8F0" }}
             tabIndex={0}
           >
             {lines.length === 0 ? (
-              <div className="text-[#849587]/60 italic">
+              <div className="text-on-surface-variant/60 italic">
                 {runningMacroId !== null
-                  ? `Waiting for output from "${runningMacroName}"…`
+                  ? `Waiting for output from "${runningMacroName}"\u2026`
                   : "No live output. Run a macro to see output here."}
               </div>
             ) : (
@@ -205,33 +204,31 @@ export function MacroLogPanel({
         {/* History (right) */}
         <div className="w-72 shrink-0 flex flex-col min-h-0">
           <div
-            className="px-3 py-1.5 text-[9px] font-semibold uppercase tracking-wider text-[#618B6B] shrink-0"
-            style={{ borderBottom: "1px solid rgba(59, 75, 63, 0.15)" }}
+            className="px-3 py-1.5 text-[9px] font-semibold uppercase tracking-wider text-primary shrink-0 border-b border-outline-variant/15"
           >
             Recent Runs
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto">
             {historyLoading ? (
-              <div className="px-3 py-2 text-[10px] text-[#849587]">Loading…</div>
+              <div className="px-3 py-2 text-[10px] text-on-surface-variant">Loading\u2026</div>
             ) : history.length === 0 ? (
-              <div className="px-3 py-2 text-[10px] text-[#849587]">No history yet.</div>
+              <div className="px-3 py-2 text-[10px] text-on-surface-variant">No history yet.</div>
             ) : (
               history.slice(0, 20).map((item) => (
                 <Link
                   key={item.id}
                   href={`/history/${item.id}`}
-                  className="block px-3 py-1.5 hover:bg-[#1C1B1B] transition-colors"
-                  style={{ borderBottom: "1px solid rgba(59, 75, 63, 0.08)" }}
+                  className="block px-3 py-1.5 hover:bg-surface-container/80 transition-colors border-b border-outline-variant/10"
                 >
                   <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className="text-[11px] text-[#E5E2E1] truncate flex-1">
+                    <span className="text-[11px] text-on-surface truncate flex-1">
                       {item.macro.name}
                     </span>
                     {statusPill(item.status)}
                   </div>
-                  <div className="flex items-center gap-2 text-[9px] text-[#849587] font-mono">
+                  <div className="flex items-center gap-2 text-[9px] text-on-surface-variant font-mono">
                     <span>{formatTime(item.startTime)}</span>
-                    <span>·</span>
+                    <span>&middot;</span>
                     <span>{formatDuration(item.startTime, item.endTime)}</span>
                   </div>
                 </Link>
@@ -240,10 +237,9 @@ export function MacroLogPanel({
           </div>
           <Link
             href="/history"
-            className="px-3 py-1.5 text-[10px] text-[#618B6B] hover:underline text-center shrink-0"
-            style={{ borderTop: "1px solid rgba(59, 75, 63, 0.15)" }}
+            className="px-3 py-1.5 text-[10px] text-primary hover:underline text-center shrink-0 border-t border-outline-variant/15"
           >
-            View all history →
+            View all history &rarr;
           </Link>
         </div>
       </div>

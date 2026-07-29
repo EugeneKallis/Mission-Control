@@ -64,7 +64,7 @@ describe("ToastProvider", () => {
     expect(node.className).toContain("bg-surface-container");
   });
 
-  test("toast type='success' has the primary class", () => {
+  test("toast type='success' has the success class", () => {
     const { result } = renderHook(() => useToast(), {
       wrapper: ToastProvider,
     });
@@ -72,7 +72,7 @@ describe("ToastProvider", () => {
       result.current.showToast("success-toast", "success");
     });
     const node = screen.getByText("success-toast");
-    expect(node.className).toContain("bg-primary");
+    expect(node.className).toContain("bg-success");
   });
 
   test("toast type='error' has the error class", () => {

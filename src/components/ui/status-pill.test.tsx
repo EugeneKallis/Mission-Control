@@ -10,8 +10,8 @@ describe("StatusPill", () => {
   test("applies success classes for the success variant", () => {
     render(<StatusPill status="success" />);
     const pill = screen.getByText("Success");
-    expect(pill.className).toContain("text-primary");
-    expect(pill.className).toContain("border-primary/30");
+    expect(pill.className).toContain("text-success");
+    expect(pill.className).toContain("border-success/30");
   });
 
   test("applies failed/error classes for the failed variant", () => {
@@ -24,8 +24,8 @@ describe("StatusPill", () => {
   test("applies running classes for the running variant", () => {
     render(<StatusPill status="running" />);
     const pill = screen.getByText("Running");
-    expect(pill.className).toContain("text-indigo-400");
-    expect(pill.className).toContain("border-indigo-500/30");
+    expect(pill.className).toContain("text-info");
+    expect(pill.className).toContain("border-info/30");
   });
 
   test("uses the explicit label when provided", () => {

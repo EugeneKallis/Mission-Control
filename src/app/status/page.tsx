@@ -20,7 +20,7 @@ interface Agent {
 }
 
 function formatBytes(bytes: number | null): string {
-  if (bytes === null || bytes === undefined) return "—";
+  if (bytes === null || bytes === undefined) return "\u2014";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -28,7 +28,7 @@ function formatBytes(bytes: number | null): string {
 }
 
 function formatTime(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "\u2014";
   const d = new Date(iso);
   return d.toLocaleString("en-US", {
     month: "short",
@@ -41,9 +41,9 @@ function formatTime(iso: string | null): string {
 }
 
 function usageColor(pct: number): string {
-  if (pct > 80) return "#FFB4AB";
-  if (pct > 50) return "#FFD04C";
-  return "#618B6B";
+  if (pct > 80) return "#F87171";
+  if (pct > 50) return "#FBBF24";
+  return "#34D399";
 }
 
 function UsageBar({ pct }: { pct: number | null }) {
@@ -51,7 +51,7 @@ function UsageBar({ pct }: { pct: number | null }) {
   const color = usageColor(value);
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-2 rounded-full" style={{ background: "rgba(59, 75, 63, 0.3)" }}>
+      <div className="flex-1 h-1.5 rounded-full bg-outline-variant/30">
         <div
           className="h-full rounded-full transition-all duration-500"
           style={{ width: `${Math.min(value, 100)}%`, background: color }}
@@ -135,26 +135,28 @@ export default function ServerStatusPage() {
       <div className="p-4 md:p-6 relative h-full flex flex-col gap-6 stagger-1">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-center gap-4 shrink-0">
-          <div className="flex items-baseline gap-4">
-            <h1 className="text-2xl font-bold text-[#E5E2E1] tracking-tight" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+          <div>
+            <h1 className="text-2xl font-bold text-on-surface tracking-tight">
               Server Status
             </h1>
-            <span className="text-xs text-[#849587] font-mono">v0.1.0</span>
+            <p className="text-xs text-on-surface-variant mt-0.5">
+              Connected agents and system resources
+            </p>
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => setShowAddModal(true)}
-              className="px-4 py-2 text-xs font-semibold rounded-none transition-colors"
-              style={{ background: "#201F1F", color: "#E5E2E1", border: "1px solid rgba(59, 75, 63, 0.3)" }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 bg-surface-container text-on-surface hover:bg-surface-container-high active:scale-[0.98]"
             >
+              <span className="material-symbols-outlined text-sm">add</span>
               Add Server
             </button>
             <button
               onClick={handleUpdateAll}
               disabled={agents.length === 0}
-              className="px-4 py-2 text-xs font-semibold rounded-none transition-colors disabled:opacity-50"
-              style={{ background: "rgba(97, 139, 107, 0.1)", color: "#618B6B", border: "1px solid rgba(97, 139, 107, 0.3)" }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 bg-success/10 text-success border border-success/30 hover:bg-success/20 disabled:opacity-50 active:scale-[0.98]"
             >
+              <span className="material-symbols-outlined text-sm">refresh</span>
               Update All
             </button>
           </div>
@@ -162,20 +164,20 @@ export default function ServerStatusPage() {
 
         {/* Content */}
         {loading ? (
-          <div className="flex-1 flex items-center justify-center text-[#849587]">Loading...</div>
+          <div className="flex-1 flex items-center justify-center text-on-surface-variant">Loading...</div>
         ) : agents.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-[#849587] gap-3">
-            <span className="material-symbols-outlined text-4xl">dns</span>
-            <p>No agents connected.</p>
-            <p className="text-xs">Agents will appear here once they connect back to the server.</p>
+          <div className="flex-1 flex flex-col items-center justify-center text-on-surface-variant gap-3">
+            <span className="material-symbols-outlined text-5xl text-on-surface-variant/30">dns</span>
+            <p className="text-sm">No agents connected.</p>
+            <p className="text-xs text-on-surface-variant/60">Agents will appear here once they connect back to the server.</p>
           </div>
         ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#3B4B3F transparent" }}>
+          <div className="flex-1 min-h-0 overflow-y-auto">
             {/* Desktop table */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-xs text-[#849587] uppercase tracking-wider">
+                  <tr className="text-xs text-on-surface-variant uppercase tracking-wider">
                     <th className="p-3 text-left font-normal">Hostname</th>
                     <th className="p-3 text-left font-normal">IP</th>
                     <th className="p-3 text-left font-normal">CPU</th>
@@ -197,44 +199,42 @@ export default function ServerStatusPage() {
                     return (
                       <tr
                         key={agent.id}
-                        className="group"
+                        className="group transition-opacity"
                         style={{
                           opacity: isStale ? 0.5 : 1,
-                          borderBottom: "1px solid rgba(59, 75, 63, 0.15)",
+                          borderBottom: "1px solid rgba(71, 85, 105, 0.15)",
                         }}
                       >
-                        <td className="p-3 font-medium text-[#E5E2E1]">{agent.hostname}</td>
-                        <td className="p-3 text-[#849587] font-mono text-xs">{agent.ipAddress || "—"}</td>
+                        <td className="p-3 font-medium text-on-surface">{agent.hostname}</td>
+                        <td className="p-3 text-on-surface-variant font-mono text-xs">{agent.ipAddress || "\u2014"}</td>
                         <td className="p-3 min-w-[140px]"><UsageBar pct={agent.cpuUsage} /></td>
                         <td className="p-3 min-w-[160px]">
                           <div className="flex items-center gap-2">
                             <UsageBar pct={memPct} />
                             {agent.memoryUsed !== null && agent.memoryTotal !== null && (
-                              <span className="text-xs text-[#849587] whitespace-nowrap">
+                              <span className="text-xs text-on-surface-variant whitespace-nowrap">
                                 {formatBytes(agent.memoryUsed)} / {formatBytes(agent.memoryTotal)}
                               </span>
                             )}
                           </div>
                         </td>
-                        <td className="p-3 text-right text-[#849587] text-xs font-mono">{formatBytes(agent.networkSent)}</td>
-                        <td className="p-3 text-right text-[#849587] text-xs font-mono">{formatBytes(agent.networkRecv)}</td>
+                        <td className="p-3 text-right text-on-surface-variant text-xs font-mono">{formatBytes(agent.networkSent)}</td>
+                        <td className="p-3 text-right text-on-surface-variant text-xs font-mono">{formatBytes(agent.networkRecv)}</td>
                         <td className="p-3">
-                          <span className="text-xs text-[#849587]">{agent.version || "—"}</span>
+                          <span className="text-xs text-on-surface-variant">{agent.version || "\u2014"}</span>
                         </td>
-                        <td className="p-3 text-xs text-[#849587] whitespace-nowrap">{formatTime(agent.lastSeen)}</td>
+                        <td className="p-3 text-xs text-on-surface-variant whitespace-nowrap">{formatTime(agent.lastSeen)}</td>
                         <td className="p-3 text-right">
                           <div className="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
                               onClick={() => handleUpdateAgent(agent.id)}
-                              className="px-3 py-1.5 text-xs font-semibold rounded-none"
-                              style={{ background: "rgba(97, 139, 107, 0.1)", color: "#618B6B", border: "1px solid rgba(97, 139, 107, 0.3)" }}
+                              className="px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 bg-success/10 text-success border border-success/30 hover:bg-success/20 active:scale-[0.98]"
                             >
                               Update
                             </button>
                             <button
                               onClick={() => handleRestartAgent(agent.id)}
-                              className="px-3 py-1.5 text-xs font-semibold rounded-none"
-                              style={{ background: "rgba(255, 180, 171, 0.1)", color: "#FFB4AB", border: "1px solid rgba(255, 180, 171, 0.3)" }}
+                              className="px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 bg-error/10 text-error border border-error/30 hover:bg-error/20 active:scale-[0.98]"
                             >
                               Restart
                             </button>
@@ -258,50 +258,44 @@ export default function ServerStatusPage() {
                 return (
                   <div
                     key={agent.id}
-                    className="p-4 rounded-lg space-y-3"
-                    style={{
-                      opacity: isStale ? 0.5 : 1,
-                      background: "#201F1F",
-                      border: "1px solid rgba(59, 75, 63, 0.3)",
-                    }}
+                    className="p-4 rounded-[var(--radius-card)] space-y-3 border border-outline-variant/20 bg-surface-container-lowest/40"
+                    style={{ opacity: isStale ? 0.5 : 1 }}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-medium text-[#E5E2E1]">{agent.hostname}</span>
-                      <span className="text-xs text-[#849587]">{agent.ipAddress || "—"}</span>
+                      <span className="font-medium text-on-surface">{agent.hostname}</span>
+                      <span className="text-xs text-on-surface-variant">{agent.ipAddress || "\u2014"}</span>
                     </div>
                     <div className="space-y-2 text-xs">
                       <div>
-                        <span className="text-[#849587]">CPU </span>
+                        <span className="text-on-surface-variant">CPU </span>
                         <UsageBar pct={agent.cpuUsage} />
                       </div>
                       <div>
-                        <span className="text-[#849587]">Memory </span>
+                        <span className="text-on-surface-variant">Memory </span>
                         <UsageBar pct={memPct} />
                         {agent.memoryUsed !== null && agent.memoryTotal !== null && (
-                          <span className="text-[#849587] ml-2">{formatBytes(agent.memoryUsed)} / {formatBytes(agent.memoryTotal)}</span>
+                          <span className="text-on-surface-variant ml-2">{formatBytes(agent.memoryUsed)} / {formatBytes(agent.memoryTotal)}</span>
                         )}
                       </div>
-                      <div className="flex justify-between text-[#849587]">
+                      <div className="flex justify-between text-on-surface-variant">
                         <span>Net Up: {formatBytes(agent.networkSent)}</span>
                         <span>Net Down: {formatBytes(agent.networkRecv)}</span>
                       </div>
-                      <div className="flex justify-between text-[#849587]">
-                        <span>v{agent.version || "—"}</span>
+                      <div className="flex justify-between text-on-surface-variant">
+                        <span>v{agent.version || "\u2014"}</span>
                         <span>Seen: {formatTime(agent.lastSeen)}</span>
                       </div>
                     </div>
                     <div className="flex gap-2 pt-1">
                       <button
                         onClick={() => handleUpdateAgent(agent.id)}
-                        className="flex-1 px-4 py-2 text-xs font-semibold rounded-none"
-                        style={{ background: "rgba(97, 139, 107, 0.1)", color: "#618B6B", border: "1px solid rgba(97, 139, 107, 0.3)" }}
+                        className="flex-1 px-4 py-2 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 bg-success/10 text-success border border-success/30 hover:bg-success/20 active:scale-[0.98]"
                       >
                         Update
                       </button>
                       <button
                         onClick={() => handleRestartAgent(agent.id)}
-                        className="flex-1 px-4 py-2 text-xs font-semibold rounded-none"
-                        style={{ background: "rgba(255, 180, 171, 0.1)", color: "#FFB4AB", border: "1px solid rgba(255, 180, 171, 0.3)" }}
+                        className="flex-1 px-4 py-2 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 bg-error/10 text-error border border-error/30 hover:bg-error/20 active:scale-[0.98]"
                       >
                         Restart
                       </button>
@@ -316,28 +310,25 @@ export default function ServerStatusPage() {
 
       {/* Add Server Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }}>
-          <div
-            className="w-full max-w-lg rounded-lg p-6"
-            style={{ background: "#1C1B1B", border: "1px solid rgba(59, 75, 63, 0.3)" }}
-          >
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(16px)" }}>
+          <div className="w-full max-w-lg rounded-[var(--radius-card)] p-6 border border-outline-variant/30 bg-surface shadow-2xl">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-[#E5E2E1]" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+              <h2 className="text-lg font-bold text-on-surface font-display">
                 Add Server
               </h2>
               <button
                 onClick={() => setShowAddModal(false)}
-                className="p-1.5 text-[#849587] hover:text-[#E5E2E1] transition-colors"
+                className="p-1.5 text-on-surface-variant hover:text-on-surface transition-colors rounded-[var(--radius-button)] hover:bg-surface-container"
               >
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
-            <p className="text-sm text-[#849587] mb-3">
+            <p className="text-sm text-on-surface-variant mb-3">
               Run this command on the server you want to connect:
             </p>
             <pre
-              className="p-3 rounded text-xs font-mono text-[#E5E2E1] overflow-x-auto select-all"
-              style={{ background: "#0E0E0E", border: "1px solid rgba(59, 75, 63, 0.3)" }}
+              className="p-3 rounded text-xs font-mono text-on-surface overflow-x-auto select-all border border-outline-variant/30"
+              style={{ background: "#0B1121" }}
             >
               curl -sL {typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"}/api/agent/install | bash
             </pre>
@@ -347,9 +338,9 @@ export default function ServerStatusPage() {
                 navigator.clipboard.writeText(text);
                 showToast("Copied to clipboard", "success");
               }}
-              className="mt-3 px-4 py-2 text-xs font-semibold rounded-none transition-colors"
-              style={{ background: "#201F1F", color: "#E5E2E1", border: "1px solid rgba(59, 75, 63, 0.3)" }}
+              className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 bg-surface-container text-on-surface hover:bg-surface-container-high active:scale-[0.98]"
             >
+              <span className="material-symbols-outlined text-sm">content_copy</span>
               Copy to Clipboard
             </button>
           </div>

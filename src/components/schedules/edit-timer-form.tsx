@@ -23,12 +23,7 @@ interface EditTimerFormProps {
 
 const labelCls = "text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant";
 const inputCls =
-  "w-full px-3 py-2 text-sm text-on-surface outline-none transition-colors rounded-none focus:border-b-primary";
-
-const inputStyle: React.CSSProperties = {
-  background: "#2A2A2A",
-  borderBottom: "2px solid #3B4B3F",
-};
+  "w-full px-3 py-2 text-sm text-on-surface outline-none transition-colors rounded-[var(--radius-button)] focus:border-b-primary bg-surface-container-high/50 border border-outline-variant/30 focus:border-primary";
 
 /**
  * Edit form for worker timers. Mirrors the macro schedule edit form.
@@ -59,7 +54,7 @@ export function EditTimerForm({
     try {
       return buildCronExpression(currentValues);
     } catch {
-      return "—";
+      return "\u2014";
     }
   }, [currentValues]);
 
@@ -98,63 +93,44 @@ export function EditTimerForm({
             <span className="material-symbols-outlined">arrow_back</span>
           </Button>
         </Link>
-        <h1
-          className="text-2xl font-bold text-on-surface tracking-tight"
-          style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
-        >
+        <h1 className="text-2xl font-bold text-on-surface tracking-tight font-display">
           Edit Timer
         </h1>
-        <span
-          className="text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-none"
-          style={{ background: "rgba(0, 255, 156, 0.1)", color: "#00FF9C" }}
-        >
+        <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-[var(--radius-pill)] bg-primary/15 text-primary">
           {timerName}
         </span>
         {!initialEnabled && (
-          <span
-            className="text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-none"
-            style={{ background: "rgba(107, 114, 128, 0.2)", color: "#9CA3AF" }}
-          >
+          <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-[var(--radius-pill)] bg-on-surface-variant/20 text-on-surface-variant">
             Currently disabled
           </span>
         )}
       </div>
 
-      <div
-        className="p-6 rounded-none"
-        style={{ background: "#1C1B1B", border: "1px solid rgba(59, 75, 63, 0.3)" }}
-      >
+      <div className="p-6 rounded-[var(--radius-card)] bg-surface border border-outline-variant/30">
         <form onSubmit={handleSubmit} className="flex flex-col gap-6">
           {/* Worker info (read-only) */}
           <div className="grid grid-cols-1 gap-1.5">
             <label className={labelCls}>Worker</label>
-            <div
-              className="px-3 py-2 text-sm text-on-surface-variant rounded-none"
-              style={{ background: "#2A2A2A", borderBottom: "2px solid #3B4B3F" }}
-            >
+            <div className="px-3 py-2 text-sm text-on-surface-variant rounded-[var(--radius-button)] bg-surface-container-high/50 border border-outline-variant/30">
               <span className="font-mono text-xs">{workerPath}</span>
             </div>
           </div>
 
           <div className="flex flex-col gap-1.5">
             <label className={labelCls}>Frequency</label>
-            <div
-              className="inline-flex self-start rounded-none overflow-hidden border"
-              style={{ borderColor: "rgba(59, 75, 63, 0.3)" }}
-            >
+            <div className="inline-flex self-start rounded-[var(--radius-button)] overflow-hidden border border-outline-variant/30">
               {(["interval", "daily", "weekly"] as Frequency[]).map((f, i) => (
                 <button
                   key={f}
                   type="button"
                   onClick={() => setFrequency(f)}
-                  className={[
-                    "px-4 py-1.5 text-xs font-semibold transition-colors",
-                    i > 0 ? "border-l" : "",
+                  className={`px-4 py-1.5 text-xs font-semibold transition-colors ${
+                    i > 0 ? "border-l border-outline-variant/30" : ""
+                  } ${
                     frequency === f
                       ? "bg-primary/15 text-primary"
-                      : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high",
-                  ].join(" ")}
-                  style={i > 0 ? { borderColor: "rgba(59, 75, 63, 0.3)" } : undefined}
+                      : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"
+                  }`}
                 >
                   {f === "interval" ? "Interval" : f === "daily" ? "Daily" : "Weekly"}
                 </button>
@@ -166,27 +142,25 @@ export function EditTimerForm({
             {frequency === "interval" && (
               <>
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="interval_value" className={labelCls}>
+                  <label htmlFor="t_interval_value" className={labelCls}>
                     Every
                   </label>
                   <div className="flex gap-2">
                     <input
                       type="number"
                       name="interval_value"
-                      id="interval_value"
+                      id="t_interval_value"
                       min={1}
                       value={intervalValue}
                       onChange={(e) => setIntervalValue(e.target.value)}
                       className={`flex-1 min-w-0 ${inputCls}`}
-                      style={inputStyle}
                     />
                     <select
                       name="interval_unit"
-                      id="interval_unit"
+                      id="t_interval_unit"
                       value={intervalUnit}
                       onChange={(e) => setIntervalUnit(e.target.value as IntervalUnit)}
                       className={`flex-1 min-w-0 ${inputCls}`}
-                      style={inputStyle}
                     >
                       <option value="minutes">Minutes</option>
                       <option value="hours">Hours</option>
@@ -200,31 +174,29 @@ export function EditTimerForm({
             {(frequency === "daily" || frequency === "weekly") && (
               <>
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="time" className={labelCls}>
+                  <label htmlFor="t_time" className={labelCls}>
                     At time
                   </label>
                   <input
                     type="time"
                     name="time"
-                    id="time"
+                    id="t_time"
                     value={time}
                     onChange={(e) => setTime(e.target.value)}
                     className={inputCls}
-                    style={inputStyle}
                   />
                 </div>
                 {frequency === "weekly" && (
                   <div className="flex flex-col gap-1.5">
-                    <label htmlFor="day_of_week" className={labelCls}>
+                    <label htmlFor="t_day_of_week" className={labelCls}>
                       On day
                     </label>
                     <select
                       name="day_of_week"
-                      id="day_of_week"
+                      id="t_day_of_week"
                       value={dayOfWeek}
                       onChange={(e) => setDayOfWeek(e.target.value as DayOfWeek)}
                       className={inputCls}
-                      style={inputStyle}
                     >
                       <option value="1">Monday</option>
                       <option value="2">Tuesday</option>
@@ -240,7 +212,7 @@ export function EditTimerForm({
             )}
           </div>
 
-          <div className="h-px w-full" style={{ background: "rgba(59, 75, 63, 0.3)" }} />
+          <div className="h-px w-full bg-outline-variant/30" />
 
           <div className="flex flex-col-reverse md:flex-row md:items-center gap-3 md:gap-4">
             <div className="flex gap-2 md:ml-auto">
@@ -256,19 +228,12 @@ export function EditTimerForm({
                 className="disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className="material-symbols-outlined text-sm">save</span>
-                {submitting ? "Saving…" : "Update Timer"}
+                {submitting ? "Saving\u2026" : "Update Timer"}
               </Button>
             </div>
             <div className="flex items-center gap-2 md:mr-auto">
               <span className={labelCls}>Cron</span>
-              <code
-                className="px-3 py-1.5 font-mono text-sm rounded-none min-w-0 truncate"
-                style={{
-                  background: "#0E0E0E",
-                  color: "#00FF9C",
-                  border: "1px solid rgba(59, 75, 63, 0.3)",
-                }}
-              >
+              <code className="px-3 py-1.5 font-mono text-sm rounded-[var(--radius-button)] min-w-0 truncate bg-surface-container-lowest text-primary border border-outline-variant/30">
                 {cronPreview}
               </code>
             </div>

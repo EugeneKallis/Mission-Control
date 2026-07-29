@@ -280,6 +280,6 @@ describe("SchedulesList", () => {
     const row = screen.getByText("Sync Library").closest('[data-schedule-id]');
     expect(row).toBeTruthy();
     // Inline style sets opacity to 0.5 when disabled
-    expect((row as HTMLElement).style.opacity).toBe("0.5");
+    expect((row as HTMLElement).className).toContain("opacity-50");
   });
 });

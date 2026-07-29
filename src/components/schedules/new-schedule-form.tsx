@@ -20,8 +20,6 @@ interface NewScheduleFormProps {
 }
 
 // ── Quick-pick presets ──────────────────────────────────────────────────
-// Each preset sets the form to a known good shape. The chip is
-// highlighted when the current form values match the preset.
 
 interface Preset {
   label: string;
@@ -57,12 +55,7 @@ const DEFAULT_VALUES = {
 
 const labelCls = "text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant";
 const inputCls =
-  "w-full px-3 py-2 text-sm text-on-surface outline-none transition-colors rounded-none focus:border-b-primary";
-
-const inputStyle: React.CSSProperties = {
-  background: "#2A2A2A",
-  borderBottom: "2px solid #3B4B3F",
-};
+  "w-full px-3 py-2 text-sm text-on-surface outline-none transition-colors rounded-[var(--radius-button)] focus:border-b-primary bg-surface-container-high/50 border border-outline-variant/30 focus:border-primary";
 
 /**
  * "New Schedule" form with quick-pick preset chips.
@@ -89,7 +82,7 @@ export function NewScheduleForm({ macros, onCreate, onCancel }: NewScheduleFormP
     try {
       return buildCronExpression(currentValues);
     } catch {
-      return "—";
+      return "\u2014";
     }
   }, [currentValues]);
 
@@ -127,7 +120,7 @@ export function NewScheduleForm({ macros, onCreate, onCancel }: NewScheduleFormP
         <div className="flex items-baseline justify-between">
           <label className={labelCls}>Quick schedules</label>
           <span className="text-[10px] text-on-surface-variant/60">
-            Click to apply — refine below
+            Click to apply \u2014 refine below
           </span>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -136,8 +129,6 @@ export function NewScheduleForm({ macros, onCreate, onCancel }: NewScheduleFormP
               currentValues.frequency === preset.values.frequency &&
               currentValues.intervalValue === preset.values.intervalValue &&
               currentValues.intervalUnit === preset.values.intervalUnit &&
-              // For daily/weekly the time is user-editable, so don't
-              // require an exact match to keep the chip lit.
               (preset.values.frequency === "interval" ||
                 (preset.values.frequency === "daily" && frequency === "daily") ||
                 (preset.values.frequency === "weekly" && frequency === "weekly"));
@@ -147,7 +138,7 @@ export function NewScheduleForm({ macros, onCreate, onCancel }: NewScheduleFormP
                 type="button"
                 onClick={() => applyPreset(preset)}
                 className={[
-                  "px-3 py-1.5 text-xs font-medium rounded-none transition-colors",
+                  "px-3 py-1.5 text-xs font-medium rounded-[var(--radius-button)] transition-colors",
                   isActive
                     ? "bg-primary/15 text-primary border border-primary/40"
                     : "bg-surface-container-high text-on-surface-variant border border-outline-variant/30 hover:border-primary/40 hover:text-on-surface",
@@ -160,7 +151,7 @@ export function NewScheduleForm({ macros, onCreate, onCancel }: NewScheduleFormP
         </div>
       </div>
 
-      <div className="h-px w-full" style={{ background: "rgba(59, 75, 63, 0.3)" }} />
+      <div className="h-px w-full bg-outline-variant/30" />
 
       {/* ── Macro select ──────────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-1.5">
@@ -172,8 +163,7 @@ export function NewScheduleForm({ macros, onCreate, onCancel }: NewScheduleFormP
           id="macro_id"
           value={macroId}
           onChange={(e) => setMacroId(e.target.value)}
-          className={`${inputCls}`}
-          style={inputStyle}
+          className={inputCls}
         >
           {macros.length === 0 && <option value="">No macros available</option>}
           {macros.map((m) => (
@@ -187,23 +177,19 @@ export function NewScheduleForm({ macros, onCreate, onCancel }: NewScheduleFormP
       {/* ── Frequency (segmented) ─────────────────────────────────── */}
       <div className="flex flex-col gap-1.5">
         <label className={labelCls}>Frequency</label>
-        <div
-          className="inline-flex self-start rounded-none overflow-hidden border"
-          style={{ borderColor: "rgba(59, 75, 63, 0.3)" }}
-        >
+        <div className="inline-flex self-start rounded-[var(--radius-button)] overflow-hidden border border-outline-variant/30">
           {(["interval", "daily", "weekly"] as Frequency[]).map((f, i) => (
             <button
               key={f}
               type="button"
               onClick={() => setFrequency(f)}
-              className={[
-                "px-4 py-1.5 text-xs font-semibold transition-colors",
-                i > 0 ? "border-l" : "",
+              className={`px-4 py-1.5 text-xs font-semibold transition-colors ${
+                i > 0 ? "border-l border-outline-variant/30" : ""
+              } ${
                 frequency === f
                   ? "bg-primary/15 text-primary"
-                  : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high",
-              ].join(" ")}
-              style={i > 0 ? { borderColor: "rgba(59, 75, 63, 0.3)" } : undefined}
+                  : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"
+              }`}
             >
               {f === "interval" ? "Interval" : f === "daily" ? "Daily" : "Weekly"}
             </button>
@@ -228,7 +214,6 @@ export function NewScheduleForm({ macros, onCreate, onCancel }: NewScheduleFormP
                   value={intervalValue}
                   onChange={(e) => setIntervalValue(e.target.value)}
                   className={`flex-1 min-w-0 ${inputCls}`}
-                  style={inputStyle}
                 />
                 <select
                   name="interval_unit"
@@ -236,7 +221,6 @@ export function NewScheduleForm({ macros, onCreate, onCancel }: NewScheduleFormP
                   value={intervalUnit}
                   onChange={(e) => setIntervalUnit(e.target.value as IntervalUnit)}
                   className={`flex-1 min-w-0 ${inputCls}`}
-                  style={inputStyle}
                 >
                   <option value="minutes">Minutes</option>
                   <option value="hours">Hours</option>
@@ -260,7 +244,6 @@ export function NewScheduleForm({ macros, onCreate, onCancel }: NewScheduleFormP
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
                 className={inputCls}
-                style={inputStyle}
               />
             </div>
             {frequency === "weekly" && (
@@ -274,7 +257,6 @@ export function NewScheduleForm({ macros, onCreate, onCancel }: NewScheduleFormP
                   value={dayOfWeek}
                   onChange={(e) => setDayOfWeek(e.target.value as DayOfWeek)}
                   className={inputCls}
-                  style={inputStyle}
                 >
                   <option value="1">Monday</option>
                   <option value="2">Tuesday</option>
@@ -290,7 +272,7 @@ export function NewScheduleForm({ macros, onCreate, onCancel }: NewScheduleFormP
         )}
       </div>
 
-      <div className="h-px w-full" style={{ background: "rgba(59, 75, 63, 0.3)" }} />
+      <div className="h-px w-full bg-outline-variant/30" />
 
       {/* ── Footer: cron preview + actions ────────────────────────── */}
       <div className="flex flex-col-reverse md:flex-row md:items-center gap-3 md:gap-4">
@@ -305,19 +287,12 @@ export function NewScheduleForm({ macros, onCreate, onCancel }: NewScheduleFormP
             className="disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="material-symbols-outlined text-sm">add</span>
-            {submitting ? "Saving…" : "Save Schedule"}
+            {submitting ? "Saving\u2026" : "Save Schedule"}
           </Button>
         </div>
         <div className="flex items-center gap-2 md:mr-auto">
           <span className={labelCls}>Cron</span>
-          <code
-            className="px-3 py-1.5 font-mono text-sm rounded-none min-w-0 truncate"
-            style={{
-              background: "#0E0E0E",
-              color: "#00FF9C",
-              border: "1px solid rgba(59, 75, 63, 0.3)",
-            }}
-          >
+          <code className="px-3 py-1.5 font-mono text-sm rounded-[var(--radius-button)] min-w-0 truncate bg-surface-container-lowest text-primary border border-outline-variant/30">
             {cronPreview}
           </code>
         </div>

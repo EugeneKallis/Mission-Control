@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ToastProvider } from "@/components/toast-provider";
 import { SidebarContent } from "@/components/layout/sidebar-content";
@@ -30,6 +30,7 @@ export function AppShell({ children, noScroll = false, showRightRail = false, ri
   const [agentModalOpen, setAgentModalOpen] = useState(false);
   const [pendingMacroId, setPendingMacroId] = useState<number | null>(null);
   const [uptime, setUptime] = useState<string | undefined>();
+  const drawerRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -60,6 +61,16 @@ export function AppShell({ children, noScroll = false, showRightRail = false, ri
     return () => window.removeEventListener("macro:run-agent", handler);
   }, []);
 
+  // Escape key closes the mobile drawer
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDrawerOpen(false);
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [drawerOpen]);
+
   const handleAgentRun = (macroId: number, agent: string) => {
     // The home page owns the SSE terminal stream, so funnel the run
     // through it. If we're already on "/", dispatch the in-app event;
@@ -78,33 +89,45 @@ export function AppShell({ children, noScroll = false, showRightRail = false, ri
     }
   };
 
+  // Close drawer on route change
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [pathname]);
+
   return (
     <ToastProvider>
       <div className="h-dvh w-full overflow-hidden flex flex-row bg-bg">
         {/* Desktop sidebar */}
-        <aside className="hidden lg:flex w-[240px] bg-surface flex-col z-20 shrink-0">
+        <aside className="hidden lg:flex w-[260px] bg-surface flex-col z-20 shrink-0 border-r border-outline-variant/30">
           <SidebarContent uptime={uptime} />
         </aside>
 
         {/* Mobile drawer */}
         <>
-          {/* Backdrop */}
+          {/* Backdrop (only rendered when open) */}
           {drawerOpen && (
             <div
-              className="fixed inset-0 bg-black/70 z-40 backdrop-blur-sm lg:hidden"
+              className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm lg:hidden"
               onClick={() => setDrawerOpen(false)}
+              aria-hidden="true"
             />
           )}
-          {/* Drawer */}
+          {/* Drawer (conditionally mounted to prevent keyboard access when closed) */}
           <div
+            ref={drawerRef}
             className={`
-              fixed inset-y-0 left-0 w-[280px] bg-surface shadow-2xl z-50
+              fixed inset-y-0 left-0 w-[300px] bg-surface shadow-2xl z-50
               transform transition-transform duration-300 ease-out
               lg:hidden flex flex-col shrink-0
               ${drawerOpen ? "translate-x-0" : "-translate-x-full"}
             `}
+            aria-hidden={!drawerOpen}
+            role={drawerOpen ? "dialog" : undefined}
+            aria-modal={drawerOpen ? "true" : undefined}
+            aria-label="Navigation menu"
           >
-            <SidebarContent uptime={uptime} />
+            {/* Prevent Tab key from reaching the drawer when closed */}
+            {drawerOpen && <SidebarContent uptime={uptime} />}
           </div>
         </>
 
@@ -124,9 +147,9 @@ export function AppShell({ children, noScroll = false, showRightRail = false, ri
 
         {/* Right macros rail (home page only, xl+) */}
         {showRightRail && (
-          <aside className="hidden xl:flex w-[220px] bg-surface flex-col z-20 shrink-0 border-l border-outline-variant/30">
+          <aside className="hidden xl:flex w-[240px] bg-surface flex-col z-20 shrink-0 border-l border-outline-variant/30">
             <div className="h-12 flex items-center px-4 shrink-0 border-b border-outline-variant/30">
-              <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider font-display">
+              <span className="text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider font-display">
                 Macros
               </span>
             </div>

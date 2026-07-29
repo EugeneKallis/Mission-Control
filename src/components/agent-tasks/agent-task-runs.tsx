@@ -9,10 +9,10 @@ interface Props {
 
 function statusColor(status: string): string {
   switch (status) {
-    case "success": return "#618B6B";
+    case "success": return "#34D399";
     case "error": return "#FFB4AB";
     case "running": return "#FFD04C";
-    default: return "#849587";
+    default: return "#A3B2C6";
   }
 }
 
@@ -54,7 +54,7 @@ export function AgentTaskRuns({ taskId }: Props) {
 
   return (
     <div className="p-3 space-y-2" style={{ background: "rgba(0,0,0,0.15)", maxHeight: "300px", overflow: "auto" }}>
-      <div className="text-xs font-semibold text-[#849587] mb-1">Recent Runs</div>
+      <div className="text-xs font-semibold text-[#A3B2C6] mb-1">Recent Runs</div>
 
       {loading && <div className="text-xs text-[#5A6B5E]">Loading…</div>}
       {!loading && runs.length === 0 && (
@@ -75,7 +75,7 @@ export function AgentTaskRuns({ taskId }: Props) {
                 className="w-1.5 h-1.5 rounded-full"
                 style={{ background: statusColor(run.status) }}
               />
-              <span className="text-xs text-[#E5E2E1]">
+              <span className="text-xs text-[#F1F5F9]">
                 {new Date(run.startTime).toLocaleString()}
               </span>
               <span
@@ -99,9 +99,9 @@ export function AgentTaskRuns({ taskId }: Props) {
             <pre
               className="mt-1 p-2 rounded text-xs font-mono leading-relaxed whitespace-pre-wrap overflow-auto max-h-[200px]"
               style={{
-                background: "#0E0E0E",
+                background: "#0B1121",
                 color: "#C5C8C6",
-                border: "1px solid rgba(59, 75, 63, 0.2)",
+                border: "1px solid rgba(71, 85, 105, 0.2)",
               }}
             >
               {run.output}

@@ -60,8 +60,8 @@ export default function TableDetailPage() {
     return (
       <AppShell>
         <div className="p-4 md:p-6 max-w-5xl mx-auto">
-          <Link href="/database" className="text-[#618B6B] hover:underline mb-4 inline-block">&larr; Back to tables</Link>
-          <div className="text-red-400 p-4 rounded-lg" style={{ background: "#201F1F", border: "1px solid rgba(255, 180, 171, 0.3)" }}>
+          <Link href="/database" className="text-[#34D399] hover:underline mb-4 inline-block">&larr; Back to tables</Link>
+          <div className="text-red-400 p-4 rounded-lg" style={{ background: "#334155", border: "1px solid rgba(255, 180, 171, 0.3)" }}>
             {error}
           </div>
         </div>
@@ -72,19 +72,19 @@ export default function TableDetailPage() {
   return (
     <AppShell>
       <div className="p-4 md:p-6 max-w-[1400px] mx-auto">
-        <Link href="/database" className="text-[#618B6B] hover:underline mb-4 inline-block">&larr; Back to tables</Link>
+        <Link href="/database" className="text-[#34D399] hover:underline mb-4 inline-block">&larr; Back to tables</Link>
 
-        <h1 className="text-2xl font-bold mb-1 tracking-tight text-[#E5E2E1]" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+        <h1 className="text-2xl font-bold mb-1 tracking-tight text-[#F1F5F9]" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
           {table}
         </h1>
         {data && (
-          <p className="text-sm text-[#849587] mb-6">(First 100 rows — {data.totalRows.toLocaleString()} total)</p>
+          <p className="text-sm text-[#A3B2C6] mb-6">(First 100 rows — {data.totalRows.toLocaleString()} total)</p>
         )}
 
         {loading ? (
-          <div className="text-center py-16 text-[#849587]">Loading...</div>
+          <div className="text-center py-16 text-[#A3B2C6]">Loading...</div>
         ) : data && data.columns.length === 0 ? (
-          <div className="text-center py-16 text-[#849587]">Table has no columns or is empty.</div>
+          <div className="text-center py-16 text-[#A3B2C6]">Table has no columns or is empty.</div>
         ) : data ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
@@ -93,14 +93,14 @@ export default function TableDetailPage() {
                   {data.columns.map((col) => (
                     <th
                       key={col.name}
-                      className="p-2 text-left font-mono text-xs text-[#849587] font-normal"
-                      style={{ borderBottom: "1px solid rgba(59, 75, 63, 0.3)" }}
+                      className="p-2 text-left font-mono text-xs text-[#A3B2C6] font-normal"
+                      style={{ borderBottom: "1px solid rgba(71, 85, 105, 0.3)" }}
                     >
                       <div className="flex flex-col gap-1">
                         <span>{col.name}</span>
-                        <span className="text-[10px] text-[#3B4B3F]">{col.type}</span>
+                        <span className="text-[10px] text-[#475569]">{col.type}</span>
                         <input
-                          className="w-full bg-[#131313] border border-[#3B4B3F] rounded px-1.5 py-0.5 text-xs text-[#E5E2E1] outline-none focus:border-[#618B6B]"
+                          className="w-full bg-[#1E293B] border border-[#475569] rounded px-1.5 py-0.5 text-xs text-[#F1F5F9] outline-none focus:border-[#34D399]"
                           placeholder="Filter..."
                           value={filters[col.name] || ""}
                           onChange={(e) => handleFilterChange(col.name, e.target.value)}
@@ -114,13 +114,13 @@ export default function TableDetailPage() {
                 {data.rows.map((row, i) => (
                   <tr
                     key={i}
-                    className="group"
-                    style={{ background: i % 2 === 0 ? "transparent" : "rgba(32, 31, 31, 0.5)" }}
+                    className="group border-b border-outline-variant/10"
+                    style={{ background: i % 2 === 0 ? "transparent" : "rgba(51, 65, 85, 0.3)" }}
                   >
                     {data.columns.map((col) => {
                       const val = row[col.name];
                       const display = val === null ? (
-                        <span className="text-[#3B4B3F] italic">NULL</span>
+                        <span className="text-outline-variant italic">NULL</span>
                       ) : typeof val === "object" ? (
                         JSON.stringify(val)
                       ) : (
@@ -129,8 +129,8 @@ export default function TableDetailPage() {
                       return (
                         <td
                           key={col.name}
-                          className="p-2 font-mono text-xs text-[#E5E2E1] max-w-[300px] truncate"
-                          style={{ borderBottom: "1px solid rgba(59, 75, 63, 0.1)" }}
+                          className="p-2 font-mono text-xs text-[#F1F5F9] max-w-[300px] truncate"
+                          style={{ borderBottom: "1px solid rgba(71, 85, 105, 0.1)" }}
                           title={typeof display === "string" ? display : undefined}
                         >
                           {display}

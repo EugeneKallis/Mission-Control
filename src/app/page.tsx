@@ -49,7 +49,7 @@ function MacroRightRail({ macros }: { macros: GroupWithMacros[] }) {
             <button
               key={macro.id}
               onClick={() => handleClick(macro)}
-              className="w-full text-left px-5 py-1.5 text-xs text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-2"
+              className="w-full text-left px-5 py-1.5 text-xs text-on-surface-variant hover:text-on-surface hover:bg-surface-container/60 transition-colors flex items-center gap-2"
               title={macro.description || macro.name}
             >
               <span className="material-symbols-outlined text-sm text-primary/60">
@@ -69,9 +69,10 @@ function MacroRightRail({ macros }: { macros: GroupWithMacros[] }) {
   );
 }
 
-// ── Home Page / Terminal Dashboard ────────────────────────────────────────
+// ── Home Page / Command Center ───────────────────────────────────────────
 
 export default function Home() {
+
   const { lines, isConnected, clearLines, containerRef, handleScroll } =
     useLiveStream();
   const toast = useToast();
@@ -94,18 +95,12 @@ export default function Home() {
         ? `/api/run/${macroId}?agent=${encodeURIComponent(agent)}`
         : `/api/run/${macroId}`;
       fetch(url, { method: "POST" }).catch(() => {});
-      toast?.showToast("Running macro…", "info");
+      toast?.showToast("Running macro\u2026", "info");
     },
     [toast],
   );
 
   // ── In-app macro trigger (sidebar, agent modal, right rail) ────────
-  // The home page is the only place that owns the SSE terminal stream,
-  // so every macro run has to be funneled through here. The sidebar
-  // and agent modal navigate to "/" when not already on it; this
-  // listener fires on the home page mount with the deep-link query,
-  // or directly when the run originates from the right rail.
-
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<{ macroId: number; agent?: string }>).detail;
@@ -159,23 +154,22 @@ export default function Home() {
     <>
       <AppShell showRightRail rightRailSlot={<MacroRightRail macros={groupedMacros} />}>
         <div className="flex-1 flex flex-col min-h-0 stagger-1">
-          {/* ── Terminal Chrome Bar ────────────────────────────────── */}
-          <div
-            className="flex items-center gap-3 px-4 py-3 shrink-0"
-            style={{ background: "#131313", borderBottom: "1px solid rgba(59, 75, 63, 0.3)" }}
-          >
-            <div className="flex items-center gap-2 shrink-0">
-              <div className="w-3 h-3 rounded-full bg-[#FF5F56]" />
-              <div className="w-3 h-3 rounded-full bg-[#FFBD2E]" />
-              <div className="w-3 h-3 rounded-full bg-[#27C93F]" />
+          {/* ── Command Center Bar ───────────────────────────────── */}
+          <div className="flex items-center gap-3 px-4 py-2 shrink-0 bg-surface border-b border-outline-variant/30">
+            <div className="flex items-center gap-2.5 shrink-0">
+              <div className="flex items-center justify-center w-8 h-8 rounded-[var(--radius-button)] bg-primary/15 text-primary">
+                <span className="material-symbols-outlined text-lg">terminal</span>
+              </div>
+              <div>
+                <span className="text-sm font-bold text-on-surface font-display tracking-tight">Command Center</span>
+                <span className="text-[10px] text-on-surface-variant ml-2 font-mono hidden sm:inline">mctl-local</span>
+              </div>
             </div>
-            <div className="flex-1 text-center text-xs text-on-surface-variant tracking-wide font-display truncate">
-              terminal — Mission Control
-            </div>
-            <div className="hidden md:flex items-center gap-2 shrink-0">
-              <span className="text-[10px] text-on-surface-variant/60 font-mono">
-                session: mctl-local
-              </span>
+            <div className="ml-auto flex items-center gap-2">
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-[var(--radius-button)] bg-surface-container/60">
+                <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? "bg-primary" : "bg-error"}`} />
+                <span className="text-[10px] text-on-surface-variant font-mono">{isConnected ? "LIVE" : "OFFLINE"}</span>
+              </div>
             </div>
           </div>
 
@@ -184,13 +178,13 @@ export default function Home() {
             ref={containerRef}
             onScroll={handleScroll}
             className="flex-1 p-5 font-mono text-sm leading-relaxed overflow-y-auto min-h-0 min-w-0 terminal-scanline terminal-glow"
-            style={{ background: "#0E0E0E", color: "#E5E2E1" }}
+            style={{ background: "#0B1121", color: "#E2E8F0" }}
             tabIndex={0}
           >
             {lines.length === 0 ? (
-              <div className="text-on-surface-variant/60 italic flex flex-col gap-1">
-                <span>Mission Control v0.1.0 — Terminal ready.</span>
-                <span>
+              <div className="text-on-surface-variant italic flex flex-col gap-1.5">
+                <span className="text-on-surface-variant">Mission Control v0.1.0 &mdash; Terminal ready.</span>
+                <span className="text-on-surface-variant/80">
                   Select a macro from the sidebar or right rail to start.
                 </span>
               </div>
@@ -208,40 +202,21 @@ export default function Home() {
           </div>
 
           {/* ── Terminal Footer ─────────────────────────────────────── */}
-          <div
-            className="flex items-center gap-3 px-4 py-2.5 shrink-0"
-            style={{ background: "#131313", borderTop: "1px solid rgba(59, 75, 63, 0.3)" }}
-          >
+          <div className="flex items-center gap-3 px-4 py-2.5 shrink-0 bg-surface border-t border-outline-variant/30">
             <button
               onClick={handleClear}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-none"
+              className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors rounded-[var(--radius-button)] min-h-[36px]"
             >
               <span className="material-symbols-outlined text-base">delete</span>
               Clear
             </button>
             <button
               onClick={handleExport}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-none"
+              className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors rounded-[var(--radius-button)] min-h-[36px]"
             >
               <span className="material-symbols-outlined text-base">download</span>
               Export
             </button>
-
-            {/* Connected indicator */}
-            <div className="ml-auto flex items-center gap-2">
-              <div
-                className={`w-2 h-2 rounded-full ${
-                  isConnected ? "bg-primary animate-pulse" : "bg-error"
-                }`}
-              />
-              <span
-                className={`text-[10px] font-medium ${
-                  isConnected ? "text-primary" : "text-error"
-                }`}
-              >
-                {isConnected ? "CONNECTED" : "DISCONNECTED"}
-              </span>
-            </div>
           </div>
         </div>
       </AppShell>

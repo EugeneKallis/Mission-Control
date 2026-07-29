@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { Modal } from "@/components/ui/modal";
 import type { PveEndpointConfig } from "./proxmox-types";
 
 interface EndpointSettingsProps {
   endpoints: PveEndpointConfig[];
-  onRefresh: () => void;
+  onClose: () => void;
+  onSaved: () => void;
 }
 
 interface EndpointFormData {
@@ -24,9 +26,9 @@ const emptyForm: EndpointFormData = {
   enabled: true,
 };
 
-export function EndpointSettings({ endpoints, onRefresh }: EndpointSettingsProps) {
-  const [open, setOpen] = useState(false);
+export function EndpointSettings({ endpoints, onClose, onSaved }: EndpointSettingsProps) {
   const [editing, setEditing] = useState<{ id: number } & EndpointFormData | null>(null);
+  const [creating, setCreating] = useState(false);
   const [form, setForm] = useState<EndpointFormData>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,13 +36,16 @@ export function EndpointSettings({ endpoints, onRefresh }: EndpointSettingsProps
   const resetForm = useCallback(() => {
     setForm(emptyForm);
     setEditing(null);
+    setCreating(false);
     setError(null);
   }, []);
 
   const startCreate = useCallback(() => {
-    resetForm();
-    setOpen(true);
-  }, [resetForm]);
+    setForm(emptyForm);
+    setEditing(null);
+    setCreating(true);
+    setError(null);
+  }, []);
 
   const startEdit = useCallback(async (ep: PveEndpointConfig) => {
     let fullToken = "";
@@ -61,8 +66,8 @@ export function EndpointSettings({ endpoints, onRefresh }: EndpointSettingsProps
       enabled: ep.enabled,
     });
     setEditing({ ...ep, apiToken: fullToken, id: ep.id });
+    setCreating(false);
     setError(null);
-    setOpen(true);
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -70,7 +75,6 @@ export function EndpointSettings({ endpoints, onRefresh }: EndpointSettingsProps
     setError(null);
     try {
       if (editing) {
-        // Update
         const payload: Record<string, unknown> = {
           name: form.name,
           apiUrl: form.apiUrl,
@@ -89,7 +93,6 @@ export function EndpointSettings({ endpoints, onRefresh }: EndpointSettingsProps
           throw new Error(err.error || `HTTP ${res.status}`);
         }
       } else {
-        // Create
         const res = await fetch("/api/pve/endpoints", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -100,15 +103,14 @@ export function EndpointSettings({ endpoints, onRefresh }: EndpointSettingsProps
           throw new Error(err.error || `HTTP ${res.status}`);
         }
       }
-      setOpen(false);
       resetForm();
-      onRefresh();
+      onSaved();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSaving(false);
     }
-  }, [editing, form, onRefresh, resetForm]);
+  }, [editing, form, onSaved, resetForm]);
 
   const handleDelete = useCallback(async (id: number) => {
     if (!confirm("Delete this Proxmox endpoint?")) return;
@@ -118,132 +120,133 @@ export function EndpointSettings({ endpoints, onRefresh }: EndpointSettingsProps
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
-      setOpen(false);
       resetForm();
-      onRefresh();
+      onSaved();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
-  }, [onRefresh, resetForm]);
+  }, [onSaved, resetForm]);
 
   return (
-    <div>
-      {/* Header row with Add Server button top-right */}
-      {endpoints.length > 0 && (
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs text-gray-500">{endpoints.length} server{endpoints.length !== 1 ? "s" : ""} configured</span>
-          <button
-            onClick={startCreate}
-            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Add Server
-          </button>
-        </div>
-      )}
+    <Modal open onClose={onClose} title="Proxmox Servers" icon="dns">
+      <div className="space-y-4">
+        {error && (
+          <div className="px-4 py-3 rounded-[var(--radius-button)] text-sm text-error bg-error/10 border border-error/30">{error}</div>
+        )}
 
-      {/* Server grid */}
-      {endpoints.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {endpoints.map((ep) => (
-            <div
-              key={ep.id}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm border ${
-                ep.enabled
-                  ? "bg-gray-800/60 border-gray-700/50"
-                  : "bg-gray-800/20 border-gray-700/20 opacity-60"
-              }`}
+        {/* Server list */}
+        {endpoints.length > 0 && (
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-on-surface-variant">{endpoints.length} server{endpoints.length !== 1 ? "s" : ""} configured</span>
+            <button
+              onClick={startCreate}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 bg-primary text-on-primary hover:bg-primary-dim active:scale-[0.98]"
             >
-              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${ep.enabled ? "bg-green-500" : "bg-gray-500"}`} />
-              <div className="flex-1 min-w-0">
-                <div className="font-medium truncate">{ep.name}</div>
-                <div className="text-gray-500 text-xs truncate font-mono">{ep.apiUrl.replace(/^https?:\/\//, "")}</div>
-              </div>
-              <button
-                onClick={() => startEdit(ep)}
-                className="text-gray-500 hover:text-blue-400 transition-colors shrink-0"
-                title="Edit"
+              <span className="material-symbols-outlined text-sm" aria-hidden="true">add</span>
+              Add Server
+            </button>
+          </div>
+        )}
+
+        {/* Server grid */}
+        {endpoints.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {endpoints.map((ep) => (
+              <div
+                key={ep.id}
+                className={`flex items-center gap-3 px-4 py-3 rounded-[var(--radius-card)] text-sm border ${
+                  ep.enabled
+                    ? "bg-surface-container border-outline-variant/30"
+                    : "bg-surface-container/30 border-outline-variant/15 opacity-60"
+                }`}
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-              </button>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <button
-          onClick={startCreate}
-          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Add Server
-        </button>
-      )}
+                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${ep.enabled ? "bg-success" : "bg-on-surface-variant/40"}`} />
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-on-surface truncate">{ep.name}</div>
+                  <div className="text-on-surface-variant/60 text-xs truncate font-mono">{ep.apiUrl.replace(/^https?:\/\//, "")}</div>
+                </div>
+                <button
+                  onClick={() => startEdit(ep)}
+                  className="text-on-surface-variant hover:text-primary transition-colors shrink-0 p-2 min-h-11 min-w-11"
+                  title="Edit"
+                  aria-label={`Edit ${ep.name}`}
+                >
+                  <span className="material-symbols-outlined text-sm">edit</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-4 py-8">
+            <p className="text-sm text-on-surface-variant">No Proxmox servers configured yet.</p>
+            <button
+              onClick={startCreate}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 bg-primary text-on-primary hover:bg-primary-dim active:scale-[0.98]"
+            >
+              <span className="material-symbols-outlined text-sm" aria-hidden="true">add</span>
+              Add Server
+            </button>
+          </div>
+        )}
 
-      {/* Modal */}
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => { setOpen(false); resetForm(); }}>
-          <div className="bg-gray-800 border border-gray-700 rounded-xl w-full max-w-md p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold mb-4">{editing ? `Edit: ${editing.name}` : "Add Proxmox Server"}</h3>
-
-            {error && (
-              <div className="p-3 mb-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">{error}</div>
-            )}
-
-            <div className="space-y-3">
+        {/* Edit / Create Form */}
+        {(editing || creating) && (
+          <div className="border-t border-outline-variant/30 pt-4 mt-4">
+            <h3 className="text-sm font-semibold text-on-surface mb-4" id="endpoint-form-title">
+              {editing ? `Edit: ${editing.name}` : "Add Proxmox Server"}
+            </h3>
+            <div className="space-y-3" role="form" aria-labelledby="endpoint-form-title">
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Name</label>
+                <label htmlFor="pve-endpoint-name" className="block text-xs text-on-surface-variant mb-1">Name</label>
                 <input
-                  className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  id="pve-endpoint-name"
+                  className="w-full px-3 py-2 bg-bg border border-outline-variant/40 rounded-[var(--radius-button)] text-sm text-on-surface outline-none focus:border-primary transition-colors"
                   placeholder="e.g. Main Cluster"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-1">API URL</label>
+                <label htmlFor="pve-endpoint-url" className="block text-xs text-on-surface-variant mb-1">API URL</label>
                 <input
-                  className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                  id="pve-endpoint-url"
+                  className="w-full px-3 py-2 bg-bg border border-outline-variant/40 rounded-[var(--radius-button)] text-sm text-on-surface outline-none focus:border-primary transition-colors font-mono"
                   placeholder="https://192.168.1.10:8006"
                   value={form.apiUrl}
                   onChange={(e) => setForm({ ...form, apiUrl: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-1">
-                  API Token {editing && <span className="text-gray-500">(leave blank to keep current)</span>}
+                <label htmlFor="pve-endpoint-token" className="block text-xs text-on-surface-variant mb-1">
+                  API Token {editing && <span className="text-on-surface-variant">(leave blank to keep current)</span>}
                 </label>
                 <textarea
-                  className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono resize-y"
-                  placeholder={editing ? "········" : "root@pam!monitor=xxx"}
+                  id="pve-endpoint-token"
+                  className="w-full px-3 py-2 bg-bg border border-outline-variant/40 rounded-[var(--radius-button)] text-sm text-on-surface outline-none focus:border-primary transition-colors font-mono resize-y"
+                  placeholder={editing ? "••••••••" : "root@pam!monitor=xxx"}
                   rows={2}
                   value={form.apiToken}
                   onChange={(e) => setForm({ ...form, apiToken: e.target.value })}
                 />
               </div>
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-2 cursor-pointer">
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 cursor-pointer text-sm text-on-surface">
                   <input
                     type="checkbox"
-                    className="rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-500"
+                    className="rounded bg-surface-container-high border-outline-variant text-primary focus:ring-primary"
                     checked={form.verifyTls}
                     onChange={(e) => setForm({ ...form, verifyTls: e.target.checked })}
                   />
-                  <span className="text-sm text-gray-300">Verify TLS</span>
+                  Verify TLS
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className="flex items-center gap-2 cursor-pointer text-sm text-on-surface">
                   <input
                     type="checkbox"
-                    className="rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-500"
+                    className="rounded bg-surface-container-high border-outline-variant text-primary focus:ring-primary"
                     checked={form.enabled}
                     onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
                   />
-                  <span className="text-sm text-gray-300">Enabled</span>
+                  Enabled
                 </label>
               </div>
             </div>
@@ -252,30 +255,30 @@ export function EndpointSettings({ endpoints, onRefresh }: EndpointSettingsProps
               {editing && (
                 <button
                   onClick={() => handleDelete(editing.id)}
-                  className="px-3 py-2 text-sm text-red-400 hover:text-red-300 transition-colors"
+                  className="px-3 py-2 text-sm text-error hover:text-error/80 transition-colors"
                 >
                   Delete
                 </button>
               )}
               <div className="flex items-center gap-2 ml-auto">
                 <button
-                  onClick={() => { setOpen(false); resetForm(); }}
-                  className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+                  onClick={() => { resetForm(); }}
+                  className="px-4 py-2 text-sm text-on-surface-variant hover:text-on-surface transition-colors rounded-[var(--radius-button)]"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSave}
                   disabled={saving || !form.name || !form.apiUrl || (!editing && !form.apiToken)}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                  className="px-4 py-2 bg-primary text-on-primary hover:bg-primary-dim disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium rounded-[var(--radius-button)] transition-all duration-200 active:scale-[0.98]"
                 >
                   {saving ? "Saving…" : editing ? "Save Changes" : "Add Server"}
                 </button>
               </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </Modal>
   );
 }

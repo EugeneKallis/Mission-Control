@@ -48,13 +48,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             key={toast.id}
             onClick={() => removeToast(toast.id)}
+            role="alert"
+            aria-live="polite"
             className={`
               px-5 py-3 shadow-xl cursor-pointer pointer-events-auto
               transition-all duration-300
-              toast-fade
-              ${toast.type === "success" ? "bg-primary text-on-primary border-primary" : ""}
-              ${toast.type === "error" ? "bg-error text-surface border-error" : ""}
-              ${toast.type === "info" ? "bg-surface-container text-on-surface border-outline-variant" : ""}
+              toast-fade rounded-lg
+              ${toast.type === "success" ? "bg-success text-on-success border-success/50" : ""}
+              ${toast.type === "error" ? "bg-error text-on-error border-error/50" : ""}
+              ${toast.type === "info" ? "bg-surface-container text-on-surface border-outline-variant/50" : ""}
               border text-sm font-medium
             `}
           >

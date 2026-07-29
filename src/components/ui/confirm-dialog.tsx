@@ -34,7 +34,7 @@ export function ConfirmDialog({
         <>
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-on-surface-variant hover:text-on-surface transition-colors rounded-none"
+            className="px-4 py-2 text-xs font-semibold text-on-surface-variant hover:text-on-surface transition-colors rounded-[var(--radius-button)] hover:bg-surface-container"
           >
             Cancel
           </button>
@@ -43,10 +43,10 @@ export function ConfirmDialog({
               onConfirm();
               onClose();
             }}
-            className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-none transition-colors ${
+            className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 active:scale-[0.98] ${
               variant === "danger"
-                ? "bg-error text-surface"
-                : "bg-primary text-on-primary"
+                ? "bg-error text-on-error hover:bg-red-500"
+                : "bg-primary text-on-primary hover:bg-primary-dim"
             }`}
           >
             {confirmLabel}

@@ -174,9 +174,9 @@ export default function LogsPage() {
             display: "block",
             ...(isError
               ? {
-                  color: "#FFB4AB",
-                  background: "rgba(255, 180, 171, 0.10)",
-                  borderLeft: "2px solid rgba(255, 180, 171, 0.45)",
+                  color: "#F87171",
+                  background: "rgba(248, 113, 113, 0.08)",
+                  borderLeft: "2px solid rgba(248, 113, 113, 0.4)",
                   paddingLeft: "4px",
                 }
               : {}),
@@ -195,27 +195,27 @@ export default function LogsPage() {
       <div className="p-4 md:p-6 h-full flex flex-col gap-4">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
-          <h1 className="text-2xl font-bold text-[#E5E2E1] tracking-tight" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+          <h1 className="text-2xl font-bold text-on-surface tracking-tight">
             System Logs
           </h1>
           {lastUpdated && (
-            <span className="text-xs text-[#849587]">Last updated: {lastUpdated}</span>
+            <span className="text-xs text-on-surface-variant">Last updated: {lastUpdated}</span>
           )}
         </div>
 
         {/* Controls */}
         <div className="flex flex-wrap items-center gap-3 shrink-0">
           {/* Service selector */}
-          <div className="flex gap-1" style={{ background: "#131313", border: "1px solid rgba(59, 75, 63, 0.3)", borderRadius: "6px", padding: "2px" }}>
+          <div className="flex gap-1 p-0.5 rounded-[var(--radius-button)]" style={{ background: "#1E293B", border: "1px solid rgba(71, 85, 105, 0.25)" }}>
             {SERVICES.map((s) => (
               <button
                 key={s}
                 onClick={() => { setService(s); setLogs("Loading..."); }}
-                className="px-3 py-2 text-xs font-semibold rounded-none transition-colors"
-                style={{
-                  background: service === s ? "#201F1F" : "transparent",
-                  color: service === s ? "#E5E2E1" : "#849587",
-                }}
+                className={`px-3 py-2 text-xs font-semibold rounded-[var(--radius-button)] transition-colors ${
+                  service === s
+                    ? "bg-surface-container text-on-surface"
+                    : "text-on-surface-variant hover:text-on-surface"
+                }`}
               >
                 {LABELS[s]}
               </button>
@@ -224,41 +224,41 @@ export default function LogsPage() {
 
           {/* Filter input */}
           <input
-            className="bg-[#131313] border border-[#3B4B3F] rounded px-2.5 py-1.5 text-xs text-[#E5E2E1] outline-none focus:border-[#618B6B] w-40"
+            className="bg-surface border border-outline-variant/40 rounded-[var(--radius-button)] px-2.5 py-1.5 text-xs text-on-surface outline-none focus:border-primary w-40 transition-colors"
             placeholder="Filter logs..."
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
 
           {/* Errors Only checkbox */}
-          <label className="flex items-center gap-2 text-xs text-[#849587] cursor-pointer select-none">
+          <label className="flex items-center gap-2 text-xs text-on-surface-variant cursor-pointer select-none">
             <input
               type="checkbox"
               checked={errorsOnly}
               onChange={(e) => setErrorsOnly(e.target.checked)}
-              className="accent-[#618B6B]"
+              className="accent-primary"
             />
             Errors Only
           </label>
 
           {/* Exclude Web checkbox */}
-          <label className="flex items-center gap-2 text-xs text-[#849587] cursor-pointer select-none">
+          <label className="flex items-center gap-2 text-xs text-on-surface-variant cursor-pointer select-none">
             <input
               type="checkbox"
               checked={excludeWeb}
               onChange={(e) => setExcludeWeb(e.target.checked)}
-              className="accent-[#618B6B]"
+              className="accent-primary"
             />
             Exclude Web
           </label>
 
           {/* Auto-refresh toggle */}
-          <label className="flex items-center gap-2 text-xs text-[#849587] cursor-pointer select-none">
+          <label className="flex items-center gap-2 text-xs text-on-surface-variant cursor-pointer select-none">
             <input
               type="checkbox"
               checked={autoRefresh}
               onChange={(e) => setAutoRefresh(e.target.checked)}
-              className="accent-[#618B6B]"
+              className="accent-primary"
             />
             Auto-refresh
           </label>
@@ -267,11 +267,11 @@ export default function LogsPage() {
           {errorCount > 0 && (
             <>
               <span
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-mono rounded-none"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-mono rounded-[var(--radius-pill)]"
                 style={{
-                  background: "#3D1F1F",
-                  color: "#FFB4AB",
-                  border: "1px solid rgba(255, 180, 171, 0.25)",
+                  background: "rgba(248, 113, 113, 0.12)",
+                  color: "#F87171",
+                  border: "1px solid rgba(248, 113, 113, 0.25)",
                 }}
               >
                 <span className="material-symbols-outlined text-sm">error</span>
@@ -302,11 +302,11 @@ export default function LogsPage() {
                   }
                 }}
                 disabled={acknowledging}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-none disabled:opacity-50"
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] disabled:opacity-50 transition-all duration-200 active:scale-[0.98]"
                 style={{
-                  background: "#3D1F1F",
-                  color: "#FFB4AB",
-                  border: "1px solid rgba(255, 180, 171, 0.25)",
+                  background: "rgba(248, 113, 113, 0.12)",
+                  color: "#F87171",
+                  border: "1px solid rgba(248, 113, 113, 0.25)",
                 }}
               >
                 <span className="material-symbols-outlined text-sm">check_circle</span>
@@ -318,32 +318,23 @@ export default function LogsPage() {
           {/* Manual refresh */}
           <button
             onClick={() => fetchLogs(service, false)}
-            className="px-4 py-2 text-xs font-semibold rounded-none transition-colors"
-            style={{ background: "#201F1F", color: "#E5E2E1", border: "1px solid rgba(59, 75, 63, 0.3)" }}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 bg-surface-container text-on-surface hover:bg-surface-container-high active:scale-[0.98]"
           >
+            <span className="material-symbols-outlined text-sm">refresh</span>
             Refresh
           </button>
         </div>
 
         {/* Terminal panel */}
         <div
-          className="flex-1 min-h-0 relative rounded-lg overflow-hidden"
-          style={{ background: "#0E0E0E", border: "1px solid rgba(59, 75, 63, 0.3)" }}
+          className="flex-1 min-h-0 relative rounded-[var(--radius-card)] overflow-hidden border border-outline-variant/25"
+          style={{ background: "#0B1121" }}
         >
-          {/* Scanline overlay */}
-          <div
-            className="absolute inset-0 pointer-events-none z-10 opacity-[0.03]"
-            style={{
-              background: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 255, 156, 0.08) 2px, rgba(0, 255, 156, 0.08) 4px)",
-            }}
-          />
           <pre
             ref={terminalRef}
             className="absolute inset-0 p-4 font-mono text-xs leading-relaxed overflow-auto whitespace-pre-wrap"
             style={{
-              color: "#E5E2E1",
-              scrollbarWidth: "thin",
-              scrollbarColor: "#3B4B3F transparent",
+              color: "#E2E8F0",
             }}
           >
             {renderLines()}

@@ -21,17 +21,12 @@ export function ScraperCard({ result, onDownload, onHide }: ScraperCardProps) {
 
   return (
     <div
-      className="scraper-card card-snap-area flex flex-col transition-transform hover:-translate-y-1 relative overflow-hidden rounded-none"
+      className="scraper-card card-snap-area flex flex-col transition-transform hover:-translate-y-0.5 relative overflow-hidden rounded-[var(--radius-card)] bg-surface border border-outline-variant/30"
       data-tags={result.tags.join(",")}
       data-id={result.id}
-      style={{
-        background: "#131313",
-        border: "1px solid rgba(59, 75, 63, 0.3)",
-      }}
     >
       <div
-        className="flex-1 min-h-0 max-h-[calc(100dvh-14rem)] md:max-h-[calc(100dvh-10rem)] overflow-hidden relative"
-        style={{ background: "#0E0E0E" }}
+        className="flex-1 min-h-0 max-h-[calc(100dvh-14rem)] md:max-h-[calc(100dvh-10rem)] overflow-hidden relative rounded-t-[var(--radius-card)] bg-surface-container-lowest"
       >
         {isPornRips ? (
           <div className="flex flex-row h-full gap-[1px]">
@@ -39,8 +34,7 @@ export function ScraperCard({ result, onDownload, onHide }: ScraperCardProps) {
               images.slice(0, 2).map((img, idx) => (
                 <div
                   key={idx}
-                  className="flex-1 flex items-center justify-center min-h-0 overflow-hidden"
-                  style={{ background: "#0E0E0E" }}
+                  className="flex-1 flex items-center justify-center min-h-0 overflow-hidden bg-surface-container-lowest"
                 >
                   <a
                     href={img}
@@ -69,8 +63,7 @@ export function ScraperCard({ result, onDownload, onHide }: ScraperCardProps) {
 
         {result.is_downloaded && (
           <div
-            className="absolute top-2 right-2 px-2.5 py-0.5 text-xs font-bold shadow-md z-10 rounded-none"
-            style={{ background: "#00FF9C", color: "#002110" }}
+            className="absolute top-2 right-2 px-2.5 py-0.5 text-xs font-bold shadow-md z-10 rounded-[var(--radius-pill)] bg-primary text-on-primary"
           >
             DOWNLOADED
           </div>
@@ -79,8 +72,7 @@ export function ScraperCard({ result, onDownload, onHide }: ScraperCardProps) {
 
       <div className="p-4 pb-3">
         <h3
-          className="text-base font-bold break-words leading-snug line-clamp-2"
-          style={{ color: "#E5E2E1" }}
+          className="text-base font-bold break-words leading-snug line-clamp-2 text-on-surface"
         >
           {result.title}
         </h3>
@@ -89,12 +81,7 @@ export function ScraperCard({ result, onDownload, onHide }: ScraperCardProps) {
             {result.tags.map((tag) => (
               <span
                 key={tag}
-                className="inline-block text-[10px] px-2 py-0.5 rounded-full border"
-                style={{
-                  background: "#201F1F",
-                  color: "#849587",
-                  borderColor: "rgba(59, 75, 63, 0.3)",
-                }}
+                className="inline-block text-[10px] px-2 py-0.5 rounded-full border border-outline-variant/30 text-on-surface-variant bg-surface-container"
               >
                 {tag}
               </span>
@@ -107,35 +94,16 @@ export function ScraperCard({ result, onDownload, onHide }: ScraperCardProps) {
         <button
           id={`dl-btn-${result.id}`}
           onClick={() => onDownload(result.id)}
-          className="flex-1 inline-flex items-center justify-center py-2.5 text-sm font-semibold rounded-none transition-colors"
-          style={{ background: "#f43f5e", color: "#fff" }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = "#e11d48";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = "#f43f5e";
-          }}
+          className="flex-1 inline-flex items-center justify-center py-2.5 text-sm font-semibold rounded-[var(--radius-button)] transition-all duration-200 active:scale-[0.98] bg-rose-500 text-white hover:bg-rose-600"
         >
           DL
         </button>
         <button
           id={`hide-btn-${result.id}`}
           onClick={() => onHide(result.id)}
-          className="flex-1 inline-flex items-center justify-center py-2.5 text-xs font-bold uppercase tracking-wider rounded-none transition-all"
-          style={{ border: "1px solid rgba(59, 75, 63, 0.3)", color: "#849587" }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = "#2A2A2A";
-            (e.currentTarget as HTMLButtonElement).style.color = "#E5E2E1";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-            (e.currentTarget as HTMLButtonElement).style.color = "#849587";
-          }}
+          className="flex-1 inline-flex items-center justify-center py-2.5 text-xs font-bold uppercase tracking-wider rounded-[var(--radius-button)] transition-all duration-200 border border-outline-variant/30 text-on-surface-variant hover:bg-surface-container hover:text-on-surface active:scale-[0.98]"
         >
-          <span
-            className="material-symbols-outlined text-sm mr-1"
-            style={{ fontSize: "14px" }}
-          >
+          <span className="material-symbols-outlined text-sm mr-1">
             visibility_off
           </span>
           Hide
@@ -163,11 +131,8 @@ function RemoteImage({ src, alt }: { src: string; alt: string }) {
 
 function ImagePlaceholder() {
   return (
-    <div
-      className="w-full h-full flex items-center justify-center"
-      style={{ background: "#1C1B1B" }}
-    >
-      <span className="material-symbols-outlined text-4xl" style={{ color: "#849587" }}>
+    <div className="w-full h-full flex items-center justify-center bg-surface-container">
+      <span className="material-symbols-outlined text-4xl text-on-surface-variant/40">
         movie
       </span>
     </div>

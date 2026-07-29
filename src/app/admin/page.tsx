@@ -47,7 +47,6 @@ function SortableMacroRow({
   commandsLoading,
   onDeleteCommand,
   onReorderCommands,
-  // Inline add form
   showAddForm,
   addCmdText,
   addCmdDir,
@@ -55,7 +54,6 @@ function SortableMacroRow({
   onAddCmdDirChange,
   onAddCmdSubmit,
   onAddCmdCancel,
-  // Inline edit form
   editingIndex,
   editCmdText,
   editCmdDir,
@@ -82,7 +80,6 @@ function SortableMacroRow({
   onAddCmdDirChange: (v: string) => void;
   onAddCmdSubmit: () => void;
   onAddCmdCancel: () => void;
-  // Inline edit form
   editingIndex: number | null;
   editCmdText: string;
   editCmdDir: string;
@@ -104,20 +101,12 @@ function SortableMacroRow({
 
   return (
     <div ref={setNodeRef} style={style}>
-      <div
-        className="flex flex-col"
-        style={{
-          background: "#1C1B1B",
-          border: "1px solid rgba(59, 75, 63, 0.3)",
-          borderRadius: "8px",
-          overflow: "hidden",
-        }}
-      >
+      <div className="flex flex-col rounded-[var(--radius-card)] border border-outline-variant/20 bg-surface-low overflow-hidden">
         {/* Macro header row */}
         <div className="flex items-center gap-2 px-3 py-2.5">
           {/* Drag handle */}
           <button
-            className="p-1.5 cursor-grab active:cursor-grabbing text-[#3B4B3F] hover:text-[#849587] transition-colors"
+            className="p-1.5 cursor-grab active:cursor-grabbing text-outline-variant hover:text-on-surface-variant transition-colors"
             {...attributes}
             {...listeners}
           >
@@ -127,7 +116,7 @@ function SortableMacroRow({
           {/* Expand arrow */}
           <button
             onClick={onToggle}
-            className="p-1.5 text-[#849587] hover:text-[#E5E2E1] transition-colors"
+            className="p-1.5 text-on-surface-variant hover:text-on-surface transition-colors"
           >
             <span className="material-symbols-outlined text-sm transition-transform" style={{ transform: expanded ? "rotate(90deg)" : "" }}>
               chevron_right
@@ -135,33 +124,29 @@ function SortableMacroRow({
           </button>
 
           {/* Name */}
-          <span className="flex-1 text-sm font-medium text-[#E5E2E1] truncate">{macro.name}</span>
+          <span className="flex-1 text-sm font-medium text-on-surface truncate">{macro.name}</span>
 
           {/* Agent badge */}
           {macro.runOnAgent && (
-            <span
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium"
-              style={{ background: "rgba(76, 214, 255, 0.1)", color: "#4CD6FF", border: "1px solid rgba(76, 214, 255, 0.3)" }}
-            >
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-info/10 text-info border border-info/30">
               <span className="material-symbols-outlined text-[10px]">terminal</span>
               Agent
             </span>
           )}
           {macro.runOnAgent && macro.agentHostname && (
-            <span className="text-[10px] text-[#849587] font-mono">{macro.agentHostname}</span>
+            <span className="text-[10px] text-on-surface-variant font-mono">{macro.agentHostname}</span>
           )}
 
           {/* Description (desktop) */}
           {macro.description && (
-            <span className="hidden md:block text-xs text-[#849587] max-w-[200px] truncate">{macro.description}</span>
+            <span className="hidden md:block text-xs text-on-surface-variant max-w-[200px] truncate">{macro.description}</span>
           )}
 
           {/* Actions */}
           <div className="flex gap-1 shrink-0">
             <button
               onClick={onRun}
-              className="px-3 py-1.5 text-xs font-semibold rounded-none transition-colors inline-flex items-center gap-1"
-              style={{ background: "rgba(97, 139, 107, 0.1)", color: "#618B6B", border: "1px solid rgba(97, 139, 107, 0.3)" }}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 bg-success/10 text-success border border-success/30 hover:bg-success/20 active:scale-[0.98]"
               title="Run this macro"
             >
               <span className="material-symbols-outlined text-xs">play_arrow</span>
@@ -169,13 +154,13 @@ function SortableMacroRow({
             </button>
             <button
               onClick={onEdit}
-              className="px-3 py-1.5 text-xs font-semibold rounded-none transition-colors hover:bg-[#2A2A2A] text-[#849587]"
+              className="px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] transition-colors hover:bg-surface-container-high text-on-surface-variant active:scale-[0.98]"
             >
               Edit
             </button>
             <button
               onClick={onDelete}
-              className="px-3 py-1.5 text-xs font-semibold rounded-none transition-colors hover:bg-[#2A2A2A] text-[#FFB4AB]"
+              className="px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] transition-colors hover:bg-surface-container-high text-error active:scale-[0.98]"
             >
               Delete
             </button>
@@ -184,11 +169,11 @@ function SortableMacroRow({
 
         {/* Expanded commands panel */}
         {expanded && (
-          <div style={{ borderTop: "1px solid rgba(59, 75, 63, 0.15)" }}>
+          <div className="border-t border-outline-variant/15">
             {commandsLoading ? (
-              <div className="px-4 py-3 text-xs text-[#849587]">Loading commands...</div>
+              <div className="px-4 py-3 text-xs text-on-surface-variant">Loading commands...</div>
             ) : commands.length === 0 && !showAddForm ? (
-              <div className="px-4 py-3 text-xs text-[#849587]">No commands. Add one below.</div>
+              <div className="px-4 py-3 text-xs text-on-surface-variant">No commands. Add one below.</div>
             ) : (
               <div className="p-2 space-y-1">
                 <CommandsList
@@ -210,10 +195,10 @@ function SortableMacroRow({
 
             {/* Inline add form */}
             {showAddForm && (
-              <div className="px-3 py-2 space-y-2" style={{ borderTop: "1px solid rgba(59, 75, 63, 0.15)" }}>
+              <div className="px-3 py-2 space-y-2 border-t border-outline-variant/15">
                 <div className="flex gap-1 items-start">
                   <input
-                    className="flex-1 bg-[#131313] border border-[#3B4B3F] rounded px-2 py-1.5 text-xs font-mono text-[#E5E2E1] outline-none focus:border-[#618B6B]"
+                    className="flex-1 bg-bg border border-outline-variant/40 rounded px-2 py-1.5 text-xs font-mono text-on-surface outline-none focus:border-primary transition-colors"
                     placeholder="Command (e.g. scripts/my-script.sh)"
                     value={addCmdText}
                     onChange={(e) => onAddCmdTextChange(e.target.value)}
@@ -223,7 +208,7 @@ function SortableMacroRow({
                   <BrowseScripts onSelect={(cmd) => onAddCmdTextChange(cmd)} />
                 </div>
                 <input
-                  className="w-full bg-[#131313] border border-[#3B4B3F] rounded px-2 py-1.5 text-xs font-mono text-[#E5E2E1] outline-none focus:border-[#618B6B]"
+                  className="w-full bg-bg border border-outline-variant/40 rounded px-2 py-1.5 text-xs font-mono text-on-surface outline-none focus:border-primary transition-colors"
                   placeholder="Working directory (optional)"
                   value={addCmdDir}
                   onChange={(e) => onAddCmdDirChange(e.target.value)}
@@ -232,13 +217,13 @@ function SortableMacroRow({
                 <div className="flex gap-2">
                   <button
                     onClick={onAddCmdSubmit}
-                    className="px-4 py-2 text-xs font-semibold rounded-none transition-colors bg-[#618B6B] text-white hover:bg-[#00E38A]"
+                    className="px-4 py-2 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 bg-primary text-on-primary hover:bg-primary-dim active:scale-[0.98]"
                   >
                     Save
                   </button>
                   <button
                     onClick={onAddCmdCancel}
-                    className="px-4 py-2 text-xs font-semibold rounded-none transition-colors hover:bg-[#2A2A2A] text-[#849587]"
+                    className="px-4 py-2 text-xs font-semibold rounded-[var(--radius-button)] transition-colors hover:bg-surface-container-high text-on-surface-variant active:scale-[0.98]"
                   >
                     Cancel
                   </button>
@@ -250,7 +235,7 @@ function SortableMacroRow({
               {!showAddForm && (
                 <button
                   onClick={onAddCmdSubmit}
-                  className="text-xs text-[#618B6B] hover:underline inline-flex items-center gap-1"
+                  className="text-xs text-success hover:underline inline-flex items-center gap-1"
                 >
                   <span className="material-symbols-outlined text-xs">add</span>
                   Add Command
@@ -377,27 +362,23 @@ function SortableCommandRow({
   return (
     <div
       ref={setNodeRef}
-      style={{
-        ...style,
-        background: "rgba(14, 14, 14, 0.5)",
-        border: "1px solid rgba(59, 75, 63, 0.15)",
-      } as React.CSSProperties}
-      className="flex items-center gap-2 px-2.5 py-1.5 rounded text-xs"
+      style={style}
+      className="flex items-center gap-2 px-2.5 py-1.5 rounded text-xs bg-bg/50 border border-outline-variant/15"
     >
       <button
-        className="p-1.5 cursor-grab active:cursor-grabbing text-[#3B4B3F] hover:text-[#849587] transition-colors"
+        className="p-1.5 cursor-grab active:cursor-grabbing text-outline-variant hover:text-on-surface-variant transition-colors"
         {...attributes}
         {...listeners}
       >
         <span className="material-symbols-outlined text-xs">drag_indicator</span>
       </button>
-      <span className="text-[10px] text-[#3B4B3F] font-mono w-4">#{index}</span>
+      <span className="text-[10px] text-outline-variant font-mono w-4">#{index}</span>
 
       {editing ? (
         <div className="flex flex-col flex-1 gap-1">
           <div className="flex gap-1 items-start">
             <input
-              className="flex-1 bg-[#131313] border border-[#3B4B3F] rounded px-1.5 py-0.5 text-[10px] font-mono text-[#E5E2E1] outline-none focus:border-[#618B6B]"
+              className="flex-1 bg-bg border border-outline-variant/40 rounded px-1.5 py-0.5 text-[10px] font-mono text-on-surface outline-none focus:border-primary transition-colors"
               placeholder="Command"
               value={editCmdText}
               onChange={(e) => onEditCmdTextChange(e.target.value)}
@@ -407,33 +388,33 @@ function SortableCommandRow({
             <BrowseScripts onSelect={(cmd) => onEditCmdTextChange(cmd)} />
           </div>
           <input
-            className="w-full bg-[#131313] border border-[#3B4B3F] rounded px-1.5 py-0.5 text-[10px] font-mono text-[#849587] outline-none focus:border-[#618B6B]"
+            className="w-full bg-bg border border-outline-variant/40 rounded px-1.5 py-0.5 text-[10px] font-mono text-on-surface-variant outline-none focus:border-primary transition-colors"
             placeholder="Working directory"
             value={editCmdDir}
             onChange={(e) => onEditCmdDirChange(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") onEditCmdSave(); if (e.key === "Escape") onEditCmdCancel(); }}
           />
           <div className="flex gap-1">
-            <button onClick={onEditCmdSave} className="text-[#618B6B] text-[10px] hover:underline">Save</button>
-            <button onClick={onEditCmdCancel} className="text-[#849587] text-[10px] hover:underline">Cancel</button>
+            <button onClick={onEditCmdSave} className="text-success text-[10px] hover:underline">Save</button>
+            <button onClick={onEditCmdCancel} className="text-on-surface-variant text-[10px] hover:underline">Cancel</button>
           </div>
         </div>
       ) : (
         <>
-          <span className="flex-1 font-mono text-[10px] text-[#E5E2E1] truncate">{cmd.cmd}</span>
+          <span className="flex-1 font-mono text-[10px] text-on-surface truncate">{cmd.cmd}</span>
           {cmd.working_dir && (
-            <span className="text-[10px] text-[#849587] font-mono truncate max-w-[120px]">{cmd.working_dir}</span>
+            <span className="text-[10px] text-on-surface-variant font-mono truncate max-w-[120px]">{cmd.working_dir}</span>
           )}
         </>
       )}
 
       <div className="flex gap-1 shrink-0">
         {!editing && (
-          <button onClick={onEditCmdStart} className="p-1.5 text-[#849587] hover:text-[#E5E2E1] transition-colors">
+          <button onClick={onEditCmdStart} className="p-1.5 text-on-surface-variant hover:text-on-surface transition-colors">
             <span className="material-symbols-outlined text-xs">edit</span>
           </button>
         )}
-        <button onClick={onDelete} className="p-1.5 text-[#FFB4AB] hover:text-red-400 transition-colors">
+        <button onClick={onDelete} className="p-1.5 text-error hover:text-red-400 transition-colors">
           <span className="material-symbols-outlined text-xs">close</span>
         </button>
       </div>
@@ -502,22 +483,19 @@ function GroupCard({
   };
 
   return (
-    <div
-      className="rounded-lg overflow-hidden"
-      style={{ background: "#201F1F", border: "1px solid rgba(59, 75, 63, 0.3)" }}
-    >
+    <div className="rounded-[var(--radius-card)] border border-outline-variant/20 bg-surface-container overflow-hidden">
       {/* Group header */}
       <div
         className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none"
         onClick={onToggle}
-        style={{ borderBottom: expanded ? "1px solid rgba(59, 75, 63, 0.15)" : "none" }}
+        style={{ borderBottom: expanded ? "1px solid rgba(71, 85, 105, 0.15)" : "none" }}
       >
-        <span className="material-symbols-outlined text-sm text-[#849587] transition-transform" style={{ transform: expanded ? "rotate(90deg)" : "" }}>
+        <span className="material-symbols-outlined text-sm text-on-surface-variant transition-transform" style={{ transform: expanded ? "rotate(90deg)" : "" }}>
           chevron_right
         </span>
         {editing ? (
           <input
-            className="flex-1 bg-[#131313] border border-[#3B4B3F] rounded px-2 py-0.5 text-sm text-[#E5E2E1] outline-none focus:border-[#618B6B]"
+            className="flex-1 bg-bg border border-outline-variant/40 rounded px-2 py-0.5 text-sm text-on-surface outline-none focus:border-primary transition-colors"
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
             onBlur={handleSaveName}
@@ -526,19 +504,19 @@ function GroupCard({
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
-          <span className="flex-1 text-sm font-medium text-[#E5E2E1]">{group.name}</span>
+          <span className="flex-1 text-sm font-medium text-on-surface">{group.name}</span>
         )}
-        <span className="text-xs text-[#849587]">({macros.length})</span>
+        <span className="text-xs text-on-surface-variant">({macros.length})</span>
         <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={(e) => { e.stopPropagation(); setEditing(true); setEditName(group.name); }}
-            className="px-3 py-1.5 text-xs font-semibold rounded-none transition-colors hover:bg-[#2A2A2A] text-[#849587]"
+            className="px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] transition-colors hover:bg-surface-container-high text-on-surface-variant"
           >
             Edit
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            className="px-3 py-1.5 text-xs font-semibold rounded-none transition-colors hover:bg-[#2A2A2A] text-[#FFB4AB]"
+            className="px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] transition-colors hover:bg-surface-container-high text-error"
           >
             Delete
           </button>
@@ -554,7 +532,7 @@ function GroupCard({
               strategy={verticalListSortingStrategy}
             >
               {macros.length === 0 ? (
-                <div className="text-xs text-[#849587] py-2 text-center">No macros in this group.</div>
+                <div className="text-xs text-on-surface-variant py-2 text-center">No macros in this group.</div>
               ) : (
                 macros.map((macro) => (
                   <MacroRowContainer
@@ -570,7 +548,7 @@ function GroupCard({
           </DndContext>
           <button
             onClick={onAddMacro}
-            className="text-xs text-[#618B6B] hover:underline inline-flex items-center gap-1"
+            className="text-xs text-success hover:underline inline-flex items-center gap-1"
           >
             <span className="material-symbols-outlined text-xs">add</span>
             New Macro
@@ -598,21 +576,15 @@ function MacroRowContainer({
   const [commands, setCommands] = useState<MacroCommand[]>([]);
   const [commandsLoading, setCommandsLoading] = useState(false);
   const fetchedForExpansionRef = useRef(false);
-
-  // Inline add form state
   const [showAddForm, setShowAddForm] = useState(false);
   const [addCmdText, setAddCmdText] = useState("");
   const [addCmdDir, setAddCmdDir] = useState("");
-
-  // Inline edit form state
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editCmdText, setEditCmdText] = useState("");
   const [editCmdDir, setEditCmdDir] = useState("");
 
   useEffect(() => {
     if (!expanded) {
-      // Reset on collapse so a subsequent expand re-fetches the latest
-      // server state (e.g. after another admin adds a command).
       fetchedForExpansionRef.current = false;
       return;
     }
@@ -626,14 +598,12 @@ function MacroRowContainer({
         setCommands(data);
       })
       .catch(() => {
-        // Allow a retry by collapsing + expanding
         fetchedForExpansionRef.current = false;
         setCommands([]);
       })
       .finally(() => setCommandsLoading(false));
   }, [expanded, macro.id]);
 
-  // ── Add command ──────────────────────────────────────────────────────
   const handleShowAddForm = () => {
     setAddCmdText("");
     setAddCmdDir("");
@@ -668,7 +638,6 @@ function MacroRowContainer({
     setAddCmdDir("");
   };
 
-  // ── Edit command ─────────────────────────────────────────────────────
   const handleEditCmdStart = (index: number) => {
     setEditingIndex(index);
     setEditCmdText(commands[index]?.cmd || "");
@@ -696,7 +665,6 @@ function MacroRowContainer({
     setEditingIndex(null);
   };
 
-  // ── Delete command ───────────────────────────────────────────────────
   const handleDeleteCommandLocal = async (index: number) => {
     try {
       await fetch(`/api/macros/${macro.id}/commands?index=${index}`, { method: "DELETE" });
@@ -704,7 +672,6 @@ function MacroRowContainer({
     } catch {}
   };
 
-  // ── Reorder commands ─────────────────────────────────────────────────
   const handleReorderCommandsLocal = async (order: number[]) => {
     try {
       await fetch(`/api/macros/${macro.id}/commands/reorder`, {
@@ -761,7 +728,6 @@ export default function AdminPage() {
   const [deleteGroupTarget, setDeleteGroupTarget] = useState<MacroGroup | null>(null);
   const { showToast } = useToast();
 
-  // New macro form state
   const [newMacroName, setNewMacroName] = useState("");
   const [newMacroGroup, setNewMacroGroup] = useState("");
   const [newMacroDesc, setNewMacroDesc] = useState("");
@@ -770,7 +736,6 @@ export default function AdminPage() {
   const [newMacroAgent, setNewMacroAgent] = useState("");
   const [agentOptions, setAgentOptions] = useState<{ id: number; hostname: string }[]>([]);
 
-  // Log panel state
   const [logPanelOpen, setLogPanelOpen] = useState(false);
   const [runningMacroId, setRunningMacroId] = useState<number | null>(null);
   const [runningMacroName, setRunningMacroName] = useState("");
@@ -935,7 +900,6 @@ export default function AdminPage() {
   );
 
   const handleReorderMacros = useCallback(async (macroIds: number[]) => {
-    // Find which group these macros belong to
     const macro = groupedMacros
       .flatMap((g) => g.macros)
       .find((m) => m.id === macroIds[0]);
@@ -962,15 +926,20 @@ export default function AdminPage() {
       <div className="p-4 md:p-6 min-h-full flex flex-col stagger-1">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 shrink-0">
-          <h1 className="text-2xl font-bold text-[#E5E2E1] tracking-tight" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
-            Admin
-          </h1>
+          <div>
+            <h1 className="text-2xl font-bold text-on-surface tracking-tight">
+              Admin
+            </h1>
+            <p className="text-xs text-on-surface-variant mt-0.5">
+              Manage macro groups and commands
+            </p>
+          </div>
           <div className="flex gap-2">
             <button
               onClick={() => setAllExpanded(!allExpanded)}
-              className="px-3 py-1.5 text-xs font-semibold rounded-none transition-colors"
-              style={{ background: "#201F1F", color: "#E5E2E1", border: "1px solid rgba(59, 75, 63, 0.3)" }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 bg-surface-container text-on-surface hover:bg-surface-container-high active:scale-[0.98]"
             >
+              <span className="material-symbols-outlined text-sm">{allExpanded ? "unfold_less" : "unfold_more"}</span>
               {allExpanded ? "Compress All" : "Expand All"}
             </button>
             <Button onClick={() => { setNewGroupName(""); setShowNewGroupModal(true); }}>
@@ -984,15 +953,16 @@ export default function AdminPage() {
 
         {/* Groups list */}
         {loading ? (
-          <div className="flex-1 flex items-center justify-center text-[#849587]">Loading...</div>
+          <div className="flex-1 flex items-center justify-center text-on-surface-variant">Loading...</div>
         ) : groupedMacros.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-[#849587] gap-3">
-            <span className="material-symbols-outlined text-4xl">settings</span>
-            <p>No macros or groups yet.</p>
+          <div className="flex-1 flex flex-col items-center justify-center text-on-surface-variant gap-3">
+            <span className="material-symbols-outlined text-5xl text-on-surface-variant/30">settings</span>
+            <p className="text-sm">No macros or groups yet.</p>
+            <p className="text-xs text-on-surface-variant/60">Create a group and add macros to get started.</p>
           </div>
         ) : (
           <>
-            <div className="flex-1 min-h-0 overflow-y-auto space-y-3" style={{ scrollbarWidth: "thin", scrollbarColor: "#3B4B3F transparent" }}>
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
               {groupedMacros.map((g) => (
                 <GroupCard
                   key={g.group?.id || "ungrouped"}
@@ -1011,7 +981,6 @@ export default function AdminPage() {
               ))}
             </div>
 
-            {/* Log panel — shown when a macro is running or panel is pinned open */}
             {logPanelOpen && (
               <div className="mt-4">
                 <MacroLogPanel
@@ -1027,7 +996,7 @@ export default function AdminPage() {
             {!logPanelOpen && (
               <button
                 onClick={() => setLogPanelOpen(true)}
-                className="mt-2 self-start px-3 py-1.5 text-xs text-[#618B6B] hover:underline inline-flex items-center gap-1"
+                className="mt-2 self-start px-3 py-1.5 text-xs text-success hover:underline inline-flex items-center gap-1"
               >
                 <span className="material-symbols-outlined text-xs">terminal</span>
                 Show log panel
@@ -1041,9 +1010,9 @@ export default function AdminPage() {
       <Modal open={showNewGroupModal} onClose={() => setShowNewGroupModal(false)} title="New Group">
         <div className="space-y-4">
           <div>
-            <label className="block text-xs text-[#849587] mb-1">Group Name</label>
+            <label className="block text-xs text-on-surface-variant mb-1">Group Name</label>
             <input
-              className="w-full bg-[#131313] border border-[#3B4B3F] rounded px-3 py-2 text-sm text-[#E5E2E1] outline-none focus:border-[#618B6B]"
+              className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-sm text-on-surface outline-none focus:border-primary transition-colors"
               value={newGroupName}
               onChange={(e) => setNewGroupName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleCreateGroup(); }}
@@ -1061,9 +1030,9 @@ export default function AdminPage() {
       <Modal open={showNewMacroModal} onClose={() => setShowNewMacroModal(false)} title="New Macro">
         <div className="space-y-4 max-w-lg">
           <div>
-            <label className="block text-xs text-[#849587] mb-1">Name *</label>
+            <label className="block text-xs text-on-surface-variant mb-1">Name *</label>
             <input
-              className="w-full bg-[#131313] border border-[#3B4B3F] rounded px-3 py-2 text-sm text-[#E5E2E1] outline-none focus:border-[#618B6B]"
+              className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-sm text-on-surface outline-none focus:border-primary transition-colors"
               value={newMacroName}
               onChange={(e) => setNewMacroName(e.target.value)}
               autoFocus
@@ -1071,9 +1040,9 @@ export default function AdminPage() {
           </div>
 
           <div>
-            <label className="block text-xs text-[#849587] mb-1">Group</label>
+            <label className="block text-xs text-on-surface-variant mb-1">Group</label>
             <select
-              className="w-full bg-[#131313] border border-[#3B4B3F] rounded px-3 py-2 text-sm text-[#E5E2E1] outline-none focus:border-[#618B6B]"
+              className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-sm text-on-surface outline-none focus:border-primary transition-colors"
               value={newMacroGroup}
               onChange={(e) => setNewMacroGroup(e.target.value)}
             >
@@ -1085,19 +1054,19 @@ export default function AdminPage() {
           </div>
 
           <div>
-            <label className="block text-xs text-[#849587] mb-1">Description</label>
+            <label className="block text-xs text-on-surface-variant mb-1">Description</label>
             <input
-              className="w-full bg-[#131313] border border-[#3B4B3F] rounded px-3 py-2 text-sm text-[#E5E2E1] outline-none focus:border-[#618B6B]"
+              className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-sm text-on-surface outline-none focus:border-primary transition-colors"
               value={newMacroDesc}
               onChange={(e) => setNewMacroDesc(e.target.value)}
             />
           </div>
 
           <div>
-            <label className="block text-xs text-[#849587] mb-1">Initial Command</label>
+            <label className="block text-xs text-on-surface-variant mb-1">Initial Command</label>
             <div className="flex gap-1 items-start">
               <input
-                className="flex-1 bg-[#131313] border border-[#3B4B3F] rounded px-3 py-2 text-sm font-mono text-[#E5E2E1] outline-none focus:border-[#618B6B]"
+                className="flex-1 bg-bg border border-outline-variant/40 rounded px-3 py-2 text-sm font-mono text-on-surface outline-none focus:border-primary transition-colors"
                 list="cmd-shortcuts"
                 value={newMacroCmd}
                 onChange={(e) => setNewMacroCmd(e.target.value)}
@@ -1116,16 +1085,16 @@ export default function AdminPage() {
               id="run-on-agent"
               checked={newMacroRunOnAgent}
               onChange={(e) => setNewMacroRunOnAgent(e.target.checked)}
-              className="accent-[#618B6B]"
+              className="accent-primary"
             />
-            <label htmlFor="run-on-agent" className="text-sm text-[#E5E2E1]">Run on Agent</label>
+            <label htmlFor="run-on-agent" className="text-sm text-on-surface">Run on Agent</label>
           </div>
 
           {newMacroRunOnAgent && (
             <div>
-              <label className="block text-xs text-[#849587] mb-1">Agent Hostname</label>
+              <label className="block text-xs text-on-surface-variant mb-1">Agent Hostname</label>
               <select
-                className="w-full bg-[#131313] border border-[#3B4B3F] rounded px-3 py-2 text-sm text-[#E5E2E1] outline-none focus:border-[#618B6B]"
+                className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-sm text-on-surface outline-none focus:border-primary transition-colors"
                 value={newMacroAgent}
                 onChange={(e) => setNewMacroAgent(e.target.value)}
               >
@@ -1148,27 +1117,27 @@ export default function AdminPage() {
       <Modal open={!!editMacroTarget} onClose={() => setEditMacroTarget(null)} title="Edit Macro">
         <div className="space-y-4 max-w-lg">
           <div>
-            <label className="block text-xs text-[#849587] mb-1">Name *</label>
+            <label className="block text-xs text-on-surface-variant mb-1">Name *</label>
             <input
-              className="w-full bg-[#131313] border border-[#3B4B3F] rounded px-3 py-2 text-sm text-[#E5E2E1] outline-none focus:border-[#618B6B]"
+              className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-sm text-on-surface outline-none focus:border-primary transition-colors"
               value={editMacroTarget?.name || ""}
               onChange={(e) => setEditMacroTarget((prev) => prev ? { ...prev, name: e.target.value } : null)}
             />
           </div>
 
           <div>
-            <label className="block text-xs text-[#849587] mb-1">Description</label>
+            <label className="block text-xs text-on-surface-variant mb-1">Description</label>
             <input
-              className="w-full bg-[#131313] border border-[#3B4B3F] rounded px-3 py-2 text-sm text-[#E5E2E1] outline-none focus:border-[#618B6B]"
+              className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-sm text-on-surface outline-none focus:border-primary transition-colors"
               value={editMacroTarget?.description || ""}
               onChange={(e) => setEditMacroTarget((prev) => prev ? { ...prev, description: e.target.value } : null)}
             />
           </div>
 
           <div>
-            <label className="block text-xs text-[#849587] mb-1">Group</label>
+            <label className="block text-xs text-on-surface-variant mb-1">Group</label>
             <select
-              className="w-full bg-[#131313] border border-[#3B4B3F] rounded px-3 py-2 text-sm text-[#E5E2E1] outline-none focus:border-[#618B6B]"
+              className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-sm text-on-surface outline-none focus:border-primary transition-colors"
               value={editMacroTarget?.groupName || ""}
               onChange={(e) => setEditMacroTarget((prev) => prev ? { ...prev, groupName: e.target.value } : null)}
             >
@@ -1184,16 +1153,16 @@ export default function AdminPage() {
               id="edit-run-on-agent"
               checked={editMacroTarget?.runOnAgent || false}
               onChange={(e) => setEditMacroTarget((prev) => prev ? { ...prev, runOnAgent: e.target.checked } : null)}
-              className="accent-[#618B6B]"
+              className="accent-primary"
             />
-            <label htmlFor="edit-run-on-agent" className="text-sm text-[#E5E2E1]">Run on Agent</label>
+            <label htmlFor="edit-run-on-agent" className="text-sm text-on-surface">Run on Agent</label>
           </div>
 
           {editMacroTarget?.runOnAgent && (
             <div>
-              <label className="block text-xs text-[#849587] mb-1">Agent Hostname</label>
+              <label className="block text-xs text-on-surface-variant mb-1">Agent Hostname</label>
               <select
-                className="w-full bg-[#131313] border border-[#3B4B3F] rounded px-3 py-2 text-sm text-[#E5E2E1] outline-none focus:border-[#618B6B]"
+                className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-sm text-on-surface outline-none focus:border-primary transition-colors"
                 value={editMacroTarget?.agentHostname || ""}
                 onChange={(e) => setEditMacroTarget((prev) => prev ? { ...prev, agentHostname: e.target.value } : null)}
               >
@@ -1221,8 +1190,8 @@ export default function AdminPage() {
         confirmLabel="Delete"
         variant="danger"
       >
-        <p className="text-sm text-[#849587]">
-          Are you sure you want to delete <strong className="text-[#E5E2E1]">{deleteMacroTarget?.name}</strong>?
+        <p className="text-sm text-on-surface-variant">
+          Are you sure you want to delete <strong className="text-on-surface">{deleteMacroTarget?.name}</strong>?
           This cannot be undone.
         </p>
       </ConfirmDialog>
@@ -1235,7 +1204,7 @@ export default function AdminPage() {
         confirmLabel="Delete"
         variant="danger"
       >
-        <p className="text-sm text-[#849587]">
+        <p className="text-sm text-on-surface-variant">
           Are you sure you want to delete this group? Its macros will remain as ungrouped.
         </p>
       </ConfirmDialog>

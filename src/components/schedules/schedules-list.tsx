@@ -180,10 +180,7 @@ export function SchedulesList({ macros, initialSchedules, initialTimers }: Sched
     <div className="flex flex-col gap-6 stagger-1 p-4 md:p-6 w-full">
       {/* ── Page header ─────────────────────────────────────────────── */}
       <div>
-        <h1
-          className="text-2xl font-bold text-on-surface tracking-tight"
-          style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
-        >
+        <h1 className="text-2xl font-bold text-on-surface tracking-tight font-display">
           Schedules
         </h1>
         <p className="text-xs text-on-surface-variant mt-1">
@@ -200,10 +197,7 @@ export function SchedulesList({ macros, initialSchedules, initialTimers }: Sched
         <div className="flex items-center justify-between gap-4 flex-wrap mb-3">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-on-surface-variant text-lg">bolt</span>
-            <h2
-              className="text-lg font-semibold text-on-surface"
-              style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
-            >
+            <h2 className="text-lg font-semibold text-on-surface font-display">
               Macro Schedules
             </h2>
           </div>
@@ -217,15 +211,9 @@ export function SchedulesList({ macros, initialSchedules, initialTimers }: Sched
 
         {/* New schedule form */}
         {formOpen && (
-          <div
-            className="p-6 rounded-none mb-4"
-            style={{ background: "#1C1B1B", border: "1px solid rgba(59, 75, 63, 0.3)" }}
-          >
+          <div className="p-6 rounded-[var(--radius-card)] mb-4 bg-surface border border-outline-variant/30">
             <div className="flex items-center justify-between mb-5">
-              <h3
-                className="text-base font-bold text-on-surface"
-                style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
-              >
+              <h3 className="text-base font-bold text-on-surface font-display">
                 New Macro Schedule
               </h3>
               <button
@@ -251,10 +239,7 @@ export function SchedulesList({ macros, initialSchedules, initialTimers }: Sched
         )}
 
         {/* Schedules list */}
-        <div
-          className="rounded-none"
-          style={{ background: "#1C1B1B", border: "1px solid rgba(59, 75, 63, 0.3)" }}
-        >
+        <div className="rounded-[var(--radius-card)] bg-surface border border-outline-variant/30">
           {schedules.length === 0 ? (
             <div className="p-8 text-center flex flex-col items-center gap-3">
               <span className="material-symbols-outlined text-3xl text-on-surface-variant/40">
@@ -265,13 +250,14 @@ export function SchedulesList({ macros, initialSchedules, initialTimers }: Sched
               </p>
             </div>
           ) : (
-            <div className="divide-y" style={{ borderColor: "rgba(59, 75, 63, 0.15)" }}>
+            <div className="divide-y divide-outline-variant/15">
               {schedules.map((s) => (
                 <div
                   key={s.id}
                   data-schedule-id={s.id}
-                  className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 gap-3 transition-opacity"
-                  style={{ opacity: s.enabled ? 1 : 0.5 }}
+                  className={`flex flex-col md:flex-row items-start md:items-center justify-between p-4 gap-3 transition-opacity ${
+                    s.enabled ? "" : "opacity-50"
+                  }`}
                 >
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     <ToggleSwitch
@@ -287,19 +273,13 @@ export function SchedulesList({ macros, initialSchedules, initialTimers }: Sched
                           {s.macroName}
                         </span>
                         {!s.enabled && (
-                          <span
-                            className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-none"
-                            style={{ background: "rgba(107, 114, 128, 0.2)", color: "#9CA3AF" }}
-                          >
+                          <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-[var(--radius-pill)] bg-on-surface-variant/20 text-on-surface-variant">
                             Disabled
                           </span>
                         )}
                       </div>
                       <div className="flex items-center gap-3 flex-wrap">
-                        <code
-                          className="font-mono text-xs px-2 py-0.5 rounded-none"
-                          style={{ background: "#0E0E0E", color: "#00FF9C", border: "1px solid rgba(59, 75, 63, 0.3)" }}
-                        >
+                        <code className="font-mono text-xs px-2 py-0.5 rounded-[var(--radius-button)] bg-surface-container-lowest text-primary border border-outline-variant/30">
                           {s.cronExpression}
                         </code>
                         <span className="text-[10px] text-on-surface-variant/60">
@@ -328,23 +308,17 @@ export function SchedulesList({ macros, initialSchedules, initialTimers }: Sched
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          SECTION 2: Worker Timers (pre-existing, no delete)
+          SECTION 2: Worker Timers
           ═══════════════════════════════════════════════════════════════════ */}
       <div>
         <div className="flex items-center gap-2 mb-3">
           <span className="material-symbols-outlined text-on-surface-variant text-lg">timer</span>
-          <h2
-            className="text-lg font-semibold text-on-surface"
-            style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
-          >
+          <h2 className="text-lg font-semibold text-on-surface font-display">
             Worker Timers
           </h2>
         </div>
 
-        <div
-          className="rounded-none"
-          style={{ background: "#1C1B1B", border: "1px solid rgba(59, 75, 63, 0.3)" }}
-        >
+        <div className="rounded-[var(--radius-card)] bg-surface border border-outline-variant/30">
           {timers.length === 0 ? (
             <div className="p-8 text-center flex flex-col items-center gap-3">
               <span className="material-symbols-outlined text-3xl text-on-surface-variant/40">
@@ -355,13 +329,14 @@ export function SchedulesList({ macros, initialSchedules, initialTimers }: Sched
               </p>
             </div>
           ) : (
-            <div className="divide-y" style={{ borderColor: "rgba(59, 75, 63, 0.15)" }}>
+            <div className="divide-y divide-outline-variant/15">
               {timers.map((t) => (
                 <div
                   key={t.id}
                   data-timer-id={t.id}
-                  className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 gap-3 transition-opacity"
-                  style={{ opacity: t.enabled ? 1 : 0.5 }}
+                  className={`flex flex-col md:flex-row items-start md:items-center justify-between p-4 gap-3 transition-opacity ${
+                    t.enabled ? "" : "opacity-50"
+                  }`}
                 >
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     <ToggleSwitch
@@ -377,39 +352,28 @@ export function SchedulesList({ macros, initialSchedules, initialTimers }: Sched
                           {t.name}
                         </span>
                         {!t.enabled && (
-                          <span
-                            className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-none"
-                            style={{ background: "rgba(107, 114, 128, 0.2)", color: "#9CA3AF" }}
-                          >
+                          <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-[var(--radius-pill)] bg-on-surface-variant/20 text-on-surface-variant">
                             Disabled
                           </span>
                         )}
                         {t.lastStatus && (
-                          <span
-                            className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-none"
-                            style={{
-                              background: t.lastStatus === "success" ? "rgba(34, 197, 94, 0.2)" : "rgba(239, 68, 68, 0.2)",
-                              color: t.lastStatus === "success" ? "#22C55E" : "#EF4444",
-                            }}
-                          >
+                          <span className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-[var(--radius-pill)] ${
+                            t.lastStatus === "success"
+                              ? "bg-success/20 text-success"
+                              : "bg-error/20 text-error"
+                          }`}>
                             {t.lastStatus}
                           </span>
                         )}
                       </div>
                       <div className="flex items-center gap-3 flex-wrap">
-                        <code
-                          className="font-mono text-xs px-2 py-0.5 rounded-none"
-                          style={{ background: "#0E0E0E", color: "#00FF9C", border: "1px solid rgba(59, 75, 63, 0.3)" }}
-                        >
+                        <code className="font-mono text-xs px-2 py-0.5 rounded-[var(--radius-button)] bg-surface-container-lowest text-primary border border-outline-variant/30">
                           {t.cronExpression}
                         </code>
                         <span className="text-[10px] text-on-surface-variant/60">
                           {formatCronHuman(t.cronExpression)}
                         </span>
-                        <code
-                          className="font-mono text-[10px] px-1.5 py-0.5 rounded-none text-on-surface-variant/60"
-                          style={{ background: "#0E0E0E", border: "1px solid rgba(59, 75, 63, 0.2)" }}
-                        >
+                        <code className="font-mono text-[10px] px-1.5 py-0.5 rounded-[var(--radius-button)] text-on-surface-variant/60 bg-surface-container-lowest border border-outline-variant/20">
                           {t.workerPath.split("/").pop()}
                         </code>
                       </div>
@@ -442,7 +406,7 @@ export function SchedulesList({ macros, initialSchedules, initialTimers }: Sched
         onConfirm={handleDeleteSchedule}
         title="Delete schedule?"
         icon="delete"
-        confirmLabel={deleting ? "Deleting…" : "Delete"}
+        confirmLabel={deleting ? "Deleting\u2026" : "Delete"}
         variant="danger"
       >
         <p className="text-sm text-on-surface-variant">

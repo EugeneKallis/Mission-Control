@@ -31,12 +31,24 @@ function detailFromApi(node: PveRawNodeSnapshot): PveNodeDetail {
   };
 }
 
+function EndpointStatusPill({ online }: { online: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full ${
+      online ? "bg-success/20 text-success" : "bg-error/20 text-error"
+    }`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${online ? "bg-success" : "bg-error"}`} />
+      {online ? "Online" : "Offline"}
+    </span>
+  );
+}
+
 export function ProxmoxPage() {
   const [status, setStatus] = useState<PveClusterStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [endpoints, setEndpoints] = useState<PveEndpointConfig[]>([]);
   const [configOpen, setConfigOpen] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -48,6 +60,7 @@ export function ProxmoxPage() {
       }
       const json: PveClusterStatus = await res.json();
       setStatus(json);
+      setLastUpdated(json.fetchedAt ? new Date(json.fetchedAt).toLocaleString() : null);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -86,135 +99,150 @@ export function ProxmoxPage() {
 
   // ── Render ──────────────────────────────────────────────────────────
 
-  const totalVMs = status?.endpoints.reduce(
-    (sum, ep) => sum + ep.nodes.reduce((s, n) => s + n.vms.length, 0), 0
-  ) ?? 0;
-
-  const totalLXC = status?.endpoints.reduce(
-    (sum, ep) => sum + ep.nodes.reduce((s, n) => s + n.containers.length, 0), 0
-  ) ?? 0;
+  const hasEndpoints = status && status.endpoints.length > 0;
+  const totalVMs = hasEndpoints
+    ? status.endpoints.reduce(
+        (sum, ep) => sum + ep.nodes.reduce((s, n) => s + n.vms.length, 0), 0
+      )
+    : 0;
+  const totalLXC = hasEndpoints
+    ? status.endpoints.reduce(
+        (sum, ep) => sum + ep.nodes.reduce((s, n) => s + n.containers.length, 0), 0
+      )
+    : 0;
+  const totalEndpoints = hasEndpoints ? status.endpoints.length : endpoints.length;
 
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700/50 shrink-0">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold">Proxmox</h1>
-          {loading && <span className="text-sm text-gray-400 animate-pulse">Loading…</span>}
-          {status && (
-            <span className="text-xs text-gray-500 hidden sm:inline">
-              {status.endpoints.length} endpoint{status.endpoints.length !== 1 ? "s" : ""} · {status.endpoints.reduce((s, e) => s + e.nodes.length, 0)} node{status.endpoints.reduce((s, e) => s + e.nodes.length, 0) !== 1 ? "s" : ""} · {totalVMs} VM{totalVMs !== 1 ? "s" : ""} · {totalLXC} LXC
-            </span>
-          )}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-6 py-4 border-b border-outline-variant/30 shrink-0">
+        <div>
+          <h1 className="text-xl font-bold font-display text-on-surface">Proxmox VE</h1>
+          <p className="text-xs text-on-surface-variant mt-0.5">
+            {hasEndpoints
+              ? `${totalEndpoints} endpoint${totalEndpoints !== 1 ? "s" : ""} · ${totalVMs} VM${totalVMs !== 1 ? "s" : ""} · ${totalLXC} container${totalLXC !== 1 ? "s" : ""}`
+              : "Virtual environment monitor"}
+            {lastUpdated && <span className="ml-2 text-on-surface-variant/60">Last updated: {lastUpdated}</span>}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => { fetchStatus(); }}
-            className="px-3 py-1.5 text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-1.5"
-            title="Refresh"
+            onClick={handleRefresh}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 bg-surface-container text-on-surface hover:bg-surface-container-high active:scale-[0.98]"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
+            <span className="material-symbols-outlined text-sm">refresh</span>
             Refresh
           </button>
           <button
-            onClick={() => setConfigOpen(!configOpen)}
-            className={`px-3 py-1.5 text-sm transition-colors flex items-center gap-1.5 rounded-lg ${configOpen ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"}`}
+            onClick={() => setConfigOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 bg-surface-container text-on-surface hover:bg-surface-container-high active:scale-[0.98]"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            {configOpen ? "Done" : "Manage Servers"}
+            <span className="material-symbols-outlined text-sm">settings</span>
+            Manage Servers
           </button>
         </div>
       </div>
 
-      {/* Config panel */}
-      {configOpen && (
-        <div className="px-6 py-4 border-b border-gray-700/50 bg-gray-800/30">
-          <EndpointSettings endpoints={endpoints} onRefresh={handleRefresh} />
+      {/* Surface refresh failures even when stale data remains on screen. */}
+      {error && (
+        <div className="mx-6 mt-4 px-4 py-3 rounded-[var(--radius-card)] text-sm text-error bg-error/10 border border-error/30 flex items-center gap-2 shrink-0">
+          <span className="material-symbols-outlined text-sm">warning</span>
+          <span>{status ? `Refresh failed — showing last known status. ${error}` : error}</span>
+        </div>
+      )}
+
+      {/* Per-endpoint errors — shown alongside data */}
+      {hasEndpoints && status.endpoints.some((ep) => !ep.online) && (
+        <div className="mx-6 mt-4 space-y-2 shrink-0">
+          {status.endpoints.filter((ep) => !ep.online).map((ep) => (
+            <div
+              key={ep.id}
+              className="px-4 py-3 rounded-[var(--radius-card)] text-sm text-error bg-error/10 border border-error/30 flex items-start gap-2"
+            >
+              <span className="material-symbols-outlined text-sm shrink-0 mt-0.5">warning</span>
+              <div>
+                <span className="font-semibold">{ep.name}</span>
+                {ep.error && <span>: {ep.error}</span>}
+                <span className="ml-1 text-on-surface-variant/60">({ep.apiUrl})</span>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        {/* Error state */}
-        {error && !loading && (
-          <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400">
-            <p className="font-medium">Failed to fetch Proxmox status</p>
-            <p className="text-sm mt-1">{error}</p>
+      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+        {loading ? (
+          <div className="flex items-center justify-center h-32 text-on-surface-variant text-sm">
+            Loading cluster status...
+          </div>
+        ) : error && !status ? (
+          <div className="flex flex-col items-center justify-center h-64 text-on-surface-variant gap-3">
+            <span className="material-symbols-outlined text-5xl text-error/60">cloud_off</span>
+            <p className="text-sm">Cluster status is temporarily unavailable.</p>
             <button
               onClick={fetchStatus}
-              className="mt-2 px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 rounded-lg text-sm transition-colors"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 bg-surface-container text-on-surface hover:bg-surface-container-high active:scale-[0.98]"
             >
+              <span className="material-symbols-outlined text-sm">refresh</span>
               Retry
             </button>
           </div>
-        )}
-
-        {/* Not configured */}
-        {!loading && !error && status?.endpoints.length === 0 && !configOpen && (
-          <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-            <svg className="w-16 h-16 mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M5 12h14M12 5l14 7-14 7z" />
-            </svg>
-            <p className="text-lg font-medium mb-2">No Proxmox servers configured</p>
-            <p className="text-sm mb-4">Click "Manage Servers" above to add your Proxmox API endpoint.</p>
+        ) : !hasEndpoints ? (
+          <div className="flex flex-col items-center justify-center h-64 text-on-surface-variant gap-3">
+            <span className="material-symbols-outlined text-5xl text-on-surface-variant/30">dns</span>
+            <p className="text-sm">
+              {endpoints.length === 0
+                ? "No Proxmox endpoints configured."
+                : "No endpoints are enabled. Enable at least one endpoint in Manage Servers."}
+            </p>
+            <button
+              onClick={() => setConfigOpen(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 active:scale-[0.98]"
+            >
+              <span className="material-symbols-outlined text-sm">add</span>
+              {endpoints.length === 0 ? "Add Endpoint" : "Manage Servers"}
+            </button>
           </div>
-        )}
-
-        {/* Loading skeleton */}
-        {loading && (
-          <div className="space-y-4">
-            {[1, 2].map((i) => (
-              <div key={i} className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-5 animate-pulse">
-                <div className="h-5 bg-gray-700/50 rounded w-32 mb-3" />
-                <div className="h-3 bg-gray-700/50 rounded w-full mb-2" />
-                <div className="h-3 bg-gray-700/50 rounded w-3/4" />
+        ) : (
+          status.endpoints.map((ep, ei) => {
+            const endpointName = endpoints.find((e) => e.apiUrl === ep.apiUrl)?.name ?? ep.apiUrl;
+            const nodeDetails = ep.nodes.map(detailFromApi);
+            return (
+              <div key={`ep-${ei}`} className="space-y-3">
+                <div className="flex items-center gap-3 px-1">
+                  <h2 className="text-sm font-semibold text-on-surface font-display">{endpointName}</h2>
+                  <EndpointStatusPill online={ep.online} />
+                  <span className="text-[10px] text-on-surface-variant font-mono truncate max-w-[200px] sm:max-w-none">
+                    {ep.apiUrl}
+                  </span>
+                </div>
+                {ep.nodes.length === 0 ? (
+                  <div className="px-4 py-6 text-center text-sm text-on-surface-variant bg-surface-container/30 rounded-[var(--radius-card)] border border-outline-variant/20">
+                    <p>No nodes available on this endpoint.</p>
+                  </div>
+                ) : (
+                  nodeDetails.map((nd, ni) => (
+                    <NodeCard key={`node-${ni}`} node={nd} endpointName={endpointName} />
+                  ))
+                )}
               </div>
-            ))}
-          </div>
-        )}
-
-        {/* Endpoints */}
-        {status?.endpoints.map((ep) => (
-          <div key={ep.id}>
-            {/* Endpoint header */}
-            <div className="flex items-center gap-2 mb-3 flex-wrap">
-              <h2 className="text-lg font-semibold">{ep.name}</h2>
-              {ep.online ? (
-                <span className="px-2 py-0.5 bg-green-500/20 text-green-400 rounded-full text-xs font-medium">Online</span>
-              ) : (
-                <span className="px-2 py-0.5 bg-red-500/20 text-red-400 rounded-full text-xs font-medium" title={ep.error}>
-                  Offline
-                </span>
-              )}
-              <span className="text-xs text-gray-500 font-mono">{ep.apiUrl.replace(/^https?:\/\//, "")}</span>
-              {ep.error && <span className="text-xs text-red-400 truncate max-w-md" title={ep.error}>{ep.error}</span>}
-            </div>
-
-            {/* Node cards */}
-            {ep.nodes.length === 0 && ep.online && (
-              <p className="text-gray-500 text-sm py-4">No nodes found in this cluster.</p>
-            )}
-            <div className="space-y-3">
-              {ep.nodes.map((node) => (
-                <NodeCard key={node.node} node={detailFromApi(node)} endpointName={ep.name} />
-              ))}
-            </div>
-          </div>
-        ))}
-
-        {/* Last fetched */}
-        {status?.fetchedAt && (
-          <p className="text-xs text-gray-600 text-center pt-2">
-            Last updated: {new Date(status.fetchedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-            · Auto-refreshes every 30s
-          </p>
+            );
+          })
         )}
       </div>
+
+      {/* Settings modal */}
+      {configOpen && (
+        <EndpointSettings
+          endpoints={endpoints}
+          onClose={() => setConfigOpen(false)}
+          onSaved={() => {
+            fetchEndpoints();
+            fetchStatus();
+          }}
+        />
+      )}
     </div>
   );
 }

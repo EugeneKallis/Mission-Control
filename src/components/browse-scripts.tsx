@@ -162,10 +162,10 @@ export function BrowseScripts({
         ref={buttonRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className={`font-semibold rounded-none transition-colors whitespace-nowrap ${sizeClass} ${
+        className={`font-semibold rounded-[var(--radius-button)] transition-colors whitespace-nowrap ${sizeClass} ${
           open
-            ? "bg-[#618B6B] text-white"
-            : "bg-[#2A2A2A] text-[#849587] hover:bg-[#3B4B3F] hover:text-[#E5E2E1]"
+            ? "bg-primary text-on-primary"
+            : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
         }`}
         title="Browse scripts"
         aria-haspopup="listbox"
@@ -193,14 +193,14 @@ export function BrowseScripts({
               right: pos.right,
               width: pos.width,
               maxHeight: "min(400px, calc(100vh - " + pos.top + "px - 8px))",
-              background: "#1C1B1B",
-              border: "1px solid rgba(59, 75, 63, 0.3)",
+              background: "#334155",
+              border: "1px solid rgba(71, 85, 105, 0.3)",
             }}
           >
             {/* Filter input */}
             <div
               className="p-2 shrink-0"
-              style={{ borderBottom: "1px solid rgba(59, 75, 63, 0.3)" }}
+              style={{ borderBottom: "1px solid rgba(71, 85, 105, 0.3)" }}
             >
               <input
                 ref={inputRef}
@@ -208,7 +208,7 @@ export function BrowseScripts({
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 placeholder="Filter scripts…"
-                className="w-full bg-[#131313] border border-[#3B4B3F] rounded px-2 py-1 text-[10px] text-[#E5E2E1] outline-none focus:border-[#618B6B] font-mono"
+                className="w-full bg-surface border border-outline-variant/40 rounded-[var(--radius-button)] px-2 py-1 text-[10px] text-on-surface outline-none focus:border-primary font-mono transition-colors"
                 spellCheck={false}
                 autoComplete="off"
               />
@@ -217,13 +217,13 @@ export function BrowseScripts({
             {/* Script list */}
             <div className="flex-1 overflow-y-auto min-h-0">
               {loading && (
-                <div className="px-3 py-2 text-[10px] text-[#849587]">Loading…</div>
+                <div className="px-3 py-2 text-[10px] text-[#A3B2C6]">Loading…</div>
               )}
               {error && (
                 <div className="px-3 py-2 text-[10px] text-[#FFB4AB]">{error}</div>
               )}
               {!loading && !error && filtered.length === 0 && (
-                <div className="px-3 py-2 text-[10px] text-[#849587]">
+                <div className="px-3 py-2 text-[10px] text-[#A3B2C6]">
                   {filter ? `No scripts match "${filter}"` : "No scripts found"}
                 </div>
               )}
@@ -232,8 +232,8 @@ export function BrowseScripts({
                   {sortedCategories.map((cat) => (
                     <div key={cat}>
                       <div
-                        className="px-3 py-1 text-[9px] font-semibold uppercase tracking-wider text-[#618B6B] sticky top-0"
-                        style={{ background: "#1C1B1B", borderBottom: "1px solid rgba(59, 75, 63, 0.1)" }}
+                        className="px-3 py-1 text-[9px] font-semibold uppercase tracking-wider text-primary sticky top-0"
+                        style={{ background: "#334155", borderBottom: "1px solid rgba(71, 85, 105, 0.1)" }}
                       >
                         {cat === "root" ? "Root" : cat}
                       </div>
@@ -247,9 +247,9 @@ export function BrowseScripts({
                           onClick={() => handleSelect(entry)}
                           title={entry.description || entry.name}
                         >
-                          <div className="text-[#E5E2E1] font-mono">{entry.name}</div>
+                          <div className="text-[#F1F5F9] font-mono">{entry.name}</div>
                           {entry.description && (
-                            <div className="text-[#849587] truncate">{entry.description}</div>
+                            <div className="text-[#A3B2C6] truncate">{entry.description}</div>
                           )}
                         </button>
                       ))}
@@ -262,8 +262,8 @@ export function BrowseScripts({
             {/* Footer with match count */}
             {!loading && !error && scripts.length > 0 && (
               <div
-                className="px-3 py-1 text-[9px] text-[#3B4B3F] shrink-0"
-                style={{ borderTop: "1px solid rgba(59, 75, 63, 0.1)" }}
+                className="px-3 py-1 text-[9px] text-outline-variant shrink-0"
+                style={{ borderTop: "1px solid rgba(71, 85, 105, 0.1)" }}
               >
                 {filter
                   ? `${filtered.length} of ${scripts.length} match`

@@ -366,15 +366,15 @@ export function FileTreeViewer({ source }: FileTreeViewerProps) {
       {/* Table */}
       <div
         className="flex-1 min-h-0 overflow-auto rounded-none"
-        style={{ border: "1px solid rgba(59, 75, 63, 0.3)" }}
+        style={{ border: "1px solid rgba(71, 85, 105, 0.3)" }}
       >
         <table className="w-full text-left text-sm">
           <thead
             className="text-[11px] uppercase font-semibold tracking-wider"
             style={{
               background: "#1C1B1B",
-              color: "#849587",
-              borderBottom: "1px solid rgba(59, 75, 63, 0.3)",
+              color: "#A3B2C6",
+              borderBottom: "1px solid rgba(71, 85, 105, 0.3)",
             }}
           >
             <tr>
@@ -390,7 +390,7 @@ export function FileTreeViewer({ source }: FileTreeViewerProps) {
               <th className="px-5 py-3.5 text-left">Name</th>
             </tr>
           </thead>
-          <tbody style={{ background: "#0E0E0E" }}>
+          <tbody style={{ background: "#0B1121" }}>
             {visibleRows.length === 0 ? (
               <tr>
                 <td
@@ -413,7 +413,7 @@ export function FileTreeViewer({ source }: FileTreeViewerProps) {
                     key={item.path}
                     data-path={item.path}
                     className="hover:bg-surface-container transition-colors"
-                    style={{ borderBottom: "1px solid rgba(59, 75, 63, 0.15)" }}
+                    style={{ borderBottom: "1px solid rgba(71, 85, 105, 0.15)" }}
                   >
                     <td className="px-5 py-2.5 text-center align-middle">
                       <input
@@ -519,7 +519,7 @@ export function FileTreeViewer({ source }: FileTreeViewerProps) {
         </div>
         <div
           className="max-h-64 overflow-y-auto rounded-none p-3 font-mono text-xs"
-          style={{ background: "#0E0E0E", border: "1px solid rgba(59, 75, 63, 0.3)" }}
+          style={{ background: "#0B1121", border: "1px solid rgba(71, 85, 105, 0.3)" }}
         >
           {selectedDetails.map((d) => (
             <div

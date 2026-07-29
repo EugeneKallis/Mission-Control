@@ -19,7 +19,7 @@ export function ToggleSwitch({ enabled, onChange, label }: ToggleSwitchProps) {
         transition-colors duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-primary
         focus-visible:ring-offset-2 focus-visible:ring-offset-surface-low
       `}
-      style={{ backgroundColor: enabled ? "#00FF9C" : "#4B5563" }}
+      style={{ backgroundColor: enabled ? "#22D3EE" : "#475569" }}
     >
       <span
         className={`
