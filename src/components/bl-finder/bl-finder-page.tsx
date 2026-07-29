@@ -336,12 +336,12 @@ export function BlFinderPage() {
         <div className="flex items-center justify-between mb-4 px-4">
           <div>
             <h1
-              className="text-2xl font-bold tracking-tight text-[#F1F5F9]"
+              className="text-2xl font-bold tracking-tight text-[var(--color-on-surface)]"
               style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
             >
               BL Finder
             </h1>
-            <p className="text-xs italic mt-1" style={{ color: "#A3B2C6" }}>
+            <p className="text-xs italic mt-1" style={{ color: "var(--color-on-surface-variant)" }}>
               Media file readability checks. Configured at the top; the worker runs in the background.
             </p>
           </div>
@@ -353,21 +353,21 @@ export function BlFinderPage() {
             className="flex flex-wrap items-start gap-x-6 gap-y-1 px-4 py-2 mb-3 text-[11px] font-mono"
             style={{
               background: "#1A1919",
-              border: "1px solid rgba(71, 85, 105, 0.3)",
-              color: "#A3B2C6",
+              border: "1px solid var(--color-border)",
+              color: "var(--color-on-surface-variant)",
             }}
           >
             {/* Worker state */}
             <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
               {status.running ? (
                 <>
-                  <span className="inline-block w-2 h-2 rounded-full bg-[#67E8F9] animate-pulse" />
-                  <span style={{ color: "#67E8F9" }}>Checking…</span>
+                  <span className="inline-block w-2 h-2 rounded-full bg-[var(--color-primary-fixed)] animate-pulse" />
+                  <span style={{ color: "var(--color-primary-fixed)" }}>Checking…</span>
                 </>
               ) : config.enabled ? (
                 <>
-                  <span className="inline-block w-2 h-2 rounded-full bg-[#67E8F9]" />
-                  <span style={{ color: "#67E8F9" }}>Enabled</span>
+                  <span className="inline-block w-2 h-2 rounded-full bg-[var(--color-primary-fixed)]" />
+                  <span style={{ color: "var(--color-primary-fixed)" }}>Enabled</span>
                   <span className="text-[10px]">(idle)</span>
                 </>
               ) : (
@@ -440,8 +440,8 @@ export function BlFinderPage() {
             <button
               type="button"
               onClick={() => setShowLog((v) => !v)}
-              className="inline-flex items-center gap-1 whitespace-nowrap ml-auto cursor-pointer hover:text-[#F1F5F9] transition-colors"
-              style={{ color: showLog ? "#67E8F9" : "#A3B2C6" }}
+              className="inline-flex items-center gap-1 whitespace-nowrap ml-auto cursor-pointer hover:text-[var(--color-on-surface)] transition-colors"
+              style={{ color: showLog ? "var(--color-primary-fixed)" : "var(--color-on-surface-variant)" }}
             >
               <span className="material-symbols-outlined text-[12px]">
                 {showLog ? "expand_less" : "article"}
@@ -458,7 +458,7 @@ export function BlFinderPage() {
               className="mt-2 px-3 py-2 max-h-[240px] overflow-y-auto"
               style={{
                 background: "#151515",
-                border: "1px solid rgba(71, 85, 105, 0.3)",
+                border: "1px solid var(--color-border)",
               }}
             >
               {logEntries.length === 0 ? (
@@ -471,7 +471,7 @@ export function BlFinderPage() {
                     <div
                       key={i}
                       className="flex items-start gap-2 text-[11px] font-mono leading-relaxed"
-                      style={{ color: e.level === "error" ? "#FFB4AB" : e.level === "warn" ? "#FFD680" : "#A3B2C6" }}
+                      style={{ color: e.level === "error" ? "#FFB4AB" : e.level === "warn" ? "#FFD680" : "var(--color-on-surface-variant)" }}
                     >
                       <span className="shrink-0" style={{ color: "#5A6B5E" }}>
                         {formatLogTime(e.t)}
@@ -498,13 +498,13 @@ export function BlFinderPage() {
         {/* ── Filters + actions ─────────────────────────────────── */}
         <div
           className="flex flex-wrap items-center gap-2 px-4 pb-3"
-          style={{ borderBottom: "1px solid rgba(71, 85, 105, 0.3)" }}
+          style={{ borderBottom: "1px solid var(--color-border)" }}
         >
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="px-2 py-1.5 text-xs rounded-none"
-            style={{ background: "#334155", color: "#F1F5F9", border: "1px solid rgba(71, 85, 105, 0.3)" }}
+            style={{ background: "var(--color-surface-container)", color: "var(--color-on-surface)", border: "1px solid var(--color-border)" }}
           >
             <option value="">All statuses</option>
             <option value="pending">Pending</option>
@@ -516,7 +516,7 @@ export function BlFinderPage() {
             value={mediaDirFilter}
             onChange={(e) => setMediaDirFilter(e.target.value)}
             className="px-2 py-1.5 text-xs rounded-none"
-            style={{ background: "#334155", color: "#F1F5F9", border: "1px solid rgba(71, 85, 105, 0.3)" }}
+            style={{ background: "var(--color-surface-container)", color: "var(--color-on-surface)", border: "1px solid var(--color-border)" }}
           >
             <option value="">All media dirs</option>
             {mediaDirs.map((d) => (
@@ -536,7 +536,7 @@ export function BlFinderPage() {
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Search path…"
               className="px-2 py-1.5 text-xs rounded-none w-48"
-              style={{ background: "#334155", color: "#F1F5F9", border: "1px solid rgba(71, 85, 105, 0.3)" }}
+              style={{ background: "var(--color-surface-container)", color: "var(--color-on-surface)", border: "1px solid var(--color-border)" }}
             />
           </form>
 
@@ -548,9 +548,9 @@ export function BlFinderPage() {
               key={s}
               className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-mono rounded-none"
               style={{
-                background: "#334155",
-                color: statusFilter === s ? "#F1F5F9" : "#A3B2C6",
-                border: "1px solid rgba(71, 85, 105, 0.3)",
+                background: "var(--color-surface-container)",
+                color: statusFilter === s ? "var(--color-on-surface)" : "var(--color-on-surface-variant)",
+                border: "1px solid var(--color-border)",
               }}
               onClick={() => setStatusFilter(statusFilter === s ? "" : s)}
               role="button"
@@ -563,9 +563,9 @@ export function BlFinderPage() {
             onClick={() => void triggerScan()}
             className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-none"
             style={{
-              background: "#334155",
-              color: "#F1F5F9",
-              border: "1px solid rgba(71, 85, 105, 0.3)",
+              background: "var(--color-surface-container)",
+              color: "var(--color-on-surface)",
+              border: "1px solid var(--color-border)",
             }}
           >
             <span className="material-symbols-outlined text-sm">refresh</span>
@@ -575,7 +575,7 @@ export function BlFinderPage() {
             onClick={() => void recheckAll()}
             className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-none"
             style={{
-              background: "linear-gradient(135deg, #34D399, #22D3EE)",
+              background: "linear-gradient(135deg, var(--color-success), var(--color-primary))",
               color: "#002110",
             }}
           >
@@ -602,9 +602,9 @@ export function BlFinderPage() {
       {/* ── Rows ──────────────────────────────────────────────────── */}
       <div className="px-4 py-3">
         {loading ? (
-          <p className="text-center py-12 italic" style={{ color: "#A3B2C6" }}>Loading…</p>
+          <p className="text-center py-12 italic" style={{ color: "var(--color-on-surface-variant)" }}>Loading…</p>
         ) : rows.length === 0 ? (
-          <p className="text-center py-12 italic" style={{ color: "#A3B2C6" }}>
+          <p className="text-center py-12 italic" style={{ color: "var(--color-on-surface-variant)" }}>
             {statusFilter || mediaDirFilter || search
               ? "No files match the current filters."
               : "No files yet. Click 'Discover' to walk the media dirs, or wait for the next worker tick."}
@@ -623,7 +623,7 @@ export function BlFinderPage() {
           </div>
         )}
         {total > rows.length && (
-          <p className="text-center text-xs italic mt-4" style={{ color: "#A3B2C6" }}>
+          <p className="text-center text-xs italic mt-4" style={{ color: "var(--color-on-surface-variant)" }}>
             Showing {rows.length} of {total}
           </p>
         )}
@@ -672,7 +672,7 @@ export function BlFinderPage() {
             deleted. The target files on the remote mount will
             <strong> not</strong> be touched.
           </p>
-          <p className="text-xs italic" style={{ color: "#A3B2C6" }}>
+          <p className="text-xs italic" style={{ color: "var(--color-on-surface-variant)" }}>
             Files that are not currently broken (status "ok", "pending",
             or "checking") are skipped. Ignored rows are also skipped.
           </p>

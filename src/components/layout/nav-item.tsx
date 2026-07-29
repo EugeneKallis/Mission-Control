@@ -52,9 +52,9 @@ export function NavItem({ label, icon, href, color = "primary", badge, badgeTitl
         <span
           className="ml-auto inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 text-[10px] font-mono font-semibold rounded-[var(--radius-pill)]"
           style={{
-            background: "rgba(248, 113, 113, 0.12)",
-            color: "#F87171",
-            border: "1px solid rgba(248, 113, 113, 0.35)",
+            background: "var(--color-badge-error-bg)",
+            color: "var(--color-badge-error-fg)",
+            border: "1px solid var(--color-badge-error-border)",
           }}
           title={`${badge} ${badgeTitle}`}
         >

@@ -206,7 +206,7 @@ export default function LogsPage() {
         {/* Controls */}
         <div className="flex flex-wrap items-center gap-3 shrink-0">
           {/* Service selector */}
-          <div className="flex gap-1 p-0.5 rounded-[var(--radius-button)]" style={{ background: "#1E293B", border: "1px solid rgba(71, 85, 105, 0.25)" }}>
+          <div className="flex gap-1 p-0.5 rounded-[var(--radius-button)]" style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
             {SERVICES.map((s) => (
               <button
                 key={s}
@@ -328,7 +328,7 @@ export default function LogsPage() {
         {/* Terminal panel */}
         <div
           className="flex-1 min-h-0 relative rounded-[var(--radius-card)] overflow-hidden border border-outline-variant/25"
-          style={{ background: "#0B1121" }}
+          style={{ background: "var(--terminal-bg)" }}
         >
           <pre
             ref={terminalRef}

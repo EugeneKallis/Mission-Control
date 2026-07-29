@@ -27,18 +27,25 @@ function historyTitle(item: HistoryItem): string {
 }
 
 function statusPill(status: string) {
-  const colors: Record<string, { bg: string; fg: string; border: string }> = {
-    running: { bg: "rgba(34, 211, 238, 0.1)", fg: "#22D3EE", border: "rgba(34, 211, 238, 0.3)" },
-    success: { bg: "rgba(52, 211, 153, 0.1)", fg: "#34D399", border: "rgba(52, 211, 153, 0.3)" },
-    failed: { bg: "rgba(248, 113, 113, 0.1)", fg: "#F87171", border: "rgba(248, 113, 113, 0.3)" },
+  const vars: Record<string, string> = {
+    running: "running",
+    success: "success",
+    failed: "failed",
   };
-  const c = colors[status] || colors.running;
+  const key = vars[status] || "running";
   return (
     <span
       className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium"
-      style={{ background: c.bg, color: c.fg, border: `1px solid ${c.border}` }}
+      style={{
+        background: `var(--status-${key}-bg)`,
+        color: `var(--status-${key}-fg)`,
+        border: `1px solid var(--status-${key}-border)`,
+      }}
     >
-      <span className="w-1.5 h-1.5 rounded-full" style={{ background: c.fg }} />
+      <span
+        className="w-1.5 h-1.5 rounded-full"
+        style={{ background: `var(--status-${key}-fg)` }}
+      />
       {status}
     </span>
   );

@@ -194,7 +194,7 @@ function PreviewPanel({
             >
               <span
                 className="material-symbols-outlined text-base"
-                style={{ color: present ? "#34D399" : "#475569" }}
+                style={{ color: present ? "var(--color-success)" : "var(--color-outline-variant)" }}
               >
                 {present ? "check_circle" : "remove_circle"}
               </span>
@@ -208,7 +208,7 @@ function PreviewPanel({
               </div>
               <div
                 className="text-sm font-mono tabular-nums"
-                style={{ color: present ? "#F1F5F9" : "#475569" }}
+                style={{ color: present ? "var(--color-on-surface)" : "var(--color-outline-variant)" }}
               >
                 {present ? count.toLocaleString() : "\u2014"}
               </div>
@@ -344,7 +344,7 @@ function MigrationResultPanel({ result }: { result: MigrationResult }) {
       >
         <span
           className="material-symbols-outlined text-sm"
-          style={{ color: anyInserted ? "#34D399" : "#F87171" }}
+          style={{ color: anyInserted ? "var(--color-success)" : "#F87171" }}
         >
           {anyInserted ? "check_circle" : "info"}
         </span>

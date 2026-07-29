@@ -10,7 +10,7 @@ export function Terminal({ children, html, className = "" }: TerminalProps) {
   return (
     <div
       className={`flex-1 p-5 font-mono text-sm leading-relaxed overflow-y-auto whitespace-pre-wrap break-all terminal-scanline terminal-glow rounded-lg ${className}`}
-      style={{ background: "#0B1121", color: "#E2E8F0" }}
+      style={{ background: "var(--terminal-bg)", color: "var(--terminal-fg)" }}
     >
       {html ? <div dangerouslySetInnerHTML={{ __html: html }} /> : children}
     </div>

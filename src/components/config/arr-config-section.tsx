@@ -23,9 +23,9 @@ import {
 // ── Style helpers ─────────────────────────────────────────────────────────
 
 const inputClass =
-  "w-full bg-[#1E293B] border border-[#475569] rounded px-3 py-2 text-sm font-mono text-[#F1F5F9] outline-none focus:border-[#34D399] transition-colors";
+  "w-full bg-[var(--color-surface)] border border-[var(--color-outline-variant)] rounded px-3 py-2 text-sm font-mono text-[var(--color-on-surface)] outline-none focus:border-[var(--color-success)] transition-colors";
 
-const labelClass = "block text-sm font-medium text-[#F1F5F9] mb-2";
+const labelClass = "block text-sm font-medium text-[var(--color-on-surface)] mb-2";
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -59,28 +59,28 @@ function ArrInstanceCard({
   return (
     <div
       className="p-3 rounded-lg"
-      style={{ background: "#1E293B", border: "1px solid rgba(71, 85, 105, 0.25)" }}
+      style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
     >
-      <h3 className="text-sm font-semibold text-[#F1F5F9] mb-3">{name}</h3>
+      <h3 className="text-sm font-semibold text-[var(--color-on-surface)] mb-3">{name}</h3>
 
-      <label className="block text-xs text-[#A3B2C6] mb-1">URL</label>
+      <label className="block text-xs text-[var(--color-on-surface-variant)] mb-1">URL</label>
       <input
         type="url"
-        className="w-full bg-[#334155] border border-[#475569] rounded px-2 py-1.5 text-xs font-mono text-[#F1F5F9] outline-none focus:border-[#34D399] transition-colors mb-1"
+        className="w-full bg-[var(--color-surface-container)] border border-[var(--color-outline-variant)] rounded px-2 py-1.5 text-xs font-mono text-[var(--color-on-surface)] outline-none focus:border-[var(--color-success)] transition-colors mb-1"
         placeholder={defaultUrl}
         value={url}
         onChange={(e) => onFieldChange("url", e.target.value)}
       />
       {!url && (
-        <p className="text-[10px] text-[#34D399] mb-2">
+        <p className="text-[10px] text-[var(--color-success)] mb-2">
           Default: {defaultUrl}
         </p>
       )}
 
-      <label className="block text-xs text-[#A3B2C6] mb-1">API Key</label>
+      <label className="block text-xs text-[var(--color-on-surface-variant)] mb-1">API Key</label>
       <input
         type="password"
-        className="w-full bg-[#334155] border border-[#475569] rounded px-2 py-1.5 text-xs font-mono text-[#F1F5F9] outline-none focus:border-[#34D399] transition-colors"
+        className="w-full bg-[var(--color-surface-container)] border border-[var(--color-outline-variant)] rounded px-2 py-1.5 text-xs font-mono text-[var(--color-on-surface)] outline-none focus:border-[var(--color-success)] transition-colors"
         placeholder="Enter API key"
         value={apiKey}
         onChange={(e) => onFieldChange("apiKey", e.target.value)}
@@ -138,24 +138,24 @@ export function ArrConfigSection({ values, onChange }: ArrConfigSectionProps) {
   return (
     <div
       className="p-4 md:p-6 rounded-lg"
-      style={{ background: "#334155", border: "1px solid rgba(71, 85, 105, 0.3)" }}
+      style={{ background: "var(--color-surface-container)", border: "1px solid var(--color-border)" }}
     >
-      <h2 className="text-sm font-semibold text-[#F1F5F9] mb-4">
+      <h2 className="text-sm font-semibold text-[var(--color-on-surface)] mb-4">
         Arr Instances
       </h2>
-      <p className="text-xs text-[#A3B2C6] mb-4">
+      <p className="text-xs text-[var(--color-on-surface-variant)] mb-4">
         Configure API keys and URLs for all Sonarr / Radarr instances.
         Values set here are stored in the database. Environment variables
-        (<code className="text-[#34D399]">ARR__&lt;NAME&gt;__URL</code>,{" "}
-        <code className="text-[#34D399]">ARR__&lt;NAME&gt;__API_KEY</code>)
+        (<code className="text-[var(--color-success)]">ARR__&lt;NAME&gt;__URL</code>,{" "}
+        <code className="text-[var(--color-success)]">ARR__&lt;NAME&gt;__API_KEY</code>)
         take precedence over stored values.
       </p>
 
       {/* Bulk import */}
-      <label className={`${labelClass} text-[#A3B2C6]`}>
+      <label className={`${labelClass} text-[var(--color-on-surface-variant)]`}>
         Bulk Import
       </label>
-      <p className="text-xs text-[#A3B2C6] mb-2">
+      <p className="text-xs text-[var(--color-on-surface-variant)] mb-2">
         Paste one record per instance in the format: name / url / api_key
         (3 lines per record). Blank-line separators are optional.
       </p>

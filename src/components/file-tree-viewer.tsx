@@ -366,15 +366,15 @@ export function FileTreeViewer({ source }: FileTreeViewerProps) {
       {/* Table */}
       <div
         className="flex-1 min-h-0 overflow-auto rounded-none"
-        style={{ border: "1px solid rgba(71, 85, 105, 0.3)" }}
+        style={{ border: "1px solid var(--color-border)" }}
       >
         <table className="w-full text-left text-sm">
           <thead
             className="text-[11px] uppercase font-semibold tracking-wider"
             style={{
               background: "#1C1B1B",
-              color: "#A3B2C6",
-              borderBottom: "1px solid rgba(71, 85, 105, 0.3)",
+              color: "var(--color-on-surface-variant)",
+              borderBottom: "1px solid var(--color-border)",
             }}
           >
             <tr>
@@ -390,7 +390,7 @@ export function FileTreeViewer({ source }: FileTreeViewerProps) {
               <th className="px-5 py-3.5 text-left">Name</th>
             </tr>
           </thead>
-          <tbody style={{ background: "#0B1121" }}>
+          <tbody style={{ background: "var(--terminal-bg)" }}>
             {visibleRows.length === 0 ? (
               <tr>
                 <td
@@ -413,7 +413,7 @@ export function FileTreeViewer({ source }: FileTreeViewerProps) {
                     key={item.path}
                     data-path={item.path}
                     className="hover:bg-surface-container transition-colors"
-                    style={{ borderBottom: "1px solid rgba(71, 85, 105, 0.15)" }}
+                    style={{ borderBottom: "1px solid var(--color-border)" }}
                   >
                     <td className="px-5 py-2.5 text-center align-middle">
                       <input
@@ -519,7 +519,7 @@ export function FileTreeViewer({ source }: FileTreeViewerProps) {
         </div>
         <div
           className="max-h-64 overflow-y-auto rounded-none p-3 font-mono text-xs"
-          style={{ background: "#0B1121", border: "1px solid rgba(71, 85, 105, 0.3)" }}
+          style={{ background: "var(--terminal-bg)", border: "1px solid var(--color-border)" }}
         >
           {selectedDetails.map((d) => (
             <div

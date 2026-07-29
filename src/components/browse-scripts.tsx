@@ -193,14 +193,14 @@ export function BrowseScripts({
               right: pos.right,
               width: pos.width,
               maxHeight: "min(400px, calc(100vh - " + pos.top + "px - 8px))",
-              background: "#334155",
-              border: "1px solid rgba(71, 85, 105, 0.3)",
+              background: "var(--color-surface-container)",
+              border: "1px solid var(--color-border)",
             }}
           >
             {/* Filter input */}
             <div
               className="p-2 shrink-0"
-              style={{ borderBottom: "1px solid rgba(71, 85, 105, 0.3)" }}
+              style={{ borderBottom: "1px solid var(--color-border)" }}
             >
               <input
                 ref={inputRef}
@@ -217,13 +217,13 @@ export function BrowseScripts({
             {/* Script list */}
             <div className="flex-1 overflow-y-auto min-h-0">
               {loading && (
-                <div className="px-3 py-2 text-[10px] text-[#A3B2C6]">Loading…</div>
+                <div className="px-3 py-2 text-[10px] text-[var(--color-on-surface-variant)]">Loading…</div>
               )}
               {error && (
                 <div className="px-3 py-2 text-[10px] text-[#FFB4AB]">{error}</div>
               )}
               {!loading && !error && filtered.length === 0 && (
-                <div className="px-3 py-2 text-[10px] text-[#A3B2C6]">
+                <div className="px-3 py-2 text-[10px] text-[var(--color-on-surface-variant)]">
                   {filter ? `No scripts match "${filter}"` : "No scripts found"}
                 </div>
               )}
@@ -233,7 +233,7 @@ export function BrowseScripts({
                     <div key={cat}>
                       <div
                         className="px-3 py-1 text-[9px] font-semibold uppercase tracking-wider text-primary sticky top-0"
-                        style={{ background: "#334155", borderBottom: "1px solid rgba(71, 85, 105, 0.1)" }}
+                        style={{ background: "var(--color-surface-container)", borderBottom: "1px solid var(--color-border)" }}
                       >
                         {cat === "root" ? "Root" : cat}
                       </div>
@@ -247,9 +247,9 @@ export function BrowseScripts({
                           onClick={() => handleSelect(entry)}
                           title={entry.description || entry.name}
                         >
-                          <div className="text-[#F1F5F9] font-mono">{entry.name}</div>
+                          <div className="text-[var(--color-on-surface)] font-mono">{entry.name}</div>
                           {entry.description && (
-                            <div className="text-[#A3B2C6] truncate">{entry.description}</div>
+                            <div className="text-[var(--color-on-surface-variant)] truncate">{entry.description}</div>
                           )}
                         </button>
                       ))}
@@ -263,7 +263,7 @@ export function BrowseScripts({
             {!loading && !error && scripts.length > 0 && (
               <div
                 className="px-3 py-1 text-[9px] text-outline-variant shrink-0"
-                style={{ borderTop: "1px solid rgba(71, 85, 105, 0.1)" }}
+                style={{ borderTop: "1px solid var(--color-border)" }}
               >
                 {filter
                   ? `${filtered.length} of ${scripts.length} match`

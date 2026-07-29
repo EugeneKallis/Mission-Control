@@ -41,9 +41,9 @@ function formatTime(iso: string | null): string {
 }
 
 function usageColor(pct: number): string {
-  if (pct > 80) return "#F87171";
-  if (pct > 50) return "#FBBF24";
-  return "#34D399";
+  if (pct > 80) return "var(--color-error)";
+  if (pct > 50) return "var(--color-warning)";
+  return "var(--color-success)";
 }
 
 function UsageBar({ pct }: { pct: number | null }) {
@@ -202,7 +202,7 @@ export default function ServerStatusPage() {
                         className="group transition-opacity"
                         style={{
                           opacity: isStale ? 0.5 : 1,
-                          borderBottom: "1px solid rgba(71, 85, 105, 0.15)",
+                          borderBottom: "1px solid var(--color-border)",
                         }}
                       >
                         <td className="p-3 font-medium text-on-surface">{agent.hostname}</td>
@@ -328,7 +328,7 @@ export default function ServerStatusPage() {
             </p>
             <pre
               className="p-3 rounded text-xs font-mono text-on-surface overflow-x-auto select-all border border-outline-variant/30"
-              style={{ background: "#0B1121" }}
+              style={{ background: "var(--terminal-bg)" }}
             >
               curl -sL {typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"}/api/agent/install | bash
             </pre>

@@ -6,7 +6,7 @@
  * real `document` from the moment it starts running.
  *
  * Wraps @testing-library/react's render so we can add providers
- * (Router, Toast, etc.) in one place if/when component tests need them.
+ * (Router, Toast, ThemeProvider, etc.) in one place.
  *
  * Cleanup: @testing-library/react 16.3+ auto-registers
  * `afterEach(cleanup)`. Test files that render React portals should
@@ -18,9 +18,17 @@ import {
   render as rtlRender,
   type RenderOptions,
 } from "@testing-library/react";
+import { ThemeProvider } from "@/components/theme/theme-provider";
+import type { ThemeId } from "@/lib/theme";
+
+export const DEFAULT_TEST_THEME: ThemeId = "midnight-cyan";
 
 function AllTheProviders({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return (
+    <ThemeProvider initialThemeId={DEFAULT_TEST_THEME}>
+      {children}
+    </ThemeProvider>
+  );
 }
 
 export function render(
@@ -28,6 +36,14 @@ export function render(
   options?: Omit<RenderOptions, "wrapper">,
 ) {
   return rtlRender(ui, { wrapper: AllTheProviders, ...options });
+}
+
+/** Render provider infrastructure itself without recursively wrapping it. */
+export function renderWithoutProviders(
+  ui: React.ReactElement,
+  options?: RenderOptions,
+) {
+  return rtlRender(ui, options);
 }
 
 // Re-export everything from RTL so test files can

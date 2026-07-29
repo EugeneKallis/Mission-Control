@@ -178,7 +178,7 @@ export default function Home() {
             ref={containerRef}
             onScroll={handleScroll}
             className="flex-1 p-5 font-mono text-sm leading-relaxed overflow-y-auto min-h-0 min-w-0 terminal-scanline terminal-glow"
-            style={{ background: "#0B1121", color: "#E2E8F0" }}
+            style={{ background: "var(--terminal-bg)", color: "var(--terminal-fg)" }}
             tabIndex={0}
           >
             {lines.length === 0 ? (

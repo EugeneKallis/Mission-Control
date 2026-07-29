@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { NavItem } from "./nav-item";
+import { ThemeSwitcher } from "@/components/theme/theme-switcher";
 import type { GroupWithMacros, Macro } from "@/types";
 
 interface SidebarContentProps {
@@ -292,8 +293,13 @@ export function SidebarContent({
         <NavItem label="Scraper" icon="download" href="/scraper" color="rose" />
       </nav>
 
+      {/* Appearance — theme switcher */}
+      <div className="px-4 pt-3 pb-1 shrink-0 border-t border-outline-variant/30">
+        <ThemeSwitcher />
+      </div>
+
       {/* Real-Debrid status badge */}
-      <div className="px-4 py-3 shrink-0 border-t border-outline-variant/30">
+      <div className="px-4 py-3 shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs">
             <span

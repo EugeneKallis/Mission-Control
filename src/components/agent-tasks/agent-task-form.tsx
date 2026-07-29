@@ -182,18 +182,18 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
   return (
     <div
       className="rounded-lg overflow-hidden"
-      style={{ background: "#1E293B", border: "1px solid rgba(71, 85, 105, 0.3)" }}
+      style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
     >
       <div className="p-4 space-y-4">
-        <h2 className="text-lg font-bold text-[#F1F5F9]">
+        <h2 className="text-lg font-bold text-[var(--color-on-surface)]">
           {initial ? "Edit Task" : "New Task"}
         </h2>
 
         {/* Name */}
         <div>
-          <label className="block text-xs font-semibold text-[#A3B2C6] mb-1">Name</label>
+          <label className="block text-xs font-semibold text-[var(--color-on-surface-variant)] mb-1">Name</label>
           <input
-            className="w-full bg-[#0B1121] border border-[#475569] rounded px-3 py-2 text-sm text-[#F1F5F9] outline-none focus:border-[#34D399]"
+            className="w-full bg-[var(--terminal-bg)] border border-[var(--color-outline-variant)] rounded px-3 py-2 text-sm text-[var(--color-on-surface)] outline-none focus:border-[var(--color-success)]"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="My Scheduled Task"
@@ -202,9 +202,9 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
 
         {/* Prompt */}
         <div>
-          <label className="block text-xs font-semibold text-[#A3B2C6] mb-1">Prompt</label>
+          <label className="block text-xs font-semibold text-[var(--color-on-surface-variant)] mb-1">Prompt</label>
           <textarea
-            className="w-full bg-[#0B1121] border border-[#475569] rounded px-3 py-2 text-sm text-[#F1F5F9] outline-none focus:border-[#34D399] resize-y min-h-[80px] font-mono"
+            className="w-full bg-[var(--terminal-bg)] border border-[var(--color-outline-variant)] rounded px-3 py-2 text-sm text-[var(--color-on-surface)] outline-none focus:border-[var(--color-success)] resize-y min-h-[80px] font-mono"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="What should the agent do?"
@@ -214,10 +214,10 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
 
         {/* Frequency (Cron) */}
         <div>
-          <label className="block text-xs font-semibold text-[#A3B2C6] mb-1">Frequency</label>
+          <label className="block text-xs font-semibold text-[var(--color-on-surface-variant)] mb-1">Frequency</label>
           <div className="flex flex-wrap items-center gap-2">
             <select
-              className="bg-[#0B1121] border border-[#475569] rounded px-2.5 py-1.5 text-xs text-[#F1F5F9] outline-none focus:border-[#34D399]"
+              className="bg-[var(--terminal-bg)] border border-[var(--color-outline-variant)] rounded px-2.5 py-1.5 text-xs text-[var(--color-on-surface)] outline-none focus:border-[var(--color-success)]"
               value={frequency}
               onChange={(e) => setFrequency(e.target.value as Frequency)}
             >
@@ -228,17 +228,17 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
 
             {frequency === "interval" && (
               <>
-                <span className="text-xs text-[#A3B2C6]">Every</span>
+                <span className="text-xs text-[var(--color-on-surface-variant)]">Every</span>
                 <input
                   type="number"
                   min={1}
                   max={1440}
-                  className="w-20 bg-[#0B1121] border border-[#475569] rounded px-2.5 py-1.5 text-xs text-[#F1F5F9] outline-none focus:border-[#34D399]"
+                  className="w-20 bg-[var(--terminal-bg)] border border-[var(--color-outline-variant)] rounded px-2.5 py-1.5 text-xs text-[var(--color-on-surface)] outline-none focus:border-[var(--color-success)]"
                   value={intervalValue}
                   onChange={(e) => setIntervalValue(e.target.value || "5")}
                 />
                 <select
-                  className="bg-[#0B1121] border border-[#475569] rounded px-2.5 py-1.5 text-xs text-[#F1F5F9] outline-none focus:border-[#34D399]"
+                  className="bg-[var(--terminal-bg)] border border-[var(--color-outline-variant)] rounded px-2.5 py-1.5 text-xs text-[var(--color-on-surface)] outline-none focus:border-[var(--color-success)]"
                   value={intervalUnit}
                   onChange={(e) => setIntervalUnit(e.target.value as IntervalUnit)}
                 >
@@ -252,7 +252,7 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
               <>
                 <input
                   type="time"
-                  className="bg-[#0B1121] border border-[#475569] rounded px-2.5 py-1.5 text-xs text-[#F1F5F9] outline-none focus:border-[#34D399]"
+                  className="bg-[var(--terminal-bg)] border border-[var(--color-outline-variant)] rounded px-2.5 py-1.5 text-xs text-[var(--color-on-surface)] outline-none focus:border-[var(--color-success)]"
                   value={time}
                   onChange={(e) => setTime(e.target.value)}
                 />
@@ -262,7 +262,7 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
             {frequency === "weekly" && (
               <>
                 <select
-                  className="bg-[#0B1121] border border-[#475569] rounded px-2.5 py-1.5 text-xs text-[#F1F5F9] outline-none focus:border-[#34D399]"
+                  className="bg-[var(--terminal-bg)] border border-[var(--color-outline-variant)] rounded px-2.5 py-1.5 text-xs text-[var(--color-on-surface)] outline-none focus:border-[var(--color-success)]"
                   value={dayOfWeek}
                   onChange={(e) => setDayOfWeek(e.target.value as DayOfWeek)}
                 >
@@ -274,28 +274,28 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
                   <option value="5">Friday</option>
                   <option value="6">Saturday</option>
                 </select>
-                <span className="text-xs text-[#A3B2C6]">at</span>
+                <span className="text-xs text-[var(--color-on-surface-variant)]">at</span>
                 <input
                   type="time"
-                  className="bg-[#0B1121] border border-[#475569] rounded px-2.5 py-1.5 text-xs text-[#F1F5F9] outline-none focus:border-[#34D399]"
+                  className="bg-[var(--terminal-bg)] border border-[var(--color-outline-variant)] rounded px-2.5 py-1.5 text-xs text-[var(--color-on-surface)] outline-none focus:border-[var(--color-success)]"
                   value={time}
                   onChange={(e) => setTime(e.target.value)}
                 />
               </>
             )}
 
-            <span className="text-xs text-[#34D399] font-mono">{buildCron()}</span>
+            <span className="text-xs text-[var(--color-success)] font-mono">{buildCron()}</span>
           </div>
         </div>
 
         {/* Model / Provider / Thinking */}
         <div className="flex flex-wrap gap-3">
           <div className="flex-1 min-w-[140px]">
-            <label className="block text-xs font-semibold text-[#A3B2C6] mb-1">Provider</label>
+            <label className="block text-xs font-semibold text-[var(--color-on-surface-variant)] mb-1">Provider</label>
             {showFallback ? (
               <input
                 data-testid="task-provider"
-                className="w-full bg-[#0B1121] border border-[#475569] rounded px-2.5 py-1.5 text-xs text-[#F1F5F9] outline-none focus:border-[#34D399]"
+                className="w-full bg-[var(--terminal-bg)] border border-[var(--color-outline-variant)] rounded px-2.5 py-1.5 text-xs text-[var(--color-on-surface)] outline-none focus:border-[var(--color-success)]"
                 value={provider}
                 onChange={(e) => setProvider(e.target.value)}
                 placeholder="anthropic"
@@ -303,7 +303,7 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
             ) : (
               <select
                 data-testid="task-provider"
-                className="w-full bg-[#0B1121] border border-[#475569] rounded px-2.5 py-1.5 text-xs text-[#F1F5F9] outline-none focus:border-[#34D399]"
+                className="w-full bg-[var(--terminal-bg)] border border-[var(--color-outline-variant)] rounded px-2.5 py-1.5 text-xs text-[var(--color-on-surface)] outline-none focus:border-[var(--color-success)]"
                 value={provider}
                 disabled={showLoading}
                 onChange={(e) => handleProviderChange(e.target.value)}
@@ -322,11 +322,11 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
             )}
           </div>
           <div className="flex-1 min-w-[140px]">
-            <label className="block text-xs font-semibold text-[#A3B2C6] mb-1">Model</label>
+            <label className="block text-xs font-semibold text-[var(--color-on-surface-variant)] mb-1">Model</label>
             {showFallback ? (
               <input
                 data-testid="task-model"
-                className="w-full bg-[#0B1121] border border-[#475569] rounded px-2.5 py-1.5 text-xs text-[#F1F5F9] outline-none focus:border-[#34D399]"
+                className="w-full bg-[var(--terminal-bg)] border border-[var(--color-outline-variant)] rounded px-2.5 py-1.5 text-xs text-[var(--color-on-surface)] outline-none focus:border-[var(--color-success)]"
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
                 placeholder="claude-sonnet-4"
@@ -334,7 +334,7 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
             ) : (
               <select
                 data-testid="task-model"
-                className="w-full bg-[#0B1121] border border-[#475569] rounded px-2.5 py-1.5 text-xs text-[#F1F5F9] outline-none focus:border-[#34D399]"
+                className="w-full bg-[var(--terminal-bg)] border border-[var(--color-outline-variant)] rounded px-2.5 py-1.5 text-xs text-[var(--color-on-surface)] outline-none focus:border-[var(--color-success)]"
                 value={model}
                 disabled={showLoading}
                 onChange={(e) => handleModelChange(e.target.value)}
@@ -355,9 +355,9 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
             )}
           </div>
           <div className="w-[130px]">
-            <label className="block text-xs font-semibold text-[#A3B2C6] mb-1">Thinking</label>
+            <label className="block text-xs font-semibold text-[var(--color-on-surface-variant)] mb-1">Thinking</label>
             <select
-              className="w-full bg-[#0B1121] border border-[#475569] rounded px-2.5 py-1.5 text-xs text-[#F1F5F9] outline-none focus:border-[#34D399]"
+              className="w-full bg-[var(--terminal-bg)] border border-[var(--color-outline-variant)] rounded px-2.5 py-1.5 text-xs text-[var(--color-on-surface)] outline-none focus:border-[var(--color-success)]"
               value={thinkingLevel}
               onChange={(e) => setThinkingLevel(e.target.value)}
             >
@@ -367,12 +367,12 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
             </select>
           </div>
           <div className="w-[100px]">
-            <label className="block text-xs font-semibold text-[#A3B2C6] mb-1">Timeout (s)</label>
+            <label className="block text-xs font-semibold text-[var(--color-on-surface-variant)] mb-1">Timeout (s)</label>
             <input
               type="number"
               min={1}
               max={3600}
-              className="w-full bg-[#0B1121] border border-[#475569] rounded px-2.5 py-1.5 text-xs text-[#F1F5F9] outline-none focus:border-[#34D399]"
+              className="w-full bg-[var(--terminal-bg)] border border-[var(--color-outline-variant)] rounded px-2.5 py-1.5 text-xs text-[var(--color-on-surface)] outline-none focus:border-[var(--color-success)]"
               value={timeoutSec}
               onChange={(e) => setTimeoutSec(parseInt(e.target.value) || 300)}
             />
@@ -382,7 +382,7 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
         {/* Tools */}
         {resources?.tools && (
           <div>
-            <label className="block text-xs font-semibold text-[#A3B2C6] mb-1">Tools</label>
+            <label className="block text-xs font-semibold text-[var(--color-on-surface-variant)] mb-1">Tools</label>
             <div className="flex flex-wrap gap-2">
               {resources.tools.map((tool) => {
                 const enabled = isToolSelectedForTask(tool.name);
@@ -393,9 +393,9 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
                     onClick={() => toggleTool(tool.name)}
                     className="px-2.5 py-1.5 text-xs font-semibold rounded transition-colors"
                     style={{
-                      background: enabled ? "#1A3A2A" : "#334155",
-                      color: enabled ? "#34D399" : "#A3B2C6",
-                      border: `1px solid ${enabled ? "rgba(52, 211, 153, 0.4)" : "rgba(71, 85, 105, 0.3)"}`,
+                      background: enabled ? "#1A3A2A" : "var(--color-surface-container)",
+                      color: enabled ? "var(--color-success)" : "var(--color-on-surface-variant)",
+                      border: `1px solid ${enabled ? "var(--status-success-border)" : "var(--color-border)"}`,
                     }}
                     title={tool.description || tool.name}
                   >
@@ -414,13 +414,13 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
         {resources?.skills && (
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <label className="text-xs font-semibold text-[#A3B2C6]">Skills</label>
-              <label className="flex items-center gap-1 text-xs text-[#A3B2C6] cursor-pointer">
+              <label className="text-xs font-semibold text-[var(--color-on-surface-variant)]">Skills</label>
+              <label className="flex items-center gap-1 text-xs text-[var(--color-on-surface-variant)] cursor-pointer">
                 <input
                   type="checkbox"
                   checked={noSkills}
                   onChange={(e) => setNoSkills(e.target.checked)}
-                  className="accent-[#34D399]"
+                  className="accent-[var(--color-success)]"
                 />
                 Disable all
               </label>
@@ -443,9 +443,9 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
                     }}
                     className="px-2.5 py-1.5 text-xs font-semibold rounded transition-colors disabled:opacity-30"
                     style={{
-                      background: enabled ? "#1A3A2A" : "#334155",
-                      color: enabled ? "#34D399" : "#A3B2C6",
-                      border: `1px solid ${enabled ? "rgba(52, 211, 153, 0.4)" : "rgba(71, 85, 105, 0.3)"}`,
+                      background: enabled ? "#1A3A2A" : "var(--color-surface-container)",
+                      color: enabled ? "var(--color-success)" : "var(--color-on-surface-variant)",
+                      border: `1px solid ${enabled ? "var(--status-success-border)" : "var(--color-border)"}`,
                     }}
                   >
                     {skill.name}
@@ -458,12 +458,12 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
 
         {/* Extra settings */}
         <div className="flex flex-wrap items-center gap-4">
-          <label className="flex items-center gap-2 text-xs text-[#A3B2C6] cursor-pointer">
+          <label className="flex items-center gap-2 text-xs text-[var(--color-on-surface-variant)] cursor-pointer">
             <input
               type="checkbox"
               checked={persistSession}
               onChange={(e) => setPersistSession(e.target.checked)}
-              className="accent-[#34D399]"
+              className="accent-[var(--color-success)]"
             />
             Persist session (enables memory across runs)
           </label>
@@ -471,11 +471,11 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
 
         {/* Append system prompt */}
         <div>
-          <label className="block text-xs font-semibold text-[#A3B2C6] mb-1">
+          <label className="block text-xs font-semibold text-[var(--color-on-surface-variant)] mb-1">
             Append to System Prompt <span className="font-normal text-[#5A6B5E]">(optional)</span>
           </label>
           <textarea
-            className="w-full bg-[#0B1121] border border-[#475569] rounded px-3 py-2 text-xs text-[#F1F5F9] outline-none focus:border-[#34D399] resize-y min-h-[50px] font-mono"
+            className="w-full bg-[var(--terminal-bg)] border border-[var(--color-outline-variant)] rounded px-3 py-2 text-xs text-[var(--color-on-surface)] outline-none focus:border-[var(--color-success)] resize-y min-h-[50px] font-mono"
             value={appendSystem}
             onChange={(e) => setAppendSystem(e.target.value)}
             placeholder="Additional instructions for the agent…"

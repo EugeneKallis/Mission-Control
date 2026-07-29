@@ -33,12 +33,19 @@ function formatCronHuman(cron: string): string {
   return `${dayName} at ${hour.padStart(2, "0")}:${min.padStart(2, "0")}`;
 }
 
-function statusBadgeColor(status: string | null): string {
+function statusBadgeColors(status: string | null): { foreground: string; background: string } {
   switch (status) {
-    case "success": return "#34D399";
-    case "error": return "#FFB4AB";
-    case "running": return "#FFD04C";
-    default: return "#A3B2C6";
+    case "success":
+      return { foreground: "var(--status-success-fg)", background: "var(--status-success-bg)" };
+    case "error":
+      return { foreground: "var(--status-failed-fg)", background: "var(--status-failed-bg)" };
+    case "running":
+      return { foreground: "var(--status-running-fg)", background: "var(--status-running-bg)" };
+    default:
+      return {
+        foreground: "var(--color-on-surface-variant)",
+        background: "color-mix(in srgb, var(--color-on-surface-variant) 10%, transparent)",
+      };
   }
 }
 
@@ -165,7 +172,7 @@ export function AgentTasksPage({ initialTasks }: Props) {
       {/* Header */}
       <div className="flex items-center justify-between shrink-0">
         <h1
-          className="text-2xl font-bold text-[#F1F5F9] tracking-tight"
+          className="text-2xl font-bold text-on-surface tracking-tight"
           style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
         >
           Scheduled Agent Tasks
@@ -188,7 +195,7 @@ export function AgentTasksPage({ initialTasks }: Props) {
       {/* Task list */}
       <div className="flex-1 min-h-0 space-y-3 overflow-y-auto">
         {tasks.length === 0 && !formOpen && (
-          <div className="text-center text-sm text-[#A3B2C6] mt-8">
+          <div className="text-center text-sm text-on-surface-variant mt-8">
             No scheduled tasks yet. Create one to get started.
           </div>
         )}
@@ -239,7 +246,7 @@ function TaskCard({ task, onToggle, onEdit, onDelete, onRunNow, isRunning }: Tas
   return (
     <div
       className="rounded-lg overflow-hidden"
-      style={{ background: "#1E293B", border: "1px solid rgba(71, 85, 105, 0.3)" }}
+      style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
     >
       {/* Row */}
       <div className="flex items-center justify-between p-3 gap-3">
@@ -250,22 +257,22 @@ function TaskCard({ task, onToggle, onEdit, onDelete, onRunNow, isRunning }: Tas
           />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-[#F1F5F9] truncate">
+              <span className="text-sm font-semibold text-on-surface truncate">
                 {task.name}
               </span>
               {task.lastStatus && (
                 <span
                   className="text-[10px] font-mono px-1.5 py-0.5 rounded"
                   style={{
-                    background: `${statusBadgeColor(task.lastStatus)}20`,
-                    color: statusBadgeColor(task.lastStatus),
+                    background: statusBadgeColors(task.lastStatus).background,
+                    color: statusBadgeColors(task.lastStatus).foreground,
                   }}
                 >
                   {task.lastStatus}
                 </span>
               )}
             </div>
-            <div className="text-xs text-[#A3B2C6] mt-0.5 flex flex-wrap gap-x-3">
+            <div className="text-xs text-on-surface-variant mt-0.5 flex flex-wrap gap-x-3">
               <span>{formatCronHuman(task.cronExpression)}</span>
               {task.lastRunAt && (
                 <span>Last: {new Date(task.lastRunAt).toLocaleString()}</span>
@@ -286,9 +293,9 @@ function TaskCard({ task, onToggle, onEdit, onDelete, onRunNow, isRunning }: Tas
             disabled={isRunning}
             className="px-2 py-1.5 text-xs font-semibold rounded transition-colors disabled:opacity-40"
             style={{
-              background: "#334155",
-              color: "#FFD04C",
-              border: "1px solid rgba(255, 208, 76, 0.2)",
+              background: "var(--color-surface-container)",
+              color: "var(--status-running-fg)",
+              border: "1px solid var(--status-running-border)",
             }}
             title="Run now"
           >
@@ -298,9 +305,9 @@ function TaskCard({ task, onToggle, onEdit, onDelete, onRunNow, isRunning }: Tas
             onClick={() => setShowRuns(!showRuns)}
             className="px-2 py-1.5 text-xs font-semibold rounded transition-colors"
             style={{
-              background: "#334155",
-              color: "#A3B2C6",
-              border: "1px solid rgba(71, 85, 105, 0.3)",
+              background: "var(--color-surface-container)",
+              color: "var(--color-on-surface-variant)",
+              border: "1px solid var(--color-border)",
             }}
             title="View runs"
           >
@@ -310,9 +317,9 @@ function TaskCard({ task, onToggle, onEdit, onDelete, onRunNow, isRunning }: Tas
             onClick={onEdit}
             className="px-2 py-1.5 text-xs font-semibold rounded transition-colors"
             style={{
-              background: "#334155",
-              color: "#34D399",
-              border: "1px solid rgba(52, 211, 153, 0.25)",
+              background: "var(--color-surface-container)",
+              color: "var(--status-success-fg)",
+              border: "1px solid var(--status-success-border)",
             }}
           >
             Edit
@@ -321,9 +328,9 @@ function TaskCard({ task, onToggle, onEdit, onDelete, onRunNow, isRunning }: Tas
             onClick={onDelete}
             className="px-2 py-1.5 text-xs font-semibold rounded transition-colors"
             style={{
-              background: "#334155",
-              color: "#FFB4AB",
-              border: "1px solid rgba(255, 180, 171, 0.25)",
+              background: "var(--color-surface-container)",
+              color: "var(--status-failed-fg)",
+              border: "1px solid var(--status-failed-border)",
             }}
           >
             Delete
@@ -333,7 +340,7 @@ function TaskCard({ task, onToggle, onEdit, onDelete, onRunNow, isRunning }: Tas
 
       {/* Runs panel (collapsible) */}
       {showRuns && (
-        <div style={{ borderTop: "1px solid rgba(71, 85, 105, 0.3)" }}>
+        <div style={{ borderTop: "1px solid var(--color-border)" }}>
           <AgentTaskRuns taskId={task.id} />
         </div>
       )}

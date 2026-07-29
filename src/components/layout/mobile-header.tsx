@@ -1,5 +1,6 @@
 "use client";
 
+import { ThemeSwitcher } from "@/components/theme/theme-switcher";
 import Link from "next/link";
 
 interface MobileHeaderProps {
@@ -26,14 +27,17 @@ export function MobileHeader({
       </button>
       <Link
         href="/"
-        className="ml-2 text-lg font-bold text-primary tracking-tight font-display hover:opacity-80 transition-opacity flex items-center h-11"
+        className="ml-2 text-lg font-bold text-primary tracking-tight font-display hover:opacity-80 transition-opacity flex items-center h-11 min-w-0 truncate"
         aria-label="Go to home"
       >
         {brand}
       </Link>
-      <div className="ml-auto text-[11px] text-on-surface-variant text-right leading-tight pr-1">
-        <div className="font-medium">v{version}</div>
-        {uptime && <div className="text-[10px]">{uptime}</div>}
+      <div className="ml-auto flex items-center gap-1 shrink-0">
+        <ThemeSwitcher variant="compact" />
+        <div className="hidden sm:block text-[11px] text-on-surface-variant text-right leading-tight pr-1">
+          <div className="font-medium">v{version}</div>
+          {uptime && <div className="text-[10px]">{uptime}</div>}
+        </div>
       </div>
     </div>
   );

@@ -488,7 +488,7 @@ function GroupCard({
       <div
         className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none"
         onClick={onToggle}
-        style={{ borderBottom: expanded ? "1px solid rgba(71, 85, 105, 0.15)" : "none" }}
+        style={{ borderBottom: expanded ? "1px solid var(--color-border)" : "none" }}
       >
         <span className="material-symbols-outlined text-sm text-on-surface-variant transition-transform" style={{ transform: expanded ? "rotate(90deg)" : "" }}>
           chevron_right

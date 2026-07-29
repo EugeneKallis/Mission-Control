@@ -23,18 +23,25 @@ interface HistoryItem {
 }
 
 function statusPill(status: string) {
-  const colors: Record<string, { bg: string; fg: string; border: string }> = {
-    running: { bg: "rgba(34, 211, 238, 0.1)", fg: "#4CD6FF", border: "rgba(34, 211, 238, 0.3)" },
-    success: { bg: "rgba(52, 211, 153, 0.1)", fg: "#34D399", border: "rgba(52, 211, 153, 0.3)" },
-    failed: { bg: "rgba(248, 113, 113, 0.1)", fg: "#F87171", border: "rgba(248, 113, 113, 0.3)" },
+  const vars: Record<string, string> = {
+    running: "running",
+    success: "success",
+    failed: "failed",
   };
-  const c = colors[status] || colors.running;
+  const key = vars[status] || "running";
   return (
     <span
       className="inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium"
-      style={{ background: c.bg, color: c.fg, border: `1px solid ${c.border}` }}
+      style={{
+        background: `var(--status-${key}-bg)`,
+        color: `var(--status-${key}-fg)`,
+        border: `1px solid var(--status-${key}-border)`,
+      }}
     >
-      <span className="w-1.5 h-1.5 rounded-full" style={{ background: c.fg }} />
+      <span
+        className="w-1.5 h-1.5 rounded-full"
+        style={{ background: `var(--status-${key}-fg)` }}
+      />
       {status}
     </span>
   );
@@ -131,8 +138,8 @@ export function MacroLogPanel({
     <div
       className="flex flex-col rounded-[var(--radius-card)] overflow-hidden shrink-0"
       style={{
-        background: "#0B1121",
-        border: "1px solid rgba(71, 85, 105, 0.3)",
+        background: "var(--terminal-bg)",
+        border: "1px solid var(--terminal-border)",
         height: "400px",
       }}
     >
@@ -173,12 +180,12 @@ export function MacroLogPanel({
       {/* Terminal + History split */}
       <div className="flex-1 min-h-0 flex">
         {/* Terminal (left) */}
-        <div className="flex-1 min-w-0 flex flex-col" style={{ borderRight: "1px solid rgba(71, 85, 105, 0.15)" }}>
+        <div className="flex-1 min-w-0 flex flex-col" style={{ borderRight: "1px solid var(--color-border)" }}>
           <div
             ref={containerRef}
             onScroll={handleScroll}
             className="flex-1 p-3 font-mono text-[11px] leading-relaxed overflow-y-auto terminal-glow"
-            style={{ color: "#E2E8F0" }}
+            style={{ color: "var(--terminal-fg)" }}
             tabIndex={0}
           >
             {lines.length === 0 ? (

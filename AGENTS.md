@@ -222,6 +222,66 @@ env-only `getConfig()` and are unaffected.
 - **Everything is TypeScript** — strict mode enabled
 - **Justfile** is the single source of truth for project commands
 
+## Runtime Theme System
+
+Mission Control has a persisted runtime theme system with four dark themes.
+Themes are applied via the `data-theme` attribute on `<html>` and persisted
+in localStorage (versioned key `mission-control:theme:v1`). A synchronous head
+bootstrap applies the stored palette before first paint; React keeps the server
+and first client render on the same default snapshot, then synchronizes its
+context after hydration.
+
+### Theme registry (`src/lib/theme.ts`)
+
+Pure data module — safe to import from server components. Defines:
+
+| Export | Purpose |
+|--------|---------|
+| `ThemeId` | `"midnight-cyan" | "graphite-violet" | "deep-ocean" | "ember-copper"` |
+| `THEMES` | Array of `ThemeEntry` with label, description, swatches, themeColor |
+| `DEFAULT_THEME` | `"midnight-cyan"` |
+| `STORAGE_KEY` | `"mission-control:theme:v1"` (versioned) |
+| `isValidThemeId(id)` | Type guard / allowlist |
+| `getTheme(id)` | Lookup entry by id |
+| `getThemeColor(id)` | Get browser theme-color |
+| `BOOTSTRAP_SCRIPT` | Synchronous FOUC prevention script for `<head>` |
+
+### Provider & Hook (`src/components/theme/theme-provider.tsx`)
+
+- `ThemeProvider` — client context provider placed in the root layout
+- `useTheme()` — returns `{ themeId, setThemeId, themes }`
+- First client render matches the server default to avoid hydration mismatch
+- After hydration: adopts the already-bootstrapped `<html data-theme>` value
+- `setThemeId`: applies DOM + `theme-color` immediately, then persists best-effort
+- Listens for `storage` events and applies cross-tab changes immediately
+- Tolerates missing or blocked localStorage without preventing visual changes
+
+### ThemeSwitcher (`src/components/theme/theme-switcher.tsx`)
+
+- Two variants: `"default"` (sidebar, full-width with swatches) and `"compact"` (44×44 icon button for mobile header)
+- Opens a viewport-safe 228px 2×2 panel with palette swatches, labels, descriptions, and a checkmark for the selected theme
+- Accessible: `aria-expanded`/`aria-controls`, labelled `radiogroup`, roving `role="radio"` options, Arrow/Home/End navigation, selected-state announcement, `Escape`, outside-click, and focus restoration
+
+### CSS Architecture
+
+Each theme is defined in `src/app/globals.css` as an `html[data-theme="..."]` block
+that overrides all Tailwind `--color-*` variables plus derived tokens:
+
+| Token | Purpose |
+|-------|---------|
+| `--color-border` | Replaces `rgba(71, 85, 105, 0.3)` everywhere |
+| `--terminal-bg` / `--terminal-fg` / `--terminal-fg-alt` | Terminal backgrounds and text |
+| `--glass-bg` / `--glass-border` | Glassmorphism modal appearance |
+| `--status-*-bg` / `--status-*-fg` / `--status-*-border` | Status pill colors (running/success/failed) |
+| `--color-badge-error-*` | Error-count badge on NavItem |
+| `--toggle-enabled-bg` / `--toggle-disabled-bg` | ToggleSwitch background |
+
+### Adding a new theme
+
+1. Add the id to the `ThemeId` union in `src/lib/theme.ts`
+2. Add a `ThemeEntry` to the `THEMES` array (the bootstrap allowlist and browser color map are generated from this registry)
+3. Add an `html[data-theme="..."]` block in `globals.css` with all semantic and derived variables
+
 ## Future Plans
 
 - **pi.dev SDK integration** — SDK will be added to `src/lib/pi/` when available; the project is structured to import it cleanly from there

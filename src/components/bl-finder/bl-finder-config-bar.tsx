@@ -68,7 +68,7 @@ export function BlFinderConfigBar({
       className="flex flex-wrap items-center gap-3 px-4 mb-3"
       style={{
         background: "#1A1919",
-        border: "1px solid rgba(71, 85, 105, 0.3)",
+        border: "1px solid var(--color-border)",
       }}
     >
       <NumField
@@ -119,7 +119,7 @@ export function BlFinderConfigBar({
         >
           <span
             className="text-xs font-semibold"
-            style={{ color: draft.enabled ? "#67E8F9" : "#A3B2C6" }}
+            style={{ color: draft.enabled ? "var(--color-primary-fixed)" : "var(--color-on-surface-variant)" }}
           >
             {draft.enabled ? "Enabled" : "Disabled"}
           </span>
@@ -130,7 +130,7 @@ export function BlFinderConfigBar({
             onClick={() => update("enabled", !draft.enabled)}
             className="relative w-10 h-5 rounded-full transition-colors"
             style={{
-              background: draft.enabled ? "#67E8F9" : "rgba(132, 149, 135, 0.3)",
+              background: draft.enabled ? "var(--color-primary-fixed)" : "rgba(132, 149, 135, 0.3)",
               border: "none",
             }}
           >
@@ -148,7 +148,7 @@ export function BlFinderConfigBar({
             onClick={reset}
             disabled={saving}
             className="px-3 py-1.5 text-xs font-semibold rounded-none"
-            style={{ background: "transparent", color: "#A3B2C6", border: "1px solid rgba(71, 85, 105, 0.3)" }}
+            style={{ background: "transparent", color: "var(--color-on-surface-variant)", border: "1px solid var(--color-border)" }}
           >
             Reset
           </button>
@@ -158,9 +158,9 @@ export function BlFinderConfigBar({
           disabled={!dirty || saving}
           className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-none transition-all"
           style={{
-            background: dirty ? "linear-gradient(135deg, #34D399, #22D3EE)" : "#334155",
-            color: dirty ? "#083344" : "#A3B2C6",
-            border: dirty ? "none" : "1px solid rgba(71, 85, 105, 0.3)",
+            background: dirty ? "linear-gradient(135deg, var(--color-success), var(--color-primary))" : "var(--color-surface-container)",
+            color: dirty ? "#083344" : "var(--color-on-surface-variant)",
+            border: dirty ? "none" : "1px solid var(--color-border)",
             cursor: dirty && !saving ? "pointer" : "not-allowed",
           }}
         >
@@ -195,15 +195,15 @@ function MediaDirsField({
 
   return (
     <label className="flex flex-col gap-0.5 min-w-[260px]">
-      <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: "#A3B2C6" }}>
+      <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: "var(--color-on-surface-variant)" }}>
         Media Dirs
       </span>
       <div
         className="flex flex-wrap items-center gap-1 px-2 py-1 min-h-[32px]"
         style={{
-          background: "#334155",
-          color: "#F1F5F9",
-          border: "1px solid rgba(71, 85, 105, 0.3)",
+          background: "var(--color-surface-container)",
+          color: "var(--color-on-surface)",
+          border: "1px solid var(--color-border)",
         }}
       >
         {dirs.map((d, i) => (
@@ -212,7 +212,7 @@ function MediaDirsField({
             className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-mono"
             style={{
               background: "rgba(86, 255, 167, 0.12)",
-              color: "#67E8F9",
+              color: "var(--color-primary-fixed)",
               border: "1px solid rgba(86, 255, 167, 0.2)",
             }}
           >
@@ -249,7 +249,7 @@ function MediaDirsField({
           }}
           placeholder={dirs.length === 0 ? "empty → uses env MEDIA_DIRECTORIES" : "add dir…"}
           className="flex-1 min-w-[80px] text-[11px] font-mono bg-transparent outline-none border-none"
-          style={{ color: "#F1F5F9" }}
+          style={{ color: "var(--color-on-surface)" }}
         />
       </div>
     </label>
@@ -269,7 +269,7 @@ function NumField({
 }) {
   return (
     <label className="flex flex-col gap-0.5">
-      <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: "#A3B2C6" }}>
+      <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: "var(--color-on-surface-variant)" }}>
         {label}
       </span>
       <input
@@ -281,7 +281,7 @@ function NumField({
           if (!Number.isNaN(n)) onChange(Math.max(min, n));
         }}
         className="w-20 px-2 py-1 text-xs font-mono rounded-none"
-        style={{ background: "#334155", color: "#F1F5F9", border: "1px solid rgba(71, 85, 105, 0.3)" }}
+        style={{ background: "var(--color-surface-container)", color: "var(--color-on-surface)", border: "1px solid var(--color-border)" }}
       />
     </label>
   );

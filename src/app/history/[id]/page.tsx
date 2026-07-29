@@ -43,18 +43,25 @@ function formatDuration(start: string, end: string | null): string {
 }
 
 function statusPill(status: string) {
-  const colors: Record<string, { bg: string; fg: string; border: string }> = {
-    running: { bg: "rgba(76, 214, 255, 0.1)", fg: "#4CD6FF", border: "rgba(76, 214, 255, 0.3)" },
-    success: { bg: "rgba(52, 211, 153, 0.1)", fg: "#34D399", border: "rgba(52, 211, 153, 0.3)" },
-    failed: { bg: "rgba(255, 180, 171, 0.1)", fg: "#FFB4AB", border: "rgba(255, 180, 171, 0.3)" },
+  const vars: Record<string, string> = {
+    running: "running",
+    success: "success",
+    failed: "failed",
   };
-  const c = colors[status] || colors.running;
+  const key = vars[status] || "running";
   return (
     <span
       className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium"
-      style={{ background: c.bg, color: c.fg, border: `1px solid ${c.border}` }}
+      style={{
+        background: `var(--status-${key}-bg)`,
+        color: `var(--status-${key}-fg)`,
+        border: `1px solid var(--status-${key}-border)`,
+      }}
     >
-      <span className="w-1.5 h-1.5 rounded-full" style={{ background: c.fg }} />
+      <span
+        className="w-1.5 h-1.5 rounded-full"
+        style={{ background: `var(--status-${key}-fg)` }}
+      />
       {status}
     </span>
   );
@@ -128,29 +135,29 @@ export default function HistoryDetailPage() {
       <div className="p-4 md:p-6 h-full flex flex-col gap-5">
         {/* Back + header */}
         <div className="shrink-0">
-          <Link href="/history" className="text-[#34D399] hover:underline text-sm inline-flex items-center gap-1 mb-3">
+          <Link href="/history" className="text-[var(--color-success)] hover:underline text-sm inline-flex items-center gap-1 mb-3">
             <span className="material-symbols-outlined text-sm">arrow_back</span>
             Back
           </Link>
 
           {loading ? (
-            <div className="text-[#A3B2C6]">Loading...</div>
+            <div className="text-on-surface-variant">Loading...</div>
           ) : error ? (
-            <div className="text-[#FFB4AB]">{error}</div>
+            <div className="text-[var(--status-failed-fg)]">{error}</div>
           ) : item ? (
             <>
               <div className="flex items-center gap-3 flex-wrap mb-1">
-                <h1 className="text-2xl font-bold text-[#F1F5F9] tracking-tight" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+                <h1 className="text-2xl font-bold text-[var(--color-on-surface)] tracking-tight" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
                   Log: {historyTitle(item)}
                   {item.workerTimer && (
-                    <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-none" style={{ background: "rgba(34, 211, 238, 0.1)", color: "#22D3EE" }}>
+                    <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-none" style={{ background: "color-mix(in srgb, var(--color-primary) 10%, transparent)", color: "var(--color-primary)" }}>
                       timer
                     </span>
                   )}
                 </h1>
                 {statusPill(item.status)}
               </div>
-              <div className="flex items-center gap-4 text-xs text-[#A3B2C6]">
+              <div className="flex items-center gap-4 text-xs text-on-surface-variant">
                 <span>Started: {formatTime(item.startTime)}</span>
                 <span>Duration: {formatDuration(item.startTime, item.endTime)}</span>
                 <span>Triggered by: {item.triggeredBy}</span>
@@ -160,7 +167,7 @@ export default function HistoryDetailPage() {
                 <button
                   onClick={fetchItem}
                   className="px-3 py-1.5 text-[10px] font-semibold rounded-none transition-colors"
-                  style={{ background: "#334155", color: "#F1F5F9", border: "1px solid rgba(71, 85, 105, 0.3)" }}
+                  style={{ background: "var(--color-surface-container)", color: "var(--color-on-surface)", border: "1px solid var(--color-border)" }}
                 >
                   Refresh
                 </button>
@@ -173,20 +180,20 @@ export default function HistoryDetailPage() {
         {item && (
           <div
             className="flex-1 min-h-0 relative rounded-lg overflow-hidden"
-            style={{ background: "#0B1121", border: "1px solid rgba(71, 85, 105, 0.3)" }}
+            style={{ background: "var(--terminal-bg)", border: "1px solid var(--terminal-border)" }}
           >
             <div
               className="absolute inset-0 pointer-events-none z-10 opacity-[0.03]"
               style={{
-                background: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(34, 211, 238, 0.08) 2px, rgba(34, 211, 238, 0.08) 4px)",
+                background: "repeating-linear-gradient(0deg, transparent, transparent 2px, color-mix(in srgb, var(--color-primary) 8%, transparent) 2px, color-mix(in srgb, var(--color-primary) 8%, transparent) 4px)",
               }}
             />
             <pre
               className="absolute inset-0 p-4 font-mono text-xs leading-relaxed overflow-auto whitespace-pre-wrap"
               style={{
-                color: "#F1F5F9",
+                color: "var(--terminal-fg-alt)",
                 scrollbarWidth: "thin",
-                scrollbarColor: "#475569 transparent",
+                scrollbarColor: "var(--color-outline-variant) transparent",
               }}
             >
               {terminalText || (isRunning ? "Waiting for first flush…" : "No output recorded.")}

@@ -95,7 +95,7 @@ export function AccessGate() {
     >
       <div
         className="max-w-xl w-full p-10 relative overflow-hidden mx-4 rounded-[var(--radius-modal)]"
-        style={{ background: "#1E293B", border: "1px solid rgba(71, 85, 105, 0.3)" }}
+        style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
       >
         <div className="flex items-center gap-3 mb-4">
           <span className="material-symbols-outlined text-warning text-3xl">warning</span>

@@ -10,8 +10,8 @@ import { ARR_INSTANCE_DEFINITIONS, arrConfigDbKey } from "@/lib/arr-config";
 // ── Style helpers (consistent with existing page) ─────────────────────────
 
 const cardStyle = {
-  background: "#334155",
-  border: "1px solid rgba(71, 85, 105, 0.3)",
+  background: "var(--color-surface-container)",
+  border: "1px solid var(--color-border)",
 } as const;
 
 const inputClass =
@@ -118,20 +118,20 @@ export default function ConfigPage() {
     <AppShell>
       <div className="p-4 md:p-6 max-w-4xl mx-auto stagger-1">
         <h1
-          className="text-2xl font-bold mb-1 tracking-tight text-[#F1F5F9]"
+          className="text-2xl font-bold mb-1 tracking-tight text-[var(--color-on-surface)]"
           style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
         >
           Config
         </h1>
-        <p className="text-sm text-[#A3B2C6] mb-8">Global application configuration</p>
+        <p className="text-sm text-[var(--color-on-surface-variant)] mb-8">Global application configuration</p>
 
         {loading ? (
-          <div className="text-center py-16 text-[#A3B2C6]">Loading...</div>
+          <div className="text-center py-16 text-[var(--color-on-surface-variant)]">Loading...</div>
         ) : (
           <div className="space-y-6">
             {/* ── Plex ──────────────────────────────────────────────────── */}
             <div className="p-4 md:p-6 rounded-lg" style={cardStyle}>
-              <h2 className="text-sm font-semibold text-[#F1F5F9] mb-4">Plex</h2>
+              <h2 className="text-sm font-semibold text-[var(--color-on-surface)] mb-4">Plex</h2>
 
               <label className={labelClass}>Plex Token</label>
               <input
@@ -141,7 +141,7 @@ export default function ConfigPage() {
                 value={plexToken}
                 onChange={(e) => setPlexToken(e.target.value)}
               />
-              <p className="text-xs text-[#A3B2C6] mt-3">
+              <p className="text-xs text-[var(--color-on-surface-variant)] mt-3">
                 Can be obtained via the token extractor script:&nbsp;
                 <code className="text-primary">just script scripts/plex/plex-token-extractor.ts</code>
               </p>
@@ -154,7 +154,7 @@ export default function ConfigPage() {
                 value={plexUrl}
                 onChange={(e) => setPlexUrl(e.target.value)}
               />
-              <p className="text-xs text-[#A3B2C6] mt-2">
+              <p className="text-xs text-[var(--color-on-surface-variant)] mt-2">
                 Local Plex server address including port (e.g. http://192.168.1.100:32400).
               </p>
             </div>
@@ -169,7 +169,7 @@ export default function ConfigPage() {
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
               />
-              <p className="text-xs text-[#A3B2C6] mt-2">
+              <p className="text-xs text-[var(--color-on-surface-variant)] mt-2">
                 Found in your Real-Debrid account under &quot;API Token&quot;.
               </p>
             </div>
@@ -180,7 +180,7 @@ export default function ConfigPage() {
                 className="flex items-center gap-3 p-3 rounded-lg text-sm"
                 style={{
                   background: "rgba(32, 31, 31, 0.8)",
-                  border: `1px solid ${rdStatus.ok ? "rgba(52, 211, 153, 0.3)" : "rgba(255, 180, 171, 0.3)"}`,
+                  border: `1px solid ${rdStatus.ok ? "var(--status-success-border)" : "var(--status-failed-border)"}`,
                 }}
               >
                 <div

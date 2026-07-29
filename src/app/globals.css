@@ -2,11 +2,65 @@
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Mission Control — Design System
-   Midnight navy/slate base · Cyan/teal primary · Indigo secondary
+   Four dark themes · data-theme attribute selector
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @theme {
-  /* ── Semantics / Brand ──────────────────────────────────────────── */
+  /* ── Typography (shared — keep out of theme blocks) ─────────────── */
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* ── Radii (shared) ─────────────────────────────────────────────── */
+  --radius-card: 0.75rem;
+  --radius-modal: 0.875rem;
+  --radius-button: 0.5rem;
+  --radius-pill: 6px;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+
+  /* ── Semantic colors (Midnight Cyan default/fallback) ──────────── */
+  /* Registered so Tailwind generates utility classes: bg-bg, bg-surface,
+     text-on-surface, text-primary, border-outline-variant, etc.      */
+  /* Each html[data-theme=...] block overrides these at runtime.       */
+  --color-primary: #22D3EE;
+  --color-primary-dim: #06B6D4;
+  --color-primary-fixed: #67E8F9;
+  --color-secondary: #818CF8;
+  --color-tertiary: #34D399;
+
+  --color-success: #34D399;
+  --color-warning: #FBBF24;
+  --color-info: #22D3EE;
+  --color-error: #F87171;
+  --color-on-success: #052E22;
+  --color-on-warning: #422006;
+  --color-on-error: #450A0A;
+
+  --color-bg: #0F172A;
+  --color-surface: #1E293B;
+  --color-surface-low: #0F172A;
+  --color-surface-container: #334155;
+  --color-surface-container-high: #475569;
+  --color-surface-container-lowest: #0B1121;
+
+  --color-on-primary: #083344;
+  --color-on-surface: #F1F5F9;
+  --color-on-surface-variant: #A3B2C6;
+  --color-outline-variant: #475569;
+
+  --color-border: rgba(71, 85, 105, 0.3);
+  --color-border-strong: rgba(71, 85, 105, 0.4);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MIDNIGHT CYAN  —  Navy/slate base · Cyan primary  (default)
+   ═══════════════════════════════════════════════════════════════════════════ */
+html[data-theme="midnight-cyan"] {
+  color-scheme: dark;
+
+  /* ── Semantics / Brand ────────────────────────────────────────────── */
   --color-primary: #22D3EE;
   --color-primary-dim: #06B6D4;
   --color-primary-fixed: #67E8F9;
@@ -36,31 +90,265 @@
   --color-on-surface-variant: #A3B2C6;
   --color-outline-variant: #475569;
 
-  /* ── Typography ──────────────────────────────────────────────────── */
-  --font-sans: "Inter", system-ui, sans-serif;
-  --font-display: "Space Grotesk", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  /* ── Derived theme tokens ────────────────────────────────────────── */
+  --color-border: rgba(71, 85, 105, 0.3);
+  --color-border-strong: rgba(71, 85, 105, 0.4);
+  --glass-bg: rgba(30, 41, 59, 0.88);
+  --glass-border: rgba(71, 85, 105, 0.4);
 
-  /* ── Radii ────────────────────────────────────────────────────────── */
-  --radius-card: 0.75rem;
-  --radius-modal: 0.875rem;
-  --radius-button: 0.5rem;
-  --radius-pill: 6px;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
-  --radius-2xl: 1.25rem;
+  /* ── Terminal ───────────────────────────────────────────────────── */
+  --terminal-bg: #0B1121;
+  --terminal-fg: #E2E8F0;
+  --terminal-fg-alt: #F1F5F9;
+  --terminal-border: rgba(71, 85, 105, 0.3);
+
+  /* ── Status pills ────────────────────────────────────────────────── */
+  --status-running-fg: #4CD6FF;
+  --status-running-bg: rgba(76, 214, 255, 0.1);
+  --status-running-border: rgba(76, 214, 255, 0.3);
+  --status-success-fg: #34D399;
+  --status-success-bg: rgba(52, 211, 153, 0.1);
+  --status-success-border: rgba(52, 211, 153, 0.3);
+  --status-failed-fg: #FFB4AB;
+  --status-failed-bg: rgba(255, 180, 171, 0.1);
+  --status-failed-border: rgba(255, 180, 171, 0.3);
+
+  /* ── Badge (error count) ─────────────────────────────────────────── */
+  --color-badge-error-bg: rgba(248, 113, 113, 0.12);
+  --color-badge-error-fg: #F87171;
+  --color-badge-error-border: rgba(248, 113, 113, 0.35);
+
+  /* ── Toggle switch ───────────────────────────────────────────────── */
+  --toggle-enabled-bg: #22D3EE;
+  --toggle-disabled-bg: #475569;
 }
 
-/* ── Base ──────────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   GRAPHITE VIOLET  —  Near-neutral graphite · Violet primary
+   ═══════════════════════════════════════════════════════════════════════════ */
+html[data-theme="graphite-violet"] {
+  color-scheme: dark;
 
+  --color-primary: #A78BFA;
+  --color-primary-dim: #8B70E8;
+  --color-primary-fixed: #C4B0FE;
+  --color-secondary: #C084FC;
+  --color-tertiary: #F472B6;
+
+  --color-success: #4ADE80;
+  --color-warning: #FBBF24;
+  --color-info: #A78BFA;
+  --color-error: #F87171;
+  --color-on-success: #052E22;
+  --color-on-warning: #422006;
+  --color-on-error: #450A0A;
+
+  --color-bg: #121212;
+  --color-surface: #1E1E2E;
+  --color-surface-low: #121212;
+  --color-surface-container: #2D2D40;
+  --color-surface-container-high: #3D3D52;
+  --color-surface-container-lowest: #0D0D18;
+
+  --color-on-primary: #1E1050;
+  --color-on-surface: #EDEAF5;
+  --color-on-surface-variant: #B0AEC6;
+  --color-outline-variant: #3D3D52;
+
+  --color-border: rgba(61, 61, 82, 0.35);
+  --color-border-strong: rgba(61, 61, 82, 0.5);
+  --glass-bg: rgba(30, 30, 46, 0.90);
+  --glass-border: rgba(61, 61, 82, 0.5);
+
+  --terminal-bg: #0D0D18;
+  --terminal-fg: #D8D4E8;
+  --terminal-fg-alt: #EDEAF5;
+  --terminal-border: rgba(61, 61, 82, 0.35);
+
+  --status-running-fg: #A78BFA;
+  --status-running-bg: rgba(167, 139, 250, 0.12);
+  --status-running-border: rgba(167, 139, 250, 0.35);
+  --status-success-fg: #4ADE80;
+  --status-success-bg: rgba(74, 222, 128, 0.12);
+  --status-success-border: rgba(74, 222, 128, 0.35);
+  --status-failed-fg: #FFB4AB;
+  --status-failed-bg: rgba(255, 180, 171, 0.12);
+  --status-failed-border: rgba(255, 180, 171, 0.35);
+
+  --color-badge-error-bg: rgba(248, 113, 113, 0.12);
+  --color-badge-error-fg: #F87171;
+  --color-badge-error-border: rgba(248, 113, 113, 0.35);
+
+  --toggle-enabled-bg: #A78BFA;
+  --toggle-disabled-bg: #3D3D52;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DEEP OCEAN  —  Deep blue/teal · Sky primary
+   ═══════════════════════════════════════════════════════════════════════════ */
+html[data-theme="deep-ocean"] {
+  color-scheme: dark;
+
+  --color-primary: #38BDF8;
+  --color-primary-dim: #0EA5E9;
+  --color-primary-fixed: #7DD3FC;
+  --color-secondary: #60A5FA;
+  --color-tertiary: #2DD4BF;
+
+  --color-success: #4ADE80;
+  --color-warning: #FBBF24;
+  --color-info: #38BDF8;
+  --color-error: #F87171;
+  --color-on-success: #052E22;
+  --color-on-warning: #422006;
+  --color-on-error: #450A0A;
+
+  --color-bg: #0A1628;
+  --color-surface: #102A40;
+  --color-surface-low: #0A1628;
+  --color-surface-container: #1A3D58;
+  --color-surface-container-high: #2A4D6A;
+  --color-surface-container-lowest: #050F1C;
+
+  --color-on-primary: #052E44;
+  --color-on-surface: #E2E8F0;
+  --color-on-surface-variant: #94A3B8;
+  --color-outline-variant: #2A4D6A;
+
+  --color-border: rgba(42, 77, 106, 0.35);
+  --color-border-strong: rgba(42, 77, 106, 0.5);
+  --glass-bg: rgba(16, 42, 64, 0.90);
+  --glass-border: rgba(42, 77, 106, 0.5);
+
+  --terminal-bg: #050F1C;
+  --terminal-fg: #CBD5E1;
+  --terminal-fg-alt: #E2E8F0;
+  --terminal-border: rgba(42, 77, 106, 0.35);
+
+  --status-running-fg: #38BDF8;
+  --status-running-bg: rgba(56, 189, 248, 0.12);
+  --status-running-border: rgba(56, 189, 248, 0.35);
+  --status-success-fg: #4ADE80;
+  --status-success-bg: rgba(74, 222, 128, 0.12);
+  --status-success-border: rgba(74, 222, 128, 0.35);
+  --status-failed-fg: #FFB4AB;
+  --status-failed-bg: rgba(255, 180, 171, 0.12);
+  --status-failed-border: rgba(255, 180, 171, 0.35);
+
+  --color-badge-error-bg: rgba(248, 113, 113, 0.12);
+  --color-badge-error-fg: #F87171;
+  --color-badge-error-border: rgba(248, 113, 113, 0.35);
+
+  --toggle-enabled-bg: #38BDF8;
+  --toggle-disabled-bg: #2A4D6A;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EMBER COPPER  —  Warm espresso · Copper primary
+   ═══════════════════════════════════════════════════════════════════════════ */
+html[data-theme="ember-copper"] {
+  color-scheme: dark;
+
+  --color-primary: #FB923C;
+  --color-primary-dim: #D97706;
+  --color-primary-fixed: #FDB07D;
+  --color-secondary: #FBBF24;
+  --color-tertiary: #F43F5E;
+
+  --color-success: #4ADE80;
+  --color-warning: #FBBF24;
+  --color-info: #FB923C;
+  --color-error: #F87171;
+  --color-on-success: #052E22;
+  --color-on-warning: #422006;
+  --color-on-error: #450A0A;
+
+  --color-bg: #1C1410;
+  --color-surface: #2A1F18;
+  --color-surface-low: #1C1410;
+  --color-surface-container: #3D2E24;
+  --color-surface-container-high: #4D3D32;
+  --color-surface-container-lowest: #120D0A;
+
+  --color-on-primary: #3D1F00;
+  --color-on-surface: #F1EDE4;
+  --color-on-surface-variant: #B8ADA0;
+  --color-outline-variant: #4D3D32;
+
+  --color-border: rgba(77, 61, 50, 0.35);
+  --color-border-strong: rgba(77, 61, 50, 0.5);
+  --glass-bg: rgba(42, 31, 24, 0.90);
+  --glass-border: rgba(77, 61, 50, 0.5);
+
+  --terminal-bg: #120D0A;
+  --terminal-fg: #D4C9B8;
+  --terminal-fg-alt: #F1EDE4;
+  --terminal-border: rgba(77, 61, 50, 0.35);
+
+  --status-running-fg: #FB923C;
+  --status-running-bg: rgba(251, 146, 60, 0.12);
+  --status-running-border: rgba(251, 146, 60, 0.35);
+  --status-success-fg: #4ADE80;
+  --status-success-bg: rgba(74, 222, 128, 0.12);
+  --status-success-border: rgba(74, 222, 128, 0.35);
+  --status-failed-fg: #FFB4AB;
+  --status-failed-bg: rgba(255, 180, 171, 0.12);
+  --status-failed-border: rgba(255, 180, 171, 0.35);
+
+  --color-badge-error-bg: rgba(248, 113, 113, 0.12);
+  --color-badge-error-fg: #F87171;
+  --color-badge-error-border: rgba(248, 113, 113, 0.35);
+
+  --toggle-enabled-bg: #FB923C;
+  --toggle-disabled-bg: #4D3D32;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Fallback (no data-theme attribute — FOUC protection or environments
+   where the bootstrap script hasn't run)
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root,
+html:not([data-theme]) {
+  color-scheme: dark;
+
+  /* Explicit Midnight Cyan defaults for every derived token */
+  --color-border: rgba(71, 85, 105, 0.3);
+  --color-border-strong: rgba(71, 85, 105, 0.4);
+  --glass-bg: rgba(30, 41, 59, 0.88);
+  --glass-border: rgba(71, 85, 105, 0.4);
+  --terminal-bg: #0B1121;
+  --terminal-fg: #E2E8F0;
+  --terminal-fg-alt: #F1F5F9;
+  --terminal-border: rgba(71, 85, 105, 0.3);
+  --status-running-fg: #4CD6FF;
+  --status-running-bg: rgba(76, 214, 255, 0.1);
+  --status-running-border: rgba(76, 214, 255, 0.3);
+  --status-success-fg: #34D399;
+  --status-success-bg: rgba(52, 211, 153, 0.1);
+  --status-success-border: rgba(52, 211, 153, 0.3);
+  --status-failed-fg: #FFB4AB;
+  --status-failed-bg: rgba(255, 180, 171, 0.1);
+  --status-failed-border: rgba(255, 180, 171, 0.3);
+  --color-badge-error-bg: rgba(248, 113, 113, 0.12);
+  --color-badge-error-fg: #F87171;
+  --color-badge-error-border: rgba(248, 113, 113, 0.35);
+  --toggle-enabled-bg: #22D3EE;
+  --toggle-disabled-bg: #475569;
+}
+
+/* When data-theme is set but to an unrecognised value, default to Midnight */
+html[data-theme] {
+  /* The theme blocks above override all variables; this selector ensures
+     the cascade wins for any theme id, recognised or not */
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Base — shared regardless of theme (applied via CSS variable resolution)
+   ═══════════════════════════════════════════════════════════════════════════ */
 @layer base {
   *:focus-visible {
     outline: none;
     box-shadow: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-primary);
-  }
-
-  html {
-    color-scheme: dark;
   }
 
   body {
@@ -68,8 +356,8 @@
     margin: 0;
     background-color: var(--color-bg);
     background-image:
-      radial-gradient(ellipse at 20% 20%, rgba(34, 211, 238, 0.035) 0%, transparent 70%),
-      radial-gradient(ellipse at 80% 80%, rgba(129, 140, 248, 0.03) 0%, transparent 70%);
+      radial-gradient(ellipse at 20% 20%, color-mix(in srgb, var(--color-primary) 4%, transparent) 0%, transparent 70%),
+      radial-gradient(ellipse at 80% 80%, color-mix(in srgb, var(--color-secondary) 3%, transparent) 0%, transparent 70%);
     color: var(--color-on-surface);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -107,7 +395,7 @@
 
   /* Selection */
   ::selection {
-    background: rgba(34, 211, 238, 0.2);
+    background: color-mix(in srgb, var(--color-primary) 20%, transparent);
     color: var(--color-on-surface);
   }
 }
@@ -155,8 +443,8 @@
 }
 
 .terminal-glow {
-  box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.06),
-              0 0 24px rgba(34, 211, 238, 0.03);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 6%, transparent),
+              0 0 24px color-mix(in srgb, var(--color-primary) 3%, transparent);
 }
 
 /* ── Toast animation ───────────────────────────────────────────────────── */
@@ -167,8 +455,8 @@
 }
 
 @keyframes toast-out {
-  from { opacity: 1; transform: scale(1); }
-  to   { opacity: 0; transform: scale(0.97); }
+  from { opacity: 1; transform: scale(0.95); }
+  to   { opacity: 0; transform: scale(0.95); }
 }
 
 .toast-fade {
@@ -178,10 +466,10 @@
 /* ── Glassmorphism modal ───────────────────────────────────────────────── */
 
 .glass-modal {
-  background: rgba(30, 41, 59, 0.88);
+  background: var(--glass-bg);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(71, 85, 105, 0.4);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-modal);
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 }
@@ -190,7 +478,7 @@
 
 .card-surface {
   background: var(--color-surface-container);
-  border: 1px solid rgba(71, 85, 105, 0.3);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
 }
 
@@ -214,10 +502,6 @@ details > summary::-webkit-details-marker { display: none; }
 details[open] summary .expand-icon { transform: rotate(180deg); }
 
 /* ── Scraper page scroll-snap ──────────────────────────────────────────── */
-/* Mirrors ServerTool's scraper.templ exactly. The page root
-   (#scraper-content-container) is the scroll container, and every
-   card is a snap target with a viewport-relative min-height. The
-   header section is also a snap target. */
 
 .card-snap-area {
   scroll-snap-align: start;
@@ -231,9 +515,6 @@ details[open] summary .expand-icon { transform: rotate(180deg); }
   }
 }
 
-/* Hide the outer layout scroll while the scraper page is active so
-   only the content container scrolls. Mirrors ServerTool's
-   body:has(#scraper-content-container) #scroll-container rule. */
 body:has(#scraper-content-container) #main-scroll-container {
   overflow: hidden !important;
   padding: 0 !important;
