@@ -71,33 +71,60 @@ export async function fetchHtml(url: string, userAgent = DEFAULT_UA): Promise<st
 
 // ── PixHost image extraction (PornRips detail scrape) ─────────────────────
 
-/**
- * Given a PixHost "show" page URL, extract the direct image URL.
- * PixHost "show" pages embed the direct image URL in a content box; the Go
- * implementation looks for `img.images.png` style URLs. The fallback is to
- * return any img src in the show page.
- */
-export async function scrapePixHost(url: string): Promise<string> {
+const PIXHOST_DOMAINS = ["pixhost.to", "pixhost.cc", "pixho.st"];
+
+export function isPixHostShowUrl(value: string): boolean {
   try {
-    const parsed = new URL(url);
-    if (!parsed.hostname.toLowerCase().endsWith("pixhost.to")) return "";
+    const url = new URL(value);
+    const hostname = url.hostname.toLowerCase();
+    return url.protocol.startsWith("http")
+      && PIXHOST_DOMAINS.some((domain) => hostname === domain || hostname.endsWith(`.${domain}`))
+      && url.pathname.startsWith("/show/");
+  } catch {
+    return false;
+  }
+}
+
+function directPixHostImageUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    const hostname = url.hostname.toLowerCase();
+    const isPixHost = PIXHOST_DOMAINS.some((domain) => hostname.endsWith(`.${domain}`));
+    const isImageHost = /^(?:i|img\d+)\./.test(hostname);
+    const isOriginal = /^\/(?:images|originals)\//.test(url.pathname);
+    // The legacy i.pixhost.to host serves originals from paths outside
+    // /images; newer imgN.pixhost.cc hosts use the explicit /images path.
+    const isLegacyOriginal = hostname === "i.pixhost.to";
+    return url.protocol.startsWith("http") && isPixHost && isImageHost && (isOriginal || isLegacyOriginal)
+      ? value
+      : "";
   } catch {
     return "";
   }
+}
+
+/**
+ * Given a PixHost "show" page URL, extract the direct full-resolution image.
+ * PornRips currently links to `pixhost.cc/show/...`; older records use
+ * `pixhost.to`. Both show pages expose an image-host URL in a text input.
+ */
+export async function scrapePixHost(url: string): Promise<string> {
+  if (!isPixHostShowUrl(url)) return "";
 
   try {
     const html = await fetchHtml(url);
-    // The direct image is the largest <img> tag inside the #content div
-    // PixHost uses /show/<id>/<file> in the URL; the direct image sits in
-    // <input class="form-control" value="https://..."> in the original Go code.
-    // We do a best-effort regex extraction here.
-    const match = html.match(/<input[^>]*type="text"[^>]*value="(https?:\/\/i\.(?:pixhost|img)\.[^"]+\.(?:jpg|jpeg|png|gif|webp))"/i);
-    if (match) return match[1];
+    const inputMatches = html.matchAll(/<input[^>]*\bvalue="(https?:\/\/[^"\s]+)"/gi);
+    for (const match of inputMatches) {
+      const direct = directPixHostImageUrl(match[1]);
+      if (direct) return direct;
+    }
 
-    // Fallback: look for the first image inside a #content container
-    const imgMatch = html.match(/<div id="content"[\s\S]*?<img[^>]+src="([^"]+)"/i);
-    if (imgMatch) return imgMatch[1];
-
+    // Fallback to a full-resolution image in the show page, never a thumbnail.
+    const imageMatches = html.matchAll(/<img[^>]+src="(https?:\/\/[^"\s]+)"/gi);
+    for (const match of imageMatches) {
+      const direct = directPixHostImageUrl(match[1]);
+      if (direct) return direct;
+    }
     return "";
   } catch {
     return "";

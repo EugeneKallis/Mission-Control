@@ -150,6 +150,36 @@ describe("enrichPornRipsItem", () => {
     ]);
   });
 
+  test("follows PixHost.cc show links to retain full-resolution images", async () => {
+    const detailHtml = `<div class="entry-content">
+      <a href="https://pixhost.cc/show/9696/753208186_cover.jpg">
+        <img src="data:image/svg+xml,%3Csvg%3E%3C/svg%3E" />
+      </a>
+      <a href="https://pixhost.cc/show/9696/753208187_scene_s.jpg">
+        <img src="data:image/svg+xml,%3Csvg%3E%3C/svg%3E" />
+      </a>
+    </div>`;
+    const showPage = (url: string) => {
+      const name = url.includes("cover") ? "cover" : "scene";
+      return `<input type="text" value="https://t2.pixhost.cc/thumbs/9696/${name}.jpg" />
+        <input type="text" value="https://img123.pixhost.cc/images/9696/${name}.jpg" />`;
+    };
+    globalThis.fetch = mock(async (url: string) => new Response(
+      url.includes("pixhost.cc/show/") ? showPage(url) : detailHtml,
+      { status: 200 },
+    )) as unknown as typeof fetch;
+
+    const item: ParsedItem = {
+      title: "X", thumb: "t", images: [], torrent: "tr", magnet: "mg", tags: [], detailURL: "", fileSize: "",
+    };
+    const enriched = await enrichPornRipsItem({ ...item, detailURL: "https://pornrips.to/x" });
+
+    expect(enriched.images).toEqual([
+      "https://img123.pixhost.cc/images/9696/cover.jpg",
+      "https://img123.pixhost.cc/images/9696/scene.jpg",
+    ]);
+  });
+
   test("falls back to .entry-content <img> tags when no PixHost links are present", async () => {
     const detailHtml = `<html><body>
       <div class="entry-content">

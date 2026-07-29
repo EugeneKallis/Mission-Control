@@ -12,7 +12,7 @@
  */
 
 import { load } from "cheerio";
-import { fetchHtml, sanitizeTitle, scrapePixHost } from "./shared";
+import { fetchHtml, isPixHostShowUrl, sanitizeTitle, scrapePixHost } from "./shared";
 import { createScrapeResult, scrapeResultExists } from "@/lib/db/queries";
 
 const BASE_URL = "https://pornrips.to/category/1080p/";
@@ -112,10 +112,10 @@ export async function enrichPornRipsItem(item: ParsedItem): Promise<ParsedItem> 
   const seen = new Set<string>(item.images);
 
   // ── PixHost galleries ──────────────────────────────────────────────────
-  const pixhostLinks = $(".entry-content a[href*='pixhost.to/show/']")
+  const pixhostLinks = $(".entry-content a[href]")
     .map((_, a) => $(a).attr("href") ?? "")
     .get()
-    .filter(Boolean);
+    .filter(isPixHostShowUrl);
   for (const link of pixhostLinks) {
     const direct = await scrapePixHost(link);
     if (direct && !seen.has(direct)) {
@@ -127,7 +127,7 @@ export async function enrichPornRipsItem(item: ParsedItem): Promise<ParsedItem> 
   // ── Fallback images in .entry-content ──────────────────────────────────
   $(".entry-content img").each((_, img) => {
     // Skip images already covered by the PixHost link we just followed
-    if ($(img).closest("a[href*='pixhost.to/show/']").length > 0) return;
+    if (isPixHostShowUrl($(img).closest("a").attr("href") ?? "")) return;
     // WordPress lazy-loads images with a data: SVG in src. Prefer its real
     // data-src URL, and never persist a data URI or inline SVG as an image.
     const src = firstHttpImageUrl($(img).attr("data-src"), $(img).attr("src"));
