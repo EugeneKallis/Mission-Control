@@ -35,6 +35,20 @@ function containsAny(haystack: string, needles: string[]): boolean {
   return needles.some((n) => haystack.includes(n));
 }
 
+/** Only persist absolute web URLs; lazy-loading placeholders are not images. */
+function firstHttpImageUrl(...values: Array<string | undefined>): string {
+  for (const value of values) {
+    if (!value) continue;
+    try {
+      const url = new URL(value);
+      if (url.protocol === "http:" || url.protocol === "https:") return value;
+    } catch {
+      // Ignore data URIs, inline SVG markup, and malformed/relative sources.
+    }
+  }
+  return "";
+}
+
 export function parsePornRipsListing(html: string): ParsedItem[] {
   const $ = load(html);
   const results: ParsedItem[] = [];
@@ -59,7 +73,7 @@ export function parsePornRipsListing(html: string): ParsedItem[] {
     let thumb = "";
     const thumbImg = $el.find(".wrapper-excerpt-thumbnail img");
     if (thumbImg.length) {
-      thumb = thumbImg.attr("data-src") ?? thumbImg.attr("src") ?? "";
+      thumb = firstHttpImageUrl(thumbImg.attr("data-src"), thumbImg.attr("src"));
     }
 
     const tags: string[] = [];
@@ -114,9 +128,11 @@ export async function enrichPornRipsItem(item: ParsedItem): Promise<ParsedItem> 
   $(".entry-content img").each((_, img) => {
     // Skip images already covered by the PixHost link we just followed
     if ($(img).closest("a[href*='pixhost.to/show/']").length > 0) return;
-    const src = $(img).attr("src") ?? $(img).attr("data-src") ?? "";
+    // WordPress lazy-loads images with a data: SVG in src. Prefer its real
+    // data-src URL, and never persist a data URI or inline SVG as an image.
+    const src = firstHttpImageUrl($(img).attr("data-src"), $(img).attr("src"));
     if (!src) return;
-    if (containsAny(src, ["logo", "banner"])) return;
+    if (containsAny(src.toLowerCase(), ["logo", "banner"])) return;
     if (!seen.has(src)) {
       seen.add(src);
       item.images.push(src);

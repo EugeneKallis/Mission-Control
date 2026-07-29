@@ -178,6 +178,24 @@ describe("enrichPornRipsItem", () => {
     ]);
   });
 
+  test("prefers a valid lazy-loaded URL and discards SVG placeholders", async () => {
+    const detailHtml = `<html><body>
+      <div class="entry-content">
+        <img src="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'/%3E" data-src="https://cdn.example.com/screen.jpg" />
+        <img src="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'/%3E" />
+        <img data-src="<svg xmlns='http://www.w3.org/2000/svg'></svg>" />
+      </div>
+    </body></html>`;
+    globalThis.fetch = mock(async () => new Response(detailHtml, { status: 200 })) as unknown as typeof fetch;
+
+    const item: ParsedItem = {
+      title: "X", thumb: "t", images: [], torrent: "tr", magnet: "mg", tags: [], detailURL: "", fileSize: "",
+    };
+    const enriched = await enrichPornRipsItem({ ...item, detailURL: "https://pornrips.to/x" });
+
+    expect(enriched.images).toEqual(["https://cdn.example.com/screen.jpg"]);
+  });
+
   test("extracts the .torrent URL from the detail page", async () => {
     const detailHtml = `<html><body>
       <div class="entry-content">
