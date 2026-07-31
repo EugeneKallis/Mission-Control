@@ -103,7 +103,7 @@ function SortableMacroRow({
     <div ref={setNodeRef} style={style}>
       <div className="flex flex-col rounded-[var(--radius-card)] border border-outline-variant/20 bg-surface-low overflow-hidden">
         {/* Macro header row */}
-        <div className="flex items-center gap-2 px-3 py-2.5">
+        <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 sm:flex-nowrap">
           {/* Drag handle */}
           <button
             className="p-1.5 cursor-grab active:cursor-grabbing text-outline-variant hover:text-on-surface-variant transition-colors"
@@ -124,7 +124,7 @@ function SortableMacroRow({
           </button>
 
           {/* Name */}
-          <span className="flex-1 text-sm font-medium text-on-surface truncate">{macro.name}</span>
+          <span className="min-w-0 flex-1 break-words text-sm font-medium text-on-surface sm:truncate" title={macro.name}>{macro.name}</span>
 
           {/* Agent badge */}
           {macro.runOnAgent && (
@@ -134,7 +134,7 @@ function SortableMacroRow({
             </span>
           )}
           {macro.runOnAgent && macro.agentHostname && (
-            <span className="text-[10px] text-on-surface-variant font-mono">{macro.agentHostname}</span>
+            <span className="hidden max-w-[120px] truncate text-[10px] text-on-surface-variant font-mono sm:block">{macro.agentHostname}</span>
           )}
 
           {/* Description (desktop) */}
@@ -143,10 +143,10 @@ function SortableMacroRow({
           )}
 
           {/* Actions */}
-          <div className="flex gap-1 shrink-0">
+          <div className="flex w-full shrink-0 justify-end gap-1 sm:w-auto sm:justify-start">
             <button
               onClick={onRun}
-              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 bg-success/10 text-success border border-success/30 hover:bg-success/20 active:scale-[0.98]"
+              className="inline-flex min-h-11 items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] border border-success/30 bg-success/10 text-success transition-all duration-200 hover:bg-success/20 active:scale-[0.98] sm:min-h-0"
               title="Run this macro"
             >
               <span className="material-symbols-outlined text-xs">play_arrow</span>
@@ -154,13 +154,13 @@ function SortableMacroRow({
             </button>
             <button
               onClick={onEdit}
-              className="px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] transition-colors hover:bg-surface-container-high text-on-surface-variant active:scale-[0.98]"
+              className="min-h-11 px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] text-on-surface-variant transition-colors hover:bg-surface-container-high active:scale-[0.98] sm:min-h-0"
             >
               Edit
             </button>
             <button
               onClick={onDelete}
-              className="px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] transition-colors hover:bg-surface-container-high text-error active:scale-[0.98]"
+              className="min-h-11 px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] text-error transition-colors hover:bg-surface-container-high active:scale-[0.98] sm:min-h-0"
             >
               Delete
             </button>
@@ -486,37 +486,43 @@ function GroupCard({
     <div className="rounded-[var(--radius-card)] border border-outline-variant/20 bg-surface-container overflow-hidden">
       {/* Group header */}
       <div
-        className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none"
-        onClick={onToggle}
+        className="flex items-center gap-2 px-4 py-3"
         style={{ borderBottom: expanded ? "1px solid var(--color-border)" : "none" }}
       >
-        <span className="material-symbols-outlined text-sm text-on-surface-variant transition-transform" style={{ transform: expanded ? "rotate(90deg)" : "" }}>
-          chevron_right
-        </span>
         {editing ? (
           <input
-            className="flex-1 bg-bg border border-outline-variant/40 rounded px-2 py-0.5 text-sm text-on-surface outline-none focus:border-primary transition-colors"
+            className="min-w-0 flex-1 rounded border border-outline-variant/40 bg-bg px-2 py-0.5 text-sm text-on-surface outline-none transition-colors focus:border-primary"
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
             onBlur={handleSaveName}
             onKeyDown={(e) => { if (e.key === "Enter") handleSaveName(); if (e.key === "Escape") setEditing(false); }}
             autoFocus
-            onClick={(e) => e.stopPropagation()}
           />
         ) : (
-          <span className="flex-1 text-sm font-medium text-on-surface">{group.name}</span>
-        )}
-        <span className="text-xs text-on-surface-variant">({macros.length})</span>
-        <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
           <button
-            onClick={(e) => { e.stopPropagation(); setEditing(true); setEditName(group.name); }}
-            className="px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] transition-colors hover:bg-surface-container-high text-on-surface-variant"
+            type="button"
+            onClick={onToggle}
+            aria-expanded={expanded}
+            aria-label={`${expanded ? "Collapse" : "Expand"} ${group.name}`}
+            className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          >
+            <span className="material-symbols-outlined shrink-0 text-sm text-on-surface-variant transition-transform" style={{ transform: expanded ? "rotate(90deg)" : "" }} aria-hidden="true">
+              chevron_right
+            </span>
+            <span className="min-w-0 flex-1 break-words text-sm font-medium text-on-surface">{group.name}</span>
+            <span className="shrink-0 text-xs text-on-surface-variant">({macros.length})</span>
+          </button>
+        )}
+        <div className="flex shrink-0 gap-1">
+          <button
+            onClick={() => { setEditing(true); setEditName(group.name); }}
+            className="min-h-11 px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] text-on-surface-variant transition-colors hover:bg-surface-container-high sm:min-h-0"
           >
             Edit
           </button>
           <button
-            onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            className="px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] transition-colors hover:bg-surface-container-high text-error"
+            onClick={onDelete}
+            className="min-h-11 px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] text-error transition-colors hover:bg-surface-container-high sm:min-h-0"
           >
             Delete
           </button>
@@ -719,7 +725,9 @@ function MacroRowContainer({
 export default function AdminPage() {
   const [groupedMacros, setGroupedMacros] = useState<GroupWithMacros[]>([]);
   const [loading, setLoading] = useState(true);
-  const [allExpanded, setAllExpanded] = useState(true);
+  const [expandedGroupIds, setExpandedGroupIds] = useState<Set<number>>(new Set());
+  const groupsInitializedRef = useRef(false);
+  const allExpanded = groupedMacros.every((g) => expandedGroupIds.has(g.group?.id ?? 0));
   const [showNewGroupModal, setShowNewGroupModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [showNewMacroModal, setShowNewMacroModal] = useState(false);
@@ -746,6 +754,10 @@ export default function AdminPage() {
       if (res.ok) {
         const data = await res.json();
         setGroupedMacros(data);
+        if (!groupsInitializedRef.current) {
+          setExpandedGroupIds(new Set(data.map((g: GroupWithMacros) => g.group?.id ?? 0)));
+          groupsInitializedRef.current = true;
+        }
       }
     } catch {} finally {
       setLoading(false);
@@ -777,6 +789,10 @@ export default function AdminPage() {
         body: JSON.stringify({ name: newGroupName.trim() }),
       });
       if (res.ok) {
+        const group: MacroGroup = await res.json();
+        if (allExpanded) {
+          setExpandedGroupIds((previous) => new Set(previous).add(group.id));
+        }
         showToast("Group created", "success");
         setShowNewGroupModal(false);
         setNewGroupName("");
@@ -785,7 +801,7 @@ export default function AdminPage() {
     } catch {
       showToast("Failed to create group", "error");
     }
-  }, [newGroupName, showToast, fetchMacros]);
+  }, [newGroupName, allExpanded, showToast, fetchMacros]);
 
   const handleDeleteGroup = useCallback(async () => {
     if (!deleteGroupTarget) return;
@@ -934,18 +950,18 @@ export default function AdminPage() {
               Manage macro groups and commands
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex w-full flex-wrap gap-2 md:w-auto">
             <button
-              onClick={() => setAllExpanded(!allExpanded)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 bg-surface-container text-on-surface hover:bg-surface-container-high active:scale-[0.98]"
+              onClick={() => setExpandedGroupIds(allExpanded ? new Set() : new Set(groupedMacros.map((g) => g.group?.id ?? 0)))}
+              className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] bg-surface-container text-on-surface transition-all duration-200 hover:bg-surface-container-high active:scale-[0.98] sm:min-h-0 sm:w-auto"
             >
               <span className="material-symbols-outlined text-sm">{allExpanded ? "unfold_less" : "unfold_more"}</span>
               {allExpanded ? "Compress All" : "Expand All"}
             </button>
-            <Button onClick={() => { setNewGroupName(""); setShowNewGroupModal(true); }}>
+            <Button className="min-h-11 flex-1 sm:min-h-0 sm:flex-none" onClick={() => { setNewGroupName(""); setShowNewGroupModal(true); }}>
               New Group
             </Button>
-            <Button onClick={() => { resetNewMacroForm(); setShowNewMacroModal(true); }}>
+            <Button className="min-h-11 flex-1 sm:min-h-0 sm:flex-none" onClick={() => { resetNewMacroForm(); setShowNewMacroModal(true); }}>
               New Macro
             </Button>
           </div>
@@ -968,8 +984,17 @@ export default function AdminPage() {
                   key={g.group?.id || "ungrouped"}
                   group={g.group || { id: 0, name: "Ungrouped", ord: 999 }}
                   macros={g.macros}
-                  expanded={allExpanded}
-                  onToggle={() => {}}
+                  expanded={expandedGroupIds.has(g.group?.id ?? 0)}
+                  onToggle={() => setExpandedGroupIds((previous) => {
+                    const groupId = g.group?.id ?? 0;
+                    const next = new Set(previous);
+                    if (next.has(groupId)) {
+                      next.delete(groupId);
+                    } else {
+                      next.add(groupId);
+                    }
+                    return next;
+                  })}
                   onEdit={fetchMacros}
                   onDelete={() => g.group && setDeleteGroupTarget(g.group)}
                   onReorderMacros={handleReorderMacros}

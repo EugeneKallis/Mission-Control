@@ -178,9 +178,9 @@ export function MacroLogPanel({
       </div>
 
       {/* Terminal + History split */}
-      <div className="flex-1 min-h-0 flex">
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         {/* Terminal (left) */}
-        <div className="flex-1 min-w-0 flex flex-col" style={{ borderRight: "1px solid var(--color-border)" }}>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col" style={{ borderRight: "1px solid var(--color-border)" }}>
           <div
             ref={containerRef}
             onScroll={handleScroll}
@@ -209,7 +209,7 @@ export function MacroLogPanel({
         </div>
 
         {/* History (right) */}
-        <div className="w-72 shrink-0 flex flex-col min-h-0">
+        <div className="flex min-h-0 max-h-44 w-full shrink-0 flex-col md:max-h-none md:w-72">
           <div
             className="px-3 py-1.5 text-[9px] font-semibold uppercase tracking-wider text-primary shrink-0 border-b border-outline-variant/15"
           >
