@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { execFileSync } from "child_process";
 import { countErrorsInText } from "./log-alerts";
 import { getRecentAgentTaskHistory } from "@/lib/db/queries";
+import { fetchLogText } from "./log-fetcher";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -105,6 +106,7 @@ export interface CountsResult {
 }
 
 let countsCache: { result: CountsResult; expiresAt: number } | null = null;
+let visibleCountsCache: { result: CountsResult; expiresAt: number } | null = null;
 const CACHE_TTL_MS = 20_000;
 
 /**
@@ -149,9 +151,40 @@ export async function getAllLogAlertCounts(): Promise<CountsResult> {
 }
 
 /**
+ * Count error lines across all services using the **visible** log window
+ * (the same content returned by `/api/logs?service=<key>&lines=all`).
+ *
+ * In-memory cache with a 20s TTL. This is intentionally separate from the
+ * alert-aggregation cache because the windows are independent.
+ */
+export async function getVisibleLogAlertCounts(): Promise<CountsResult> {
+  if (visibleCountsCache && Date.now() < visibleCountsCache.expiresAt) {
+    return visibleCountsCache.result;
+  }
+
+  const perService: Record<string, number> = {};
+  let total = 0;
+
+  for (const key of Object.keys(SERVICE_MAP)) {
+    const result = await fetchLogText(key, "all");
+    // Don't count our own failure message as an error.
+    const text = result.error ? "" : result.text;
+    const count = countErrorsInText(text);
+    perService[key] = count;
+    total += count;
+  }
+
+  const ack = await getAcknowledgedAt();
+  const result: CountsResult = { perService, total, acknowledgedAt: ack };
+  visibleCountsCache = { result, expiresAt: Date.now() + CACHE_TTL_MS };
+  return result;
+}
+
+/**
  * Clear the in-process counts cache.
  * Called automatically by `setAcknowledgedAt` and available for tests.
  */
 export function clearCountsCache(): void {
   countsCache = null;
+  visibleCountsCache = null;
 }

@@ -32,16 +32,19 @@ export default function LogsPage() {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [errorCount, setErrorCount] = useState(0);
-  const [perServiceCounts, setPerServiceCounts] = useState<Record<string, number>>({});
-  const [acknowledgedAt, setAcknowledgedAt] = useState<number | null>(null);
+  const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({});
+  const [headerAcknowledgedAt, setHeaderAcknowledgedAt] = useState<number | null>(null);
   const [acknowledging, setAcknowledging] = useState(false);
   const terminalRef = useRef<HTMLPreElement>(null);
   const toast = useToast();
   const userScrolledRef = useRef(false);
   const prevLogsRef = useRef<string>("");
   const alertGenRef = useRef(0);
+  const logsGenRef = useRef(0);
+  const visibleGenRef = useRef(0);
 
   const fetchLogs = useCallback(async (svc: string, isPoll = false) => {
+    const gen = logsGenRef.current;
     try {
       const params = new URLSearchParams({ service: svc });
       if (isPoll) {
@@ -51,6 +54,8 @@ export default function LogsPage() {
       }
       const res = await fetch(`/api/logs?${params}`);
       const text = await res.text();
+      // Drop responses for a tab that is no longer selected.
+      if (gen !== logsGenRef.current) return;
 
       setLogs((prev) => {
         if (isPoll && prev !== "Loading..." && prev !== "No logs available." && !prev.startsWith("Failed")) {
@@ -74,6 +79,7 @@ export default function LogsPage() {
       });
       setLastUpdated(new Date().toLocaleTimeString());
     } catch {
+      if (gen !== logsGenRef.current) return;
       if (!isPoll) setLogs("Failed to fetch logs. The journalctl endpoint may not be available on this system.");
     }
   }, []);
@@ -92,8 +98,14 @@ export default function LogsPage() {
     return () => clearInterval(interval);
   }, [autoRefresh, service, fetchLogs]);
 
-  // ── Fetch alert counts (poll every 30s) ──────────────────────
-  const fetchAlerts = useCallback(async () => {
+  // Count errors in the raw log text currently shown in the pane.
+  const countErrorsInRawLogs = useCallback((text: string) => {
+    if (isPlaceholder(text)) return 0;
+    return text.split("\n").filter(isErrorLine).length;
+  }, []);
+
+  // ── Fetch aggregate alert counts (poll every 30s) ────────────
+  const fetchAlertCounts = useCallback(async () => {
     try {
       const gen = alertGenRef.current;
       const res = await fetch("/api/logs/alerts");
@@ -101,21 +113,42 @@ export default function LogsPage() {
       // Drop stale responses that started before a successful Mark Resolved.
       if (gen !== alertGenRef.current) return;
       setErrorCount(data.total ?? 0);
-      setPerServiceCounts(data.perService ?? {});
-      setAcknowledgedAt(data.acknowledgedAt ?? null);
+      setHeaderAcknowledgedAt(data.acknowledgedAt ?? null);
+    } catch { /* leave previous values */ }
+  }, []);
+
+  // ── Fetch visible-window counts for inactive tab badges ───────
+  const fetchVisibleCounts = useCallback(async () => {
+    try {
+      visibleGenRef.current += 1;
+      const gen = visibleGenRef.current;
+      const res = await fetch("/api/logs/alerts?window=visible");
+      const data = await res.json();
+      // Drop stale responses that started before a newer fetch.
+      if (gen !== visibleGenRef.current) return;
+      setVisibleCounts(data.perService ?? {});
     } catch { /* leave previous values */ }
   }, []);
 
   useEffect(() => {
-    void fetchAlerts();
-    const interval = setInterval(() => { void fetchAlerts(); }, 30_000);
-    const onVis = () => { if (!document.hidden) void fetchAlerts(); };
+    void fetchAlertCounts();
+    void fetchVisibleCounts();
+    const interval = setInterval(() => {
+      void fetchAlertCounts();
+      void fetchVisibleCounts();
+    }, 30_000);
+    const onVis = () => {
+      if (!document.hidden) {
+        void fetchAlertCounts();
+        void fetchVisibleCounts();
+      }
+    };
     document.addEventListener("visibilitychange", onVis);
     return () => {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVis);
     };
-  }, [fetchAlerts]);
+  }, [fetchAlertCounts, fetchVisibleCounts]);
 
   // Track scroll position
   useEffect(() => {
@@ -216,7 +249,12 @@ export default function LogsPage() {
             {SERVICES.map((s) => (
               <button
                 key={s}
-                onClick={() => { setService(s); setLogs("Loading..."); }}
+                onClick={() => {
+                  logsGenRef.current += 1;
+                  visibleGenRef.current += 1;
+                  setService(s);
+                  setLogs("Loading...");
+                }}
                 className={`px-3 py-2 text-xs font-semibold rounded-[var(--radius-button)] transition-colors inline-flex items-center gap-1.5 ${
                   service === s
                     ? "bg-surface-container text-on-surface"
@@ -224,19 +262,26 @@ export default function LogsPage() {
                 }`}
               >
                 {LABELS[s]}
-                {(perServiceCounts[s] ?? 0) > 0 && (
-                  <span
-                    className="inline-flex items-center justify-center min-w-[18px] h-[16px] px-1 text-[10px] font-mono font-semibold rounded-[var(--radius-pill)]"
-                    style={{
-                      background: "var(--color-badge-error-bg)",
-                      color: "var(--color-badge-error-fg)",
-                      border: "1px solid var(--color-badge-error-border)",
-                    }}
-                    title={`${perServiceCounts[s]} error${perServiceCounts[s] !== 1 ? "s" : ""} since last resolved`}
-                  >
-                    {perServiceCounts[s] > 99 ? "99+" : perServiceCounts[s]}
-                  </span>
-                )}
+                {(() => {
+                  const count =
+                    s === service
+                      ? countErrorsInRawLogs(logs)
+                      : (visibleCounts[s] ?? 0);
+                  if (count <= 0) return null;
+                  return (
+                    <span
+                      className="inline-flex items-center justify-center min-w-[18px] h-[16px] px-1 text-[10px] font-mono font-semibold rounded-[var(--radius-pill)]"
+                      style={{
+                        background: "var(--color-badge-error-bg)",
+                        color: "var(--color-badge-error-fg)",
+                        border: "1px solid var(--color-badge-error-border)",
+                      }}
+                      title={`${count} error${count !== 1 ? "s" : ""} in current logs`}
+                    >
+                      {count > 99 ? "99+" : count}
+                    </span>
+                  );
+                })()}
               </button>
             ))}
           </div>
@@ -295,8 +340,8 @@ export default function LogsPage() {
               >
                 <span className="material-symbols-outlined text-sm">error</span>
                 {errorCount} error{errorCount !== 1 ? "s" : ""}
-                {acknowledgedAt
-                  ? ` since ${new Date(acknowledgedAt).toLocaleTimeString()}`
+                {headerAcknowledgedAt
+                  ? ` since ${new Date(headerAcknowledgedAt).toLocaleTimeString()}`
                   : " in past 7d"}
               </span>
               <button
@@ -312,15 +357,14 @@ export default function LogsPage() {
                     if (!res.ok) throw new Error(`HTTP ${res.status}`);
                     alertGenRef.current += 1;
                     setErrorCount(0);
-                    setPerServiceCounts({});
-                    setAcknowledgedAt(ackTs);
+                    setHeaderAcknowledgedAt(ackTs);
                     window.dispatchEvent(
                       new CustomEvent("log-alerts:acknowledged", { detail: { at: ackTs } }),
                     );
                     toast.showToast("Alerts acknowledged", "success");
                   } catch {
                     toast.showToast("Failed to acknowledge alerts", "error");
-                    await fetchAlerts();
+                    await fetchAlertCounts();
                   } finally {
                     setAcknowledging(false);
                   }

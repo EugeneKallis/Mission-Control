@@ -1,7 +1,7 @@
 /**
  * Unit tests for GET /api/logs/alerts
  *
- * Mocks child_process to return controlled journalctl output and
+ * Mocks `child_process` to return controlled journalctl output and
  * @/lib/db via makeTestDB so the watermark can be set/tested.
  */
 
@@ -54,6 +54,9 @@ beforeAll(async () => {
         }
         return DEFAULT_JOURNAL_OUTPUT;
       }
+      if (cmd === "systemctl" && args.includes("show")) {
+        return "2024-01-01 12:00:00 UTC";
+      }
       return "";
     }),
   }));
@@ -63,18 +66,26 @@ afterAll(async () => {
   await testDB.cleanup();
 });
 
-beforeEach(() => {
+beforeEach(async () => {
   execCalls = [];
+  // Reset the watermark so tests don't leak acknowledgement state.
+  await testDB.db.setting.deleteMany({ where: { key: "log_alerts:acknowledged_at" } });
+  const { clearCountsCache } = await import("@/lib/log-alerts-server");
+  clearCountsCache();
 });
 
 async function loadRoute() {
   return import(`./route?bust=${Date.now()}-${Math.random()}`);
 }
 
+function buildRequest(url: string) {
+  return getRequest(url);
+}
+
 describe("GET /api/logs/alerts", () => {
   test("returns 200 with correct JSON shape", async () => {
     const { GET } = await loadRoute();
-    const res = await GET();
+    const res = await GET(buildRequest("http://localhost/api/logs/alerts"));
     expect(status(res)).toBe(200);
     const body = (await jsonBody(res)) as {
       perService: Record<string, number>;
@@ -94,7 +105,7 @@ describe("GET /api/logs/alerts", () => {
 
   test("per-service breakdown matches mock journalctl output", async () => {
     const { GET } = await loadRoute();
-    const res = await GET();
+    const res = await GET(buildRequest("http://localhost/api/logs/alerts"));
     const body = (await jsonBody(res)) as {
       perService: Record<string, number>;
       total: number;
@@ -118,7 +129,7 @@ describe("GET /api/logs/alerts", () => {
 
   test("acknowledgedAt is null when no watermark has been set", async () => {
     const { GET } = await loadRoute();
-    const res = await GET();
+    const res = await GET(buildRequest("http://localhost/api/logs/alerts"));
     const body = (await jsonBody(res)) as { acknowledgedAt: number | null };
     expect(body.acknowledgedAt).toBeNull();
   });
@@ -131,7 +142,7 @@ describe("GET /api/logs/alerts", () => {
     await setAcknowledgedAt(123456);
 
     const { GET } = await loadRoute();
-    const res = await GET();
+    const res = await GET(buildRequest("http://localhost/api/logs/alerts"));
     const body = (await jsonBody(res)) as { acknowledgedAt: number | null };
     expect(body.acknowledgedAt).toBe(123456);
   });
@@ -143,7 +154,7 @@ describe("GET /api/logs/alerts", () => {
 
     const prevCalls = execCalls.length;
     const { GET } = await loadRoute();
-    await GET();
+    await GET(buildRequest("http://localhost/api/logs/alerts"));
     // Should have 4 new journalctl calls (plus any previous systemctl calls)
     const newJournalCalls = execCalls
       .slice(prevCalls)
@@ -151,6 +162,67 @@ describe("GET /api/logs/alerts", () => {
     expect(newJournalCalls.length).toBe(4);
     for (const call of newJournalCalls) {
       expect(call.args).toContain("--since");
+    }
+  });
+
+  test("?window=visible returns the same per-service counts as the default mode", async () => {
+    const { GET } = await loadRoute();
+    const res = await GET(buildRequest("http://localhost/api/logs/alerts?window=visible"));
+    expect(status(res)).toBe(200);
+    const body = (await jsonBody(res)) as {
+      perService: Record<string, number>;
+      total: number;
+      acknowledgedAt: number | null;
+    };
+    expect(body.perService.scraper).toBe(1);
+    expect(body.perService.web).toBe(2);
+    expect(body.perService["magnet-bridge"]).toBe(2);
+    expect(body.perService["broken-link-checker"]).toBe(0);
+    expect(body.total).toBe(
+      body.perService.web +
+        body.perService["magnet-bridge"] +
+        body.perService.scraper +
+        body.perService["broken-link-checker"],
+    );
+    // The visible endpoint still echoes the stored watermark even though it
+    // does not use it for counting.
+    expect(body.acknowledgedAt === null || typeof body.acknowledgedAt === "number").toBe(true);
+  });
+
+  test("?window=visible uses the service-start timestamp, not the acknowledgement watermark", async () => {
+    const futureWatermark = Date.now() + 86_400_000;
+    const { setAcknowledgedAt, clearCountsCache } = await import(
+      "@/lib/log-alerts-server"
+    );
+    await setAcknowledgedAt(futureWatermark);
+    clearCountsCache();
+
+    const { GET } = await loadRoute();
+
+    const prevCalls = execCalls.length;
+    await GET(buildRequest("http://localhost/api/logs/alerts"));
+    const defaultCalls = execCalls
+      .slice(prevCalls)
+      .filter((c) => c.cmd === "journalctl");
+    expect(defaultCalls.length).toBe(4);
+    for (const call of defaultCalls) {
+      const sinceIdx = call.args.indexOf("--since");
+      expect(sinceIdx).toBeGreaterThan(-1);
+      // Default mode uses the watermark timestamp.
+      expect(new Date(call.args[sinceIdx + 1]).getTime()).toBeGreaterThanOrEqual(futureWatermark);
+    }
+
+    const prevCalls2 = execCalls.length;
+    await GET(buildRequest("http://localhost/api/logs/alerts?window=visible"));
+    const visibleCalls = execCalls
+      .slice(prevCalls2)
+      .filter((c) => c.cmd === "journalctl");
+    expect(visibleCalls.length).toBe(4);
+    for (const call of visibleCalls) {
+      const sinceIdx = call.args.indexOf("--since");
+      expect(sinceIdx).toBeGreaterThan(-1);
+      // Visible mode uses the mocked ActiveEnterTimestamp, not the watermark.
+      expect(call.args[sinceIdx + 1]).toBe("2024-01-01 12:00:00 UTC");
     }
   });
 });

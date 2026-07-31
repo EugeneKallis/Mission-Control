@@ -930,9 +930,13 @@ manual `updateHistory` (or a future "stale run" cleaner) finalises it.
 
 The Log Viewer shows per-service error-count badges on its service tabs, a
 total badge on the sidebar nav item (matching the BL Finder badge), and
-highlights error lines in the terminal panel. A "Mark Resolved" button clears
-all alerts at once using a **timestamp watermark** stored in the `settings`
-table; it immediately clears the tab and sidebar badges.
+highlights error lines in the terminal panel. The **tab badges** count errors
+in the currently displayed log content for each service (since the service
+started for systemd units, or the latest 50 Agent Task runs). The **header and
+sidebar badges** are alert aggregates: they count errors since the last
+"Mark Resolved" watermark (or 7 days, whichever is tighter). A "Mark Resolved"
+button clears only the aggregate header and sidebar badges; the tab badges
+stay because they reflect the visible logs, not the alert window.
 
 ### Architecture
 
@@ -956,6 +960,7 @@ table; it immediately clears the tab and sidebar badges.
 | Method | Path | Purpose |
 | ------ | ------------------------------------------ | --------------------------------------------- |
 | GET | `/api/logs/alerts` | Count errors across all services since watermark/7d. Returns `{ perService, total, acknowledgedAt }` |
+| GET | `/api/logs/alerts?window=visible` | Count errors in the visible log window for each service (same content as `/api/logs?service=<key>&lines=all`). Returns `{ perService, total, acknowledgedAt }` |
 | POST | `/api/logs/alerts/acknowledge` | Acknowledge all alerts — sets watermark to now, clears badge until new errors appear |
 
 ### Shared module (`src/lib/log-alerts.ts`)
@@ -970,21 +975,29 @@ table; it immediately clears the tab and sidebar badges.
 | `getAcknowledgedAt()` | Read watermark from settings table (null = never) |
 | `setAcknowledgedAt(ms)` | Write watermark + invalidate cache |
 | `runJournalctl(unit, sinceMs)` | Shell out to journalctl, returns text or "" on failure |
-| `getAllLogAlertCounts()` | Aggregate error counts across all services (cached 20s) |
-| `clearCountsCache()` | Invalidate the in-process cache (for tests) |
+| `getAllLogAlertCounts()` | Aggregate error counts across all services since watermark/7d (cached 20s) |
+| `getVisibleLogAlertCounts()` | Count errors in the visible log window for each service (cached 20s) |
+| `clearCountsCache()` | Invalidate both in-process caches (for tests) |
+| `fetchLogText(service, lines, taskId?)` | Shared server-only helper: returns the same log text `/api/logs` renders |
 
 ### New/modified files
 
 ```
 src/lib/log-alerts.ts                  # NEW — shared helpers + DB watermarks + journalctl
 src/lib/log-alerts.test.ts             # NEW — 17 tests (pure + DB + aggregation)
-src/app/api/logs/alerts/route.ts       # NEW — GET /api/logs/alerts
-src/app/api/logs/alerts/route.test.ts  # NEW — 5 tests
+src/lib/log-fetcher.ts                 # NEW — shared server-only log text retrieval (route + visible counts)
+src/lib/log-fetcher.test.ts            # NEW — 10 tests (journalctl + agent tasks + routing)
+src/app/api/logs/alerts/route.ts       # NEW — GET /api/logs/alerts (+ ?window=visible)
+src/app/api/logs/alerts/route.test.ts  # NEW — 7 tests (default + visible window)
 src/app/api/logs/alerts/acknowledge/route.ts      # NEW — POST /api/logs/alerts/acknowledge
 src/app/api/logs/alerts/acknowledge/route.test.ts # NEW — 3 tests
+src/app/api/logs/route.ts              # MODIFIED — uses shared log-fetcher helper
+src/app/api/logs/route.test.ts         # NEW — 13 tests
+src/app/logs/page.tsx                  # MODIFIED — per-tab visible counts + Mark Resolved
+src/app/logs/page.test.tsx             # NEW — 6 tests (tab badges + visible counts)
 src/components/layout/nav-item.tsx     # MODIFIED — added badgeTitle prop
 src/components/layout/sidebar-content.tsx  # MODIFIED — polls /api/logs/alerts for badge
-src/app/logs/page.tsx                  # MODIFIED — error highlighting + Mark Resolved
+src/components/layout/sidebar-content.test.tsx # NEW — 17 tests (incl. Log Viewer badge)
 ```
 
 ## Phase 12 — Chat (legacy, replaced by Pi Agent)

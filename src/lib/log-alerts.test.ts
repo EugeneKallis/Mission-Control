@@ -240,6 +240,117 @@ describe("getAllLogAlertCounts", () => {
 
 // ── Agent task error counting ───────────────────────────────────────────────
 
+describe("getVisibleLogAlertCounts", () => {
+  let testDB: { db: PrismaClient; cleanup: () => Promise<void> };
+
+  beforeAll(async () => {
+    testDB = await makeTestDB();
+    mock.module("@/lib/db", () => ({ db: testDB.db }));
+    mock.module("child_process", () => ({
+      execFileSync: mock((cmd: string, args: string[]) => {
+        if (cmd === "journalctl") {
+          const unitArg = args.find((a: string) => a.startsWith("mission-control")) ?? "";
+          if (unitArg.includes("mission-control-scraper")) {
+            return "scraper output\nError: scraper fail\n";
+          }
+          if (unitArg.includes("mission-control-broken-link-checker")) {
+            return "checker running\n";
+          }
+          return "info: running\nERROR: service error\nFATAL: crashed\n";
+        }
+        if (cmd === "systemctl" && args.includes("show")) {
+          return "2024-01-01 12:00:00 UTC";
+        }
+        return "";
+      }),
+    }));
+  });
+
+  afterAll(async () => {
+    await testDB.cleanup();
+  });
+
+  beforeEach(async () => {
+    await testDB.db.setting.deleteMany({ where: { key: "log_alerts:acknowledged_at" } });
+    const { clearCountsCache } = await import("./log-alerts-server");
+    clearCountsCache();
+  });
+
+  test("counts errors in the visible window per service", async () => {
+    const { getVisibleLogAlertCounts } = await import(
+      `./log-alerts-server?bust=${Date.now()}-${Math.random()}`
+    );
+    const result = await getVisibleLogAlertCounts();
+    expect(result.perService.web).toBe(2);
+    expect(result.perService.scraper).toBe(1);
+    expect(result.perService["magnet-bridge"]).toBe(2);
+    expect(result.perService["broken-link-checker"]).toBe(0);
+    expect(result.total).toBe(
+      result.perService.web +
+        result.perService["magnet-bridge"] +
+        result.perService.scraper +
+        result.perService["broken-link-checker"],
+    );
+  });
+
+  test("uses the service-start timestamp instead of the acknowledgement watermark", async () => {
+    const futureWatermark = Date.now() + 86_400_000;
+    let defaultSince: string | null = null;
+    let visibleSince: string | null = null;
+
+    mock.module("child_process", () => ({
+      execFileSync: mock((cmd: string, args: string[]) => {
+        if (cmd === "journalctl") {
+          const sinceIdx = args.indexOf("--since");
+          if (sinceIdx > -1) {
+            const since = args[sinceIdx + 1];
+            if (new Date(since).getTime() >= futureWatermark) {
+              defaultSince = since;
+              return "";
+            }
+            visibleSince = since;
+          }
+          return "info: running\nERROR: service error\nFATAL: crashed\n";
+        }
+        if (cmd === "systemctl" && args.includes("show")) {
+          return "2024-01-01 12:00:00 UTC";
+        }
+        return "";
+      }),
+    }));
+
+    const { setAcknowledgedAt, getVisibleLogAlertCounts, getAllLogAlertCounts } = await import(
+      `./log-alerts-server?bust=${Date.now()}-${Math.random()}`
+    );
+    await setAcknowledgedAt(futureWatermark);
+
+    const alert = await getAllLogAlertCounts();
+    const visible = await getVisibleLogAlertCounts();
+
+    expect(alert.total).toBe(0);
+    expect(visible.total).toBeGreaterThan(0);
+    expect(defaultSince).toBeTruthy();
+    expect(visibleSince!).toBe("2024-01-01 12:00:00 UTC");
+    expect(visible.perService.web).toBe(2);
+  });
+
+  test("does not count fetch failure text as errors", async () => {
+    mock.module("child_process", () => ({
+      execFileSync: mock((cmd: string) => {
+        if (cmd === "journalctl") throw new Error("boom");
+        return "";
+      }),
+    }));
+
+    const { getVisibleLogAlertCounts } = await import(
+      `./log-alerts-server?bust=${Date.now()}-${Math.random()}`
+    );
+    const result = await getVisibleLogAlertCounts();
+    expect(result.perService.web).toBe(0);
+    expect(result.total).toBe(0);
+  });
+});
+
 describe("countErrorsInAgentTaskHistory", () => {
   let testDB: { db: PrismaClient; cleanup: () => Promise<void> };
 
