@@ -5,6 +5,7 @@
  *  - Initial state (modal visible)
  *  - "Enter Site" button hides the overlay
  *  - "Enter" key shortcut also accepts
+ *  - "Q" shortcut locks the screen again
  *  - sessionStorage timestamp recorded on accept
  *  - "Exit" link points home
  *  - Re-accepting after inactivity lock (simulated via fake timers)
@@ -63,6 +64,13 @@ describe("AccessGate", () => {
     // sessionStorage should now contain a timestamp
     const stored = sessionStorage.getItem("scraper_warning_accepted");
     expect(stored).not.toBeNull();
+  });
+
+  test("press 'Q' locks the screen again", () => {
+    render(<AccessGate />);
+    fireEvent.click(screen.getByRole("button", { name: /enter site/i }));
+    fireEvent.keyDown(document, { key: "q" });
+    expect(sessionStorage.getItem("scraper_warning_accepted")).toBeNull();
   });
 
   test("persisted session from a recent accept re-hides the gate immediately", async () => {

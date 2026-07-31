@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
  * Mirrors the warning modal in scraper.templ: shows a full-screen overlay,
  * records a sessionStorage timestamp on entry, hides the overlay, and
  * re-shows it after 30 seconds of user inactivity. Activity events (mousemove,
- * scroll, keypress) reset the inactivity timer.
+ * scroll, keypress) reset the inactivity timer. Press Q to lock immediately.
  */
 const STORAGE_KEY = "scraper_warning_accepted";
 const INACTIVITY_MS = 30_000; // 30 seconds
@@ -69,6 +69,8 @@ export function AccessGate() {
       if (e.key === "Enter" && !accepted) {
         e.preventDefault();
         accept();
+      } else if (e.key.toLowerCase() === "q" && accepted) {
+        lock();
       }
     }
 
