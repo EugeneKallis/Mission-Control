@@ -10,8 +10,8 @@
  * Strategy: mock next/navigation and globalThis.fetch; the render output
  * is fully deterministic.
  */
-import { describe, test, expect, mock, afterEach } from "bun:test";
-import { render, screen, fireEvent, waitFor } from "@/test-utils/render";
+import { describe, test, expect, mock, afterEach, beforeEach } from "bun:test";
+import { act, cleanup, render, screen, fireEvent, waitFor } from "@/test-utils/render";
 
 const mockUsePathname = mock(() => "/");
 const mockPush = mock(() => {});
@@ -31,9 +31,26 @@ function mockFetch(responder: (url: string) => unknown) {
   }) as unknown as typeof fetch;
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((r) => {
+    resolve = r;
+  });
+  return { promise, resolve };
+}
+
 afterEach(() => {
   globalThis.fetch = originalFetch;
   mockPush.mockReset();
+  cleanup();
+});
+
+beforeEach(() => {
+  Object.defineProperty(document, "hidden", {
+    value: false,
+    writable: true,
+    configurable: true,
+  });
 });
 
 describe("SidebarContent — brand & version", () => {
@@ -275,5 +292,94 @@ describe("SidebarContent — macro click", () => {
     } finally {
       window.removeEventListener("macro:run-agent", listener);
     }
+  });
+});
+
+describe("SidebarContent — Log Viewer badge", () => {
+  test("shows the badge from /api/logs/alerts total", async () => {
+    mockFetch((url) => {
+      if (url.includes("/api/real-debrid/status")) return { label: "Premium", ok: true };
+      if (url.includes("/api/macros")) return [];
+      if (url.includes("/api/logs/alerts")) return { total: 7 };
+      return {};
+    });
+    render(<SidebarContent />);
+    await waitFor(() => {
+      expect(screen.getByTitle("7 errors")).toBeInTheDocument();
+    });
+  });
+
+  test("clears the badge immediately on log-alerts:acknowledged", async () => {
+    mockFetch((url) => {
+      if (url.includes("/api/real-debrid/status")) return { label: "Premium", ok: true };
+      if (url.includes("/api/macros")) return [];
+      if (url.includes("/api/logs/alerts")) return { total: 7 };
+      return {};
+    });
+    render(<SidebarContent />);
+    await waitFor(() => {
+      expect(screen.getByTitle("7 errors")).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("log-alerts:acknowledged", { detail: { at: Date.now() } }));
+    });
+
+    expect(screen.queryByTitle("7 errors")).not.toBeInTheDocument();
+  });
+
+  test("ignores a stale /api/logs/alerts response after acknowledgement", async () => {
+    const initialAlert = createDeferred<{ total: number }>();
+    const staleAlert = createDeferred<{ total: number }>();
+    let alertCallCount = 0;
+
+    globalThis.fetch = mock(async (url: string) => {
+      if (url.includes("/api/real-debrid/status")) {
+        return new Response(JSON.stringify({ label: "Premium", ok: true }), { status: 200 });
+      }
+      if (url.includes("/api/macros")) {
+        return new Response(JSON.stringify([]), { status: 200 });
+      }
+      if (url.includes("/api/logs/alerts")) {
+        alertCallCount++;
+        if (alertCallCount === 1) return new Response(JSON.stringify(await initialAlert.promise), { status: 200 });
+        if (alertCallCount === 2) return new Response(JSON.stringify(await staleAlert.promise), { status: 200 });
+        return new Response(JSON.stringify({ total: 0 }), { status: 200 });
+      }
+      return new Response(JSON.stringify({}), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    render(<SidebarContent />);
+
+    // Badge appears after the initial alert fetch resolves.
+    await act(async () => {
+      initialAlert.resolve({ total: 5 });
+    });
+    await waitFor(() => {
+      expect(screen.getByTitle("5 errors")).toBeInTheDocument();
+    });
+
+    // Start a second alert fetch by triggering visibilitychange.
+    await act(async () => {
+      Object.defineProperty(document, "hidden", { value: false, writable: true, configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(alertCallCount).toBe(2);
+
+    // Fire acknowledgement while the second fetch is still in flight.
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("log-alerts:acknowledged", { detail: { at: Date.now() } }));
+    });
+    expect(screen.queryByTitle("5 errors")).not.toBeInTheDocument();
+
+    // Resolve the stale second fetch with old counts.
+    await act(async () => {
+      staleAlert.resolve({ total: 5 });
+    });
+
+    // Badge must stay cleared.
+    await waitFor(() => {
+      expect(screen.queryByTitle("5 errors")).not.toBeInTheDocument();
+    });
   });
 });

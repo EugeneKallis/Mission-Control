@@ -32,12 +32,14 @@ export default function LogsPage() {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [errorCount, setErrorCount] = useState(0);
+  const [perServiceCounts, setPerServiceCounts] = useState<Record<string, number>>({});
   const [acknowledgedAt, setAcknowledgedAt] = useState<number | null>(null);
   const [acknowledging, setAcknowledging] = useState(false);
   const terminalRef = useRef<HTMLPreElement>(null);
   const toast = useToast();
   const userScrolledRef = useRef(false);
   const prevLogsRef = useRef<string>("");
+  const alertGenRef = useRef(0);
 
   const fetchLogs = useCallback(async (svc: string, isPoll = false) => {
     try {
@@ -93,9 +95,13 @@ export default function LogsPage() {
   // ── Fetch alert counts (poll every 30s) ──────────────────────
   const fetchAlerts = useCallback(async () => {
     try {
+      const gen = alertGenRef.current;
       const res = await fetch("/api/logs/alerts");
       const data = await res.json();
+      // Drop stale responses that started before a successful Mark Resolved.
+      if (gen !== alertGenRef.current) return;
       setErrorCount(data.total ?? 0);
+      setPerServiceCounts(data.perService ?? {});
       setAcknowledgedAt(data.acknowledgedAt ?? null);
     } catch { /* leave previous values */ }
   }, []);
@@ -211,13 +217,26 @@ export default function LogsPage() {
               <button
                 key={s}
                 onClick={() => { setService(s); setLogs("Loading..."); }}
-                className={`px-3 py-2 text-xs font-semibold rounded-[var(--radius-button)] transition-colors ${
+                className={`px-3 py-2 text-xs font-semibold rounded-[var(--radius-button)] transition-colors inline-flex items-center gap-1.5 ${
                   service === s
                     ? "bg-surface-container text-on-surface"
                     : "text-on-surface-variant hover:text-on-surface"
                 }`}
               >
                 {LABELS[s]}
+                {(perServiceCounts[s] ?? 0) > 0 && (
+                  <span
+                    className="inline-flex items-center justify-center min-w-[18px] h-[16px] px-1 text-[10px] font-mono font-semibold rounded-[var(--radius-pill)]"
+                    style={{
+                      background: "var(--color-badge-error-bg)",
+                      color: "var(--color-badge-error-fg)",
+                      border: "1px solid var(--color-badge-error-border)",
+                    }}
+                    title={`${perServiceCounts[s]} error${perServiceCounts[s] !== 1 ? "s" : ""} since last resolved`}
+                  >
+                    {perServiceCounts[s] > 99 ? "99+" : perServiceCounts[s]}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -291,8 +310,13 @@ export default function LogsPage() {
                       body: JSON.stringify({}),
                     });
                     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    alertGenRef.current += 1;
                     setErrorCount(0);
+                    setPerServiceCounts({});
                     setAcknowledgedAt(ackTs);
+                    window.dispatchEvent(
+                      new CustomEvent("log-alerts:acknowledged", { detail: { at: ackTs } }),
+                    );
                     toast.showToast("Alerts acknowledged", "success");
                   } catch {
                     toast.showToast("Failed to acknowledge alerts", "error");

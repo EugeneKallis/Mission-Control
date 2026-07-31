@@ -928,10 +928,11 @@ manual `updateHistory` (or a future "stale run" cleaner) finalises it.
 
 ## Log Viewer alerts (error-count badge + Mark Resolved)
 
-The Log Viewer tab shows a red error-count badge on the sidebar nav item
-(matching the BL Finder badge) and highlights error lines in the terminal
-panel. A "Mark Resolved" button at the top clears all alerts at once using
-a **timestamp watermark** stored in the `settings` table.
+The Log Viewer shows per-service error-count badges on its service tabs, a
+total badge on the sidebar nav item (matching the BL Finder badge), and
+highlights error lines in the terminal panel. A "Mark Resolved" button clears
+all alerts at once using a **timestamp watermark** stored in the `settings`
+table; it immediately clears the tab and sidebar badges.
 
 ### Architecture
 
@@ -954,7 +955,7 @@ a **timestamp watermark** stored in the `settings` table.
 
 | Method | Path | Purpose |
 | ------ | ------------------------------------------ | --------------------------------------------- |
-| GET | `/api/logs/alerts` | Count errors across all 4 services since watermark/7d. Returns `{ perService, total, acknowledgedAt }` |
+| GET | `/api/logs/alerts` | Count errors across all services since watermark/7d. Returns `{ perService, total, acknowledgedAt }` |
 | POST | `/api/logs/alerts/acknowledge` | Acknowledge all alerts — sets watermark to now, clears badge until new errors appear |
 
 ### Shared module (`src/lib/log-alerts.ts`)

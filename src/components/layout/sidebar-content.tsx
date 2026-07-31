@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { NavItem } from "./nav-item";
@@ -124,13 +124,15 @@ export function SidebarContent({
 
   // Poll the Log Viewer error-alert count so the nav badge stays fresh.
   // 60s interval + visibilitychange matches the BL Finder pattern.
+  const alertGenRef = useRef(0);
   useEffect(() => {
     let cancelled = false;
     const fetchLogAlerts = () => {
+      const gen = alertGenRef.current;
       fetch("/api/logs/alerts")
         .then((r) => r.json())
         .then((data: { total?: number }) => {
-          if (cancelled) return;
+          if (cancelled || gen !== alertGenRef.current) return;
           if (typeof data.total === "number") setLogErrorCount(data.total);
         })
         .catch(() => { /* leave previous value */ });
@@ -139,10 +141,16 @@ export function SidebarContent({
     const interval = setInterval(fetchLogAlerts, 60_000);
     const onVis = () => { if (!document.hidden) fetchLogAlerts(); };
     document.addEventListener("visibilitychange", onVis);
+    const onAck = () => {
+      alertGenRef.current += 1;
+      setLogErrorCount(0);
+    };
+    window.addEventListener("log-alerts:acknowledged", onAck);
     return () => {
       cancelled = true;
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("log-alerts:acknowledged", onAck);
     };
   }, []);
 
