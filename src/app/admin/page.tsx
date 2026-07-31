@@ -25,15 +25,6 @@ import type { Macro, MacroCommand, MacroGroup, GroupWithMacros } from "@/types";
 import { BrowseScripts } from "@/components/browse-scripts";
 import { MacroLogPanel } from "@/components/macro-log-panel";
 
-// ── Command shortcuts ────────────────────────────────────────────────────
-
-const COMMAND_SHORTCUTS = [
-  "/opt/mission-control/bin/",
-  "scripts/",
-  "bin/",
-  "/root/ServerTool/scripts/",
-];
-
 // ── Sortable Macro Row ───────────────────────────────────────────────────
 
 function SortableMacroRow({
@@ -197,18 +188,19 @@ function SortableMacroRow({
             {showAddForm && (
               <div className="px-3 py-2 space-y-2 border-t border-outline-variant/15">
                 <div className="flex gap-1 items-start">
-                  <input
-                    className="flex-1 bg-bg border border-outline-variant/40 rounded px-2 py-1.5 text-xs font-mono text-on-surface outline-none focus:border-primary transition-colors"
+                  <textarea
+                    className="min-h-20 flex-1 resize-y bg-bg border border-outline-variant/40 rounded px-2 py-1.5 text-base sm:text-xs font-mono text-on-surface outline-none focus:border-primary transition-colors"
                     placeholder="Command (e.g. scripts/my-script.sh)"
                     value={addCmdText}
                     onChange={(e) => onAddCmdTextChange(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") onAddCmdSubmit(); }}
+                    onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) onAddCmdSubmit(); }}
+                    rows={3}
                     autoFocus
                   />
                   <BrowseScripts onSelect={(cmd) => onAddCmdTextChange(cmd)} />
                 </div>
                 <input
-                  className="w-full bg-bg border border-outline-variant/40 rounded px-2 py-1.5 text-xs font-mono text-on-surface outline-none focus:border-primary transition-colors"
+                  className="w-full bg-bg border border-outline-variant/40 rounded px-2 py-1.5 text-base sm:text-xs font-mono text-on-surface outline-none focus:border-primary transition-colors"
                   placeholder="Working directory (optional)"
                   value={addCmdDir}
                   onChange={(e) => onAddCmdDirChange(e.target.value)}
@@ -377,18 +369,19 @@ function SortableCommandRow({
       {editing ? (
         <div className="flex flex-col flex-1 gap-1">
           <div className="flex gap-1 items-start">
-            <input
-              className="flex-1 bg-bg border border-outline-variant/40 rounded px-1.5 py-0.5 text-[10px] font-mono text-on-surface outline-none focus:border-primary transition-colors"
+            <textarea
+              className="min-h-20 flex-1 resize-y bg-bg border border-outline-variant/40 rounded px-1.5 py-0.5 text-base sm:text-[10px] font-mono text-on-surface outline-none focus:border-primary transition-colors"
               placeholder="Command"
               value={editCmdText}
               onChange={(e) => onEditCmdTextChange(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") onEditCmdSave(); if (e.key === "Escape") onEditCmdCancel(); }}
+              onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) onEditCmdSave(); if (e.key === "Escape") onEditCmdCancel(); }}
+              rows={3}
               autoFocus
             />
             <BrowseScripts onSelect={(cmd) => onEditCmdTextChange(cmd)} />
           </div>
           <input
-            className="w-full bg-bg border border-outline-variant/40 rounded px-1.5 py-0.5 text-[10px] font-mono text-on-surface-variant outline-none focus:border-primary transition-colors"
+            className="w-full bg-bg border border-outline-variant/40 rounded px-1.5 py-0.5 text-base sm:text-[10px] font-mono text-on-surface-variant outline-none focus:border-primary transition-colors"
             placeholder="Working directory"
             value={editCmdDir}
             onChange={(e) => onEditCmdDirChange(e.target.value)}
@@ -491,7 +484,7 @@ function GroupCard({
       >
         {editing ? (
           <input
-            className="min-w-0 flex-1 rounded border border-outline-variant/40 bg-bg px-2 py-0.5 text-sm text-on-surface outline-none transition-colors focus:border-primary"
+            className="min-w-0 flex-1 rounded border border-outline-variant/40 bg-bg px-2 py-0.5 text-base sm:text-sm text-on-surface outline-none transition-colors focus:border-primary"
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
             onBlur={handleSaveName}
@@ -1037,7 +1030,7 @@ export default function AdminPage() {
           <div>
             <label className="block text-xs text-on-surface-variant mb-1">Group Name</label>
             <input
-              className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-sm text-on-surface outline-none focus:border-primary transition-colors"
+              className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-base sm:text-sm text-on-surface outline-none focus:border-primary transition-colors"
               value={newGroupName}
               onChange={(e) => setNewGroupName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleCreateGroup(); }}
@@ -1057,7 +1050,7 @@ export default function AdminPage() {
           <div>
             <label className="block text-xs text-on-surface-variant mb-1">Name *</label>
             <input
-              className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-sm text-on-surface outline-none focus:border-primary transition-colors"
+              className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-base sm:text-sm text-on-surface outline-none focus:border-primary transition-colors"
               value={newMacroName}
               onChange={(e) => setNewMacroName(e.target.value)}
               autoFocus
@@ -1067,7 +1060,7 @@ export default function AdminPage() {
           <div>
             <label className="block text-xs text-on-surface-variant mb-1">Group</label>
             <select
-              className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-sm text-on-surface outline-none focus:border-primary transition-colors"
+              className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-base sm:text-sm text-on-surface outline-none focus:border-primary transition-colors"
               value={newMacroGroup}
               onChange={(e) => setNewMacroGroup(e.target.value)}
             >
@@ -1081,7 +1074,7 @@ export default function AdminPage() {
           <div>
             <label className="block text-xs text-on-surface-variant mb-1">Description</label>
             <input
-              className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-sm text-on-surface outline-none focus:border-primary transition-colors"
+              className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-base sm:text-sm text-on-surface outline-none focus:border-primary transition-colors"
               value={newMacroDesc}
               onChange={(e) => setNewMacroDesc(e.target.value)}
             />
@@ -1090,18 +1083,15 @@ export default function AdminPage() {
           <div>
             <label className="block text-xs text-on-surface-variant mb-1">Initial Command</label>
             <div className="flex gap-1 items-start">
-              <input
-                className="flex-1 bg-bg border border-outline-variant/40 rounded px-3 py-2 text-sm font-mono text-on-surface outline-none focus:border-primary transition-colors"
-                list="cmd-shortcuts"
+              <textarea
+                className="min-h-24 flex-1 resize-y bg-bg border border-outline-variant/40 rounded px-3 py-2 text-base sm:text-sm font-mono text-on-surface outline-none focus:border-primary transition-colors"
                 value={newMacroCmd}
                 onChange={(e) => setNewMacroCmd(e.target.value)}
                 placeholder="e.g. scripts/my-script.sh"
+                rows={3}
               />
               <BrowseScripts onSelect={(cmd) => setNewMacroCmd(cmd)} size="sm" />
             </div>
-            <datalist id="cmd-shortcuts">
-              {COMMAND_SHORTCUTS.map((s) => <option key={s} value={s} />)}
-            </datalist>
           </div>
 
           <div className="flex items-center gap-2">
@@ -1119,7 +1109,7 @@ export default function AdminPage() {
             <div>
               <label className="block text-xs text-on-surface-variant mb-1">Agent Hostname</label>
               <select
-                className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-sm text-on-surface outline-none focus:border-primary transition-colors"
+                className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-base sm:text-sm text-on-surface outline-none focus:border-primary transition-colors"
                 value={newMacroAgent}
                 onChange={(e) => setNewMacroAgent(e.target.value)}
               >
@@ -1144,7 +1134,7 @@ export default function AdminPage() {
           <div>
             <label className="block text-xs text-on-surface-variant mb-1">Name *</label>
             <input
-              className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-sm text-on-surface outline-none focus:border-primary transition-colors"
+              className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-base sm:text-sm text-on-surface outline-none focus:border-primary transition-colors"
               value={editMacroTarget?.name || ""}
               onChange={(e) => setEditMacroTarget((prev) => prev ? { ...prev, name: e.target.value } : null)}
             />
@@ -1153,7 +1143,7 @@ export default function AdminPage() {
           <div>
             <label className="block text-xs text-on-surface-variant mb-1">Description</label>
             <input
-              className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-sm text-on-surface outline-none focus:border-primary transition-colors"
+              className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-base sm:text-sm text-on-surface outline-none focus:border-primary transition-colors"
               value={editMacroTarget?.description || ""}
               onChange={(e) => setEditMacroTarget((prev) => prev ? { ...prev, description: e.target.value } : null)}
             />
@@ -1162,7 +1152,7 @@ export default function AdminPage() {
           <div>
             <label className="block text-xs text-on-surface-variant mb-1">Group</label>
             <select
-              className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-sm text-on-surface outline-none focus:border-primary transition-colors"
+              className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-base sm:text-sm text-on-surface outline-none focus:border-primary transition-colors"
               value={editMacroTarget?.groupName || ""}
               onChange={(e) => setEditMacroTarget((prev) => prev ? { ...prev, groupName: e.target.value } : null)}
             >
@@ -1187,7 +1177,7 @@ export default function AdminPage() {
             <div>
               <label className="block text-xs text-on-surface-variant mb-1">Agent Hostname</label>
               <select
-                className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-sm text-on-surface outline-none focus:border-primary transition-colors"
+                className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-base sm:text-sm text-on-surface outline-none focus:border-primary transition-colors"
                 value={editMacroTarget?.agentHostname || ""}
                 onChange={(e) => setEditMacroTarget((prev) => prev ? { ...prev, agentHostname: e.target.value } : null)}
               >
