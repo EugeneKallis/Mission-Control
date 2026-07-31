@@ -71,8 +71,6 @@ export interface SourceMacro {
   description: string;
   groupName: string;
   ord: number;
-  runOnAgent: boolean;
-  agentHostname: string;
   commands: string;
 }
 
@@ -335,7 +333,7 @@ export async function readSourceSnapshot(rawPath: string): Promise<SourceSnapsho
     const macros: SourceMacro[] = tables.has("macros")
       ? (
           await client.execute(
-            `SELECT id, name, description, group_name, ord, run_on_agent, agent_hostname, commands
+            `SELECT id, name, description, group_name, ord, commands
              FROM "macros"
              ORDER BY ord ASC, id ASC`,
           )
@@ -345,8 +343,6 @@ export async function readSourceSnapshot(rawPath: string): Promise<SourceSnapsho
           description: String(r.description ?? ""),
           groupName: String(r.group_name ?? "Ungrouped"),
           ord: Number(r.ord ?? 0),
-          runOnAgent: Number(r.run_on_agent ?? 0) !== 0,
-          agentHostname: String(r.agent_hostname ?? ""),
           commands: String(r.commands ?? "[]"),
         }))
       : [];
@@ -497,8 +493,6 @@ export async function applySnapshot(
             description: m.description,
             groupName: m.groupName,
             ord: m.ord,
-            runOnAgent: m.runOnAgent,
-            agentHostname: m.agentHostname,
             commands: m.commands,
           },
         });

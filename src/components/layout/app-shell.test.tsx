@@ -7,53 +7,21 @@
  *  - Renders the MobileHeader with a menu button
  *  - Clicking the mobile menu opens the drawer (visible backdrop)
  *  - Clicking the backdrop closes the drawer
- *  - macro:run-agent event opens the AgentModal with the right macroId
- *  - macro:run-agent event cleanup: removing the listener on unmount
- *  - When on /, handleAgentRun dispatches macro:run with { macroId, agent }
- *  - When off /, handleAgentRun pushes a deep-link URL with agent encoded
  *  - showRightRail + rightRailSlot renders the right rail
  *  - showRightRail without rightRailSlot renders the default placeholder
  *  - noScroll=false (default) gives the scroll container overflow-y-auto
  *  - noScroll=true removes the overflow-y-auto class
  *
- * Strategy: mock next/navigation, the AgentModal (so we don't need its
- * real fetch behaviour), and globalThis.fetch.
+ * Strategy: mock next/navigation and globalThis.fetch.
  */
 import { describe, test, expect, mock, afterEach } from "bun:test";
-import { render, screen, fireEvent, waitFor, act, within } from "@/test-utils/render";
+import { render, screen, fireEvent, within } from "@/test-utils/render";
 
 const mockUsePathname = mock(() => "/");
-const mockPush = mock(() => {});
-
-// Stub the AgentModal — we test the shell's behaviour, not the modal's.
-const mockAgentModal = mock((props: Record<string, unknown>) => {
-  const { open, macroId, onRun, onClose } = props as {
-    open: boolean;
-    macroId: number | null;
-    onRun: (id: number, agent: string) => void;
-    onClose: () => void;
-  };
-  if (!open) return null;
-  return (
-    <div data-testid="agent-modal">
-      <div data-testid="agent-modal-macroId">{String(macroId)}</div>
-      <button data-testid="agent-modal-run" onClick={() => onRun(99, "host-z")}>
-        run
-      </button>
-      <button data-testid="agent-modal-close" onClick={onClose}>
-        close
-      </button>
-    </div>
-  );
-});
-
-mock.module("@/components/agent-modal", () => ({
-  AgentModal: mockAgentModal,
-}));
 
 mock.module("next/navigation", () => ({
   usePathname: mockUsePathname,
-  useRouter: () => ({ push: mockPush, replace: () => {}, back: () => {} }),
+  useRouter: () => ({ push: () => {}, replace: () => {}, back: () => {} }),
   useSearchParams: () => new URLSearchParams(),
 }));
 
@@ -62,7 +30,6 @@ const { AppShell } = await import("./app-shell");
 const originalFetch = globalThis.fetch;
 afterEach(() => {
   globalThis.fetch = originalFetch;
-  mockPush.mockReset();
   mockUsePathname.mockReturnValue("/");
 });
 
@@ -146,97 +113,6 @@ describe("AppShell — mobile drawer", () => {
     expect(backdrop).not.toBeNull();
     fireEvent.click(backdrop as Element);
     expect(container.querySelector(".backdrop-blur-sm")).toBeNull();
-  });
-});
-
-describe("AppShell — macro:run-agent event", () => {
-  test("opening agent modal: dispatching macro:run-agent sets pendingMacroId and shows the modal", () => {
-    render(
-      <AppShell>
-        <div>child</div>
-      </AppShell>,
-    );
-    expect(screen.queryByTestId("agent-modal")).toBeNull();
-
-    act(() => {
-      window.dispatchEvent(
-        new CustomEvent("macro:run-agent", { detail: { macroId: 123, macroName: "M" } }),
-      );
-    });
-    expect(screen.getByTestId("agent-modal")).toBeInTheDocument();
-    expect(screen.getByTestId("agent-modal-macroId").textContent).toBe("123");
-  });
-
-  test("closing the modal removes it from the DOM", () => {
-    render(
-      <AppShell>
-        <div>child</div>
-      </AppShell>,
-    );
-    act(() => {
-      window.dispatchEvent(
-        new CustomEvent("macro:run-agent", { detail: { macroId: 1, macroName: "M" } }),
-      );
-    });
-    expect(screen.getByTestId("agent-modal")).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId("agent-modal-close"));
-    expect(screen.queryByTestId("agent-modal")).toBeNull();
-  });
-
-  test("on /, the modal's onRun dispatches a macro:run event with the agent", () => {
-    mockUsePathname.mockReturnValue("/");
-    const events: CustomEvent[] = [];
-    const listener = (e: Event) => events.push(e as CustomEvent);
-    window.addEventListener("macro:run", listener);
-    try {
-      render(
-        <AppShell>
-          <div>child</div>
-        </AppShell>,
-      );
-      act(() => {
-        window.dispatchEvent(
-          new CustomEvent("macro:run-agent", { detail: { macroId: 1, macroName: "M" } }),
-        );
-      });
-      fireEvent.click(screen.getByTestId("agent-modal-run"));
-      expect(events.length).toBe(1);
-      expect(events[0].detail).toEqual({ macroId: 99, agent: "host-z" });
-    } finally {
-      window.removeEventListener("macro:run", listener);
-    }
-  });
-
-  test("off /, the modal's onRun pushes a deep-link URL with the agent encoded", () => {
-    mockUsePathname.mockReturnValue("/admin");
-    render(
-      <AppShell>
-        <div>child</div>
-      </AppShell>,
-    );
-    act(() => {
-      window.dispatchEvent(
-        new CustomEvent("macro:run-agent", { detail: { macroId: 1, macroName: "M" } }),
-      );
-    });
-    fireEvent.click(screen.getByTestId("agent-modal-run"));
-    expect(mockPush).toHaveBeenCalledTimes(1);
-    const calls = (mockPush.mock as { calls: unknown[][] }).calls;
-    expect(calls[0]?.[0]).toBe("/?run_macro=99&agent=host-z");
-  });
-
-  test("unmount removes the macro:run-agent listener", () => {
-    const { unmount } = render(
-      <AppShell>
-        <div>child</div>
-      </AppShell>,
-    );
-    unmount();
-    // After unmount, dispatching the event should not mount a modal.
-    window.dispatchEvent(
-      new CustomEvent("macro:run-agent", { detail: { macroId: 1, macroName: "M" } }),
-    );
-    expect(screen.queryByTestId("agent-modal")).toBeNull();
   });
 });
 

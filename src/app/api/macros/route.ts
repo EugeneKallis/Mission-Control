@@ -7,8 +7,6 @@ const createMacroSchema = z.object({
   description: z.string().optional().default(""),
   groupName: z.string().optional().default("Ungrouped"),
   ord: z.number().int().optional().default(0),
-  runOnAgent: z.boolean().optional().default(false),
-  agentHostname: z.string().optional().default(""),
   commands: z.string().optional().default("[]"),
 });
 

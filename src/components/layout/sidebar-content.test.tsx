@@ -5,7 +5,7 @@
  *  - fetches /api/real-debrid/status on mount
  *  - fetches /api/macros on mount
  *  - renders a static set of NavItems
- *  - dispatches "macro:run" or "macro:run-agent" events on macro click
+ *  - dispatches "macro:run" events on macro click
  *
  * Strategy: mock next/navigation and globalThis.fetch; the render output
  * is fully deterministic.
@@ -126,7 +126,7 @@ describe("SidebarContent — macros list", () => {
           {
             group: { id: 1, name: "Daily", ord: 0 },
             macros: [
-              { id: 10, name: "Sync Now", description: "Run a sync", runOnAgent: false, agentHostname: null, ord: 0 },
+              { id: 10, name: "Sync Now", description: "Run a sync", ord: 0 },
             ],
           },
         ];
@@ -139,28 +139,6 @@ describe("SidebarContent — macros list", () => {
     });
     expect(screen.getByText("Daily")).toBeInTheDocument();
   });
-
-  test("marks runOnAgent macros with the AGENT badge", async () => {
-    mockFetch((url) => {
-      if (url.includes("/api/real-debrid/status")) return { label: "Premium", ok: true };
-      if (url.includes("/api/macros")) {
-        return [
-          {
-            group: { id: 1, name: "Agents", ord: 0 },
-            macros: [
-              { id: 11, name: "Remote Run", description: "", runOnAgent: true, agentHostname: "host-1", ord: 0 },
-            ],
-          },
-        ];
-      }
-      return [];
-    });
-    render(<SidebarContent />);
-    await waitFor(() => {
-      expect(screen.getByText("Remote Run")).toBeInTheDocument();
-    });
-    expect(screen.getByText("AGENT")).toBeInTheDocument();
-  });
 });
 
 describe("SidebarContent — static nav items", () => {
@@ -168,7 +146,7 @@ describe("SidebarContent — static nav items", () => {
     mockFetch(() => ({}));
     mockUsePathname.mockReturnValue("/other");
     render(<SidebarContent />);
-    for (const label of ["History", "Schedules", "NZB Viewer", "Debrid Viewer", "Server Status", "Log Viewer", "Database", "Admin", "Config", "Scraper"]) {
+    for (const label of ["History", "Schedules", "NZB Viewer", "Debrid Viewer", "Log Viewer", "Database", "Admin", "Config", "Scraper"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
   });
@@ -184,7 +162,7 @@ describe("SidebarContent — macro click", () => {
           {
             group: { id: 1, name: "G", ord: 0 },
             macros: [
-              { id: 42, name: "Local Macro", description: "", runOnAgent: false, agentHostname: null, ord: 0 },
+              { id: 42, name: "Local Macro", description: "", ord: 0 },
             ],
           },
         ];
@@ -203,7 +181,7 @@ describe("SidebarContent — macro click", () => {
       });
       fireEvent.click(screen.getByText("Local Macro"));
       expect(events.length).toBe(1);
-      expect(events[0].detail).toEqual({ macroId: 42, agent: undefined });
+      expect(events[0].detail).toEqual({ macroId: 42 });
     } finally {
       window.removeEventListener("macro:run", listener);
     }
@@ -218,7 +196,7 @@ describe("SidebarContent — macro click", () => {
           {
             group: { id: 1, name: "G", ord: 0 },
             macros: [
-              { id: 42, name: "Local Macro", description: "", runOnAgent: false, agentHostname: null, ord: 0 },
+              { id: 42, name: "Local Macro", description: "", ord: 0 },
             ],
           },
         ];
@@ -233,65 +211,6 @@ describe("SidebarContent — macro click", () => {
     expect(mockPush).toHaveBeenCalledTimes(1);
     const calls = (mockPush.mock as { calls: unknown[][] }).calls;
     expect(calls[0]?.[0]).toBe("/?run_macro=42");
-  });
-
-  test("clicking a local macro off / with an agent pushes the agent in the URL", async () => {
-    mockUsePathname.mockReturnValue("/admin");
-    mockFetch((url) => {
-      if (url.includes("/api/real-debrid/status")) return { label: "Premium", ok: true };
-      if (url.includes("/api/macros")) {
-        return [
-          {
-            group: { id: 1, name: "G", ord: 0 },
-            macros: [
-              { id: 42, name: "Agent Macro", description: "", runOnAgent: false, agentHostname: "host-x", ord: 0 },
-            ],
-          },
-        ];
-      }
-      return [];
-    });
-    render(<SidebarContent />);
-    await waitFor(() => {
-      expect(screen.getByText("Agent Macro")).toBeInTheDocument();
-    });
-    fireEvent.click(screen.getByText("Agent Macro"));
-    expect(mockPush).toHaveBeenCalledTimes(1);
-    const calls = (mockPush.mock as { calls: unknown[][] }).calls;
-    expect(calls[0]?.[0]).toBe("/?run_macro=42&agent=host-x");
-  });
-
-  test("clicking a runOnAgent macro without a hostname dispatches macro:run-agent", async () => {
-    mockFetch((url) => {
-      if (url.includes("/api/real-debrid/status")) return { label: "Premium", ok: true };
-      if (url.includes("/api/macros")) {
-        return [
-          {
-            group: { id: 1, name: "G", ord: 0 },
-            macros: [
-              { id: 77, name: "Pick Agent", description: "", runOnAgent: true, agentHostname: null, ord: 0 },
-            ],
-          },
-        ];
-      }
-      return [];
-    });
-    const events: CustomEvent[] = [];
-    const listener = (e: Event) => {
-      events.push(e as CustomEvent);
-    };
-    window.addEventListener("macro:run-agent", listener);
-    try {
-      render(<SidebarContent />);
-      await waitFor(() => {
-        expect(screen.getByText("Pick Agent")).toBeInTheDocument();
-      });
-      fireEvent.click(screen.getByText("Pick Agent"));
-      expect(events.length).toBe(1);
-      expect(events[0].detail).toEqual({ macroId: 77, macroName: "Pick Agent" });
-    } finally {
-      window.removeEventListener("macro:run-agent", listener);
-    }
   });
 });
 

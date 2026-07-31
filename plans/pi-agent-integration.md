@@ -11,7 +11,8 @@ Browser ←─SSE─→ /api/pi/events/[sessionId] ──stdout──→ pi --mo
 Browser ──POST→ /api/pi/command/[sessionId] ──stdin──→  pi --mode rpc
 ```
 
-This follows the same pattern as the existing `/api/ws` SSE endpoint and `/api/agent/events` agent SSE streams.
+This follows the same pattern as the existing `/api/ws` SSE endpoint (the legacy
+`/api/agent/events` agent SSE streams were removed with the remote-agent system).
 
 ---
 
@@ -33,7 +34,6 @@ This follows the same pattern as the existing `/api/ws` SSE endpoint and `/api/a
 
 **Reuse:**
 - `src/lib/live-bus.ts` — pub/sub pattern (clone as per-session event bus)
-- `src/lib/agents/registry.ts` — registry singleton pattern
 
 **Verification:**
 - Unit test: spawn a dummy process, verify stdin write + stdout read
@@ -92,7 +92,6 @@ This follows the same pattern as the existing `/api/ws` SSE endpoint and `/api/a
 
 **Reuse:**
 - `src/app/api/ws/route.ts` — SSE endpoint pattern (writeSSE, keepalive, signal cleanup)
-- `src/lib/agents/event-stream.ts` — per-host event bus pattern
 
 **Verification:**
 - Connect via `curl -N /api/pi/events/test-session`, see `agent_start` or session init events

@@ -106,6 +106,17 @@ bl-finder-stop:
 energy-prices:
     bun run src/workers/energy-price-scraper.ts
 
+# ── Legacy ServerAgent cleanup ──────────────────────────────────────────────────
+
+# Remove residual legacy ServerAgent (server_agents) DB state left over from
+# the retired remote-agent / Server Status system. Dry-run by default;
+# pass -- --run to drop the table. Safe no-op after the removal migration.
+#
+#   just remove-legacy-agents            # dry-run (default)
+#   just remove-legacy-agents -- --run   # actually drop the table
+remove-legacy-agents *ARGS:
+    bun run scripts/util/remove-legacy-agents.ts {{ARGS}}
+
 # ── One-off Scripts ──────────────────────────────────────────────────────────
 
 # Run a one-off TypeScript script:  just script scripts/foo.ts

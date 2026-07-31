@@ -1,11 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { ToastProvider } from "@/components/toast-provider";
 import { SidebarContent } from "@/components/layout/sidebar-content";
 import { MobileHeader } from "@/components/layout/mobile-header";
-import { AgentModal } from "@/components/agent-modal";
 
 interface AppShellProps {
   children: ReactNode;
@@ -27,12 +26,9 @@ interface AppShellProps {
 
 export function AppShell({ children, noScroll = false, showRightRail = false, rightRailSlot }: AppShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [agentModalOpen, setAgentModalOpen] = useState(false);
-  const [pendingMacroId, setPendingMacroId] = useState<number | null>(null);
   const [uptime, setUptime] = useState<string | undefined>();
   const drawerRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
-  const router = useRouter();
 
   // Fetch server uptime
   useEffect(() => {
@@ -50,17 +46,6 @@ export function AppShell({ children, noScroll = false, showRightRail = false, ri
     return () => clearInterval(interval);
   }, []);
 
-  // Listen for agent-macro clicks from sidebar / right rail
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent<{ macroId: number; macroName: string }>).detail;
-      setPendingMacroId(detail.macroId);
-      setAgentModalOpen(true);
-    };
-    window.addEventListener("macro:run-agent", handler);
-    return () => window.removeEventListener("macro:run-agent", handler);
-  }, []);
-
   // Escape key closes the mobile drawer
   useEffect(() => {
     if (!drawerOpen) return;
@@ -70,24 +55,6 @@ export function AppShell({ children, noScroll = false, showRightRail = false, ri
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [drawerOpen]);
-
-  const handleAgentRun = (macroId: number, agent: string) => {
-    // The home page owns the SSE terminal stream, so funnel the run
-    // through it. If we're already on "/", dispatch the in-app event;
-    // otherwise navigate to the deep-link URL the home page executes
-    // on mount.
-    if (pathname === "/") {
-      window.dispatchEvent(
-        new CustomEvent("macro:run", {
-          detail: { macroId, agent },
-        }),
-      );
-    } else {
-      router.push(
-        `/?run_macro=${macroId}&agent=${encodeURIComponent(agent)}`,
-      );
-    }
-  };
 
   // Close drawer on route change
   useEffect(() => {
@@ -163,17 +130,6 @@ export function AppShell({ children, noScroll = false, showRightRail = false, ri
           </aside>
         )}
       </div>
-
-      {/* Global agent modal */}
-      <AgentModal
-        open={agentModalOpen}
-        onClose={() => {
-          setAgentModalOpen(false);
-          setPendingMacroId(null);
-        }}
-        macroId={pendingMacroId}
-        onRun={handleAgentRun}
-      />
     </ToastProvider>
   );
 }

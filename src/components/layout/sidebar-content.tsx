@@ -21,18 +21,15 @@ interface SidebarContentProps {
  * with a deep-link query that the home page will execute on mount.
  */
 function runMacroFromSidebar(macro: Macro, pathname: string, push: (href: string) => void) {
-  const agent = macro.agentHostname || undefined;
   if (pathname === "/") {
     window.dispatchEvent(
       new CustomEvent("macro:run", {
-        detail: { macroId: macro.id, agent },
+        detail: { macroId: macro.id },
       }),
     );
     return;
   }
-  const search = new URLSearchParams({ run_macro: String(macro.id) });
-  if (agent) search.set("agent", agent);
-  push(`/?${search.toString()}`);
+  push(`/?run_macro=${macro.id}`);
 }
 
 export function SidebarContent({
@@ -155,16 +152,7 @@ export function SidebarContent({
   }, []);
 
   const handleMacroClick = useCallback((macro: Macro) => {
-    if (macro.runOnAgent && !macro.agentHostname) {
-      // Open agent modal via AppShell listener
-      window.dispatchEvent(
-        new CustomEvent("macro:run-agent", {
-          detail: { macroId: macro.id, macroName: macro.name },
-        }),
-      );
-    } else {
-      runMacroFromSidebar(macro, pathname, router.push);
-    }
+    runMacroFromSidebar(macro, pathname, router.push);
   }, [pathname, router]);
 
   return (
@@ -225,14 +213,9 @@ export function SidebarContent({
                       title={macro.description || macro.name}
                     >
                       <span className="material-symbols-outlined text-sm text-primary/60">
-                        {macro.runOnAgent ? "dns" : "terminal"}
+                        terminal
                       </span>
                       <span className="truncate">{macro.name}</span>
-                      {macro.runOnAgent && (
-                        <span className="text-[9px] text-primary/40 font-mono ml-auto shrink-0">
-                          AGENT
-                        </span>
-                      )}
                     </button>
                   ))}
                 </div>
@@ -274,7 +257,6 @@ export function SidebarContent({
         {/* Divider */}
         <div className="my-3 mx-5 h-px bg-outline-variant/30" />
 
-        <NavItem label="Server Status" icon="dns" href="/status" color="green" />
         <NavItem label="Proxmox" icon="dns" href="/pve" color="green" />
         <NavItem
           label="Log Viewer"

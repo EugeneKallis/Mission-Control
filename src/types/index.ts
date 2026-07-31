@@ -17,8 +17,6 @@ export interface Macro {
   description: string;
   groupName: string;
   ord: number;
-  runOnAgent: boolean;
-  agentHostname: string;
   commands: string; // JSON string of MacroCommand[]
 }
 
@@ -55,23 +53,6 @@ export interface Schedule {
   enabled: boolean;
   created_at: string | null; // ISO 8601
   macro_name: string;
-}
-
-// ── Server Agent Types ────────────────────────────────────────────────────
-
-export interface ServerAgent {
-  id: number;
-  hostname: string;
-  ip_address: string | null;
-  cpu_usage: number | null;
-  memory_total: number | null;
-  memory_used: number | null;
-  last_seen: string | null; // ISO 8601
-  version: string | null;
-  update_requested: boolean | null;
-  restart_requested: boolean | null;
-  network_sent: number | null;
-  network_recv: number | null;
 }
 
 // ── Scraper Types ─────────────────────────────────────────────────────────

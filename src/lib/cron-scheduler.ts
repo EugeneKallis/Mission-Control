@@ -13,7 +13,7 @@ import { CronJob } from "cron";
 import { getEnabledSchedules } from "@/lib/db/queries";
 
 // Lazy import — runner is built by Part 9.
-let runMacro: ((macroId: number, triggeredBy: string, agentHostname?: string) => Promise<{ historyId: number; status: string }>) | null = null;
+let runMacro: ((macroId: number, triggeredBy: string) => Promise<{ historyId: number; status: string }>) | null = null;
 
 async function getRunMacro() {
   if (!runMacro) {

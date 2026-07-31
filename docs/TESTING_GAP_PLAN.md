@@ -20,7 +20,7 @@
 | **Components** | 24 `.tsx`/`.ts` | ⭐⭐⭐ High | Medium (needs RTL setup) |
 | **API routes** | ~50 `route.ts` | ⭐⭐⭐ High | Low (thin wrappers, mostly validation + status) |
 | **Hooks** | 1 (`use-live-stream.ts`) | ⭐⭐ Medium | Medium (needs jsdom) |
-| **Worker main loops** | 3 (`agent.ts`, `scraper-worker.ts`, `torrent-watch.ts`) | ⭐ Low (integration) | Hard |
+| **Worker main loops** | 2 (`scraper-worker.ts`, `torrent-watch.ts`) | ⭐ Low (integration) | Hard |
 | **Scripts** | 8 (media/*, util/command-runner, util/fix-141jav, util/icon-gen, arr/sync-profiles, plex/plex-token-extractor, plex/trakt-exporter) | ⭐ Low-Med | Med-Hard (I/O + OAuth) |
 | **App pages** | 15 `page.tsx` | ⭐ Low (Next.js pages) | High |
 
@@ -148,11 +148,10 @@ All subagents can run in parallel — they own disjoint files. Each creates co-l
 
 #### C-3: Feature panels (overlays + browse)
 **Agent owns:**
-- `src/components/agent-modal.tsx`
 - `src/components/macro-log-panel.tsx`
 - `src/components/browse-scripts.tsx`
 - `src/components/file-tree-viewer.tsx`
-- **Scope:** agent modal form + submit, macro-log-panel renders terminal, browse-scripts list, file-tree expands/collapses.
+- **Scope:** macro-log-panel renders terminal, browse-scripts list, file-tree expands/collapses.
 - **12–18 tests expected.**
 
 #### C-4: Schedules components
@@ -230,22 +229,6 @@ All can run in parallel with each other AND with Phase 1 (disjoint files). Each 
 - `src/app/api/scraper/refresh/route.ts`
 - **~18–24 tests expected.**
 
-#### A-4: Agent (11 routes)
-**Agent owns:**
-- `src/app/api/agent/events/route.ts`
-- `src/app/api/agent/heartbeat/route.ts`
-- `src/app/api/agent/result/route.ts`
-- `src/app/api/agent/install/route.ts`
-- `src/app/api/agent/download/route.ts`
-- `src/app/api/agent/source/route.ts`
-- `src/app/api/agent/request-restart/[id]/route.ts`
-- `src/app/api/agent/request-update/[id]/route.ts`
-- `src/app/api/agent/request-update-all/route.ts`
-- `src/app/api/agents/route.ts`
-- `src/app/api/agents/options/route.ts`
-- **~18–24 tests expected.**
-- **Note:** `agent/events` is an SSE endpoint — test the body/status without trying to stream.
-
 #### A-5: Debrid + NZB + Arr (8 routes)
 **Agent owns:**
 - `src/app/api/debrid/delete/route.ts`
@@ -293,7 +276,6 @@ Can run in parallel with Phases 1 and 2. Lower value — the already-covered que
 
 #### S-3: Worker main loops (optional)
 **Agent owns:**
-- `src/workers/agent.ts` — extract websocket message parser, test the pure parts.
 - `src/workers/scraper-worker.ts` — verify runAllSources calls each scraper.
 - `src/workers/torrent-watch.ts` — extract file walker / filter, test.
 - **Low priority.** Main loops are integration scripts. Only test the pure helpers extracted.

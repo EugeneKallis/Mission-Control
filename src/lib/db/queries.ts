@@ -28,8 +28,6 @@ export async function createMacro(data: {
   description?: string;
   groupName?: string;
   ord?: number;
-  runOnAgent?: boolean;
-  agentHostname?: string;
   commands?: string;
 }) {
   return db.macro.create({ data });
@@ -404,66 +402,6 @@ export async function cleanOldAgentTaskHistory(taskId: number, keep = 50) {
     where: { agentTaskId: taskId, id: { notIn: [...keepIds] } },
   });
   return result.count;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  SERVER AGENTS
-// ═══════════════════════════════════════════════════════════════════════════
-
-export function upsertServerAgent(data: {
-  hostname: string;
-  ipAddress?: string | null;
-  cpuUsage?: number | null;
-  memoryTotal?: number | null;
-  memoryUsed?: number | null;
-  version?: string | null;
-  networkSent?: number | null;
-  networkRecv?: number | null;
-}) {
-  const now = new Date();
-  const payload = {
-    ipAddress: data.ipAddress,
-    cpuUsage: data.cpuUsage,
-    memoryTotal: data.memoryTotal,
-    memoryUsed: data.memoryUsed,
-    lastSeen: now,
-    version: data.version,
-    networkSent: data.networkSent ?? 0,
-    networkRecv: data.networkRecv ?? 0,
-  };
-  return db.serverAgent.upsert({
-    where: { hostname: data.hostname },
-    update: payload,
-    create: { hostname: data.hostname, ...payload },
-  });
-}
-
-export async function listServerAgents() {
-  return db.serverAgent.findMany({ orderBy: { hostname: "asc" } });
-}
-
-export async function getServerAgent(id: number) {
-  return db.serverAgent.findUniqueOrThrow({ where: { id } });
-}
-
-export async function getAgentByHostname(hostname: string) {
-  return db.serverAgent.findUnique({ where: { hostname } });
-}
-
-export async function deleteServerAgent(id: number) {
-  return db.serverAgent.delete({ where: { id } });
-}
-
-export async function markAgentUpdateRequested(id: number, requested: boolean) {
-  return db.serverAgent.update({ where: { id }, data: { updateRequested: requested } });
-}
-
-export async function markAllAgentsUpdateRequested(requested: boolean) {
-  return db.serverAgent.updateMany({ data: { updateRequested: requested } });
-}
-
-export async function markAgentRestartRequested(id: number, requested: boolean) {
-  return db.serverAgent.update({ where: { id }, data: { restartRequested: requested } });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

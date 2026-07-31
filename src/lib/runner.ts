@@ -2,16 +2,14 @@
  * Macro execution engine.
  * Port of ~/ServerTool/cmd/web/handler/command.go RunMacro.
  *
- * Runs a macro's commands either locally (via child_process.spawn, so it
- * works in both Node and Bun) or remotely via the agent registry. Streams
- * all output through the shared LiveBus so connected home-page terminals
- * see live output.
+ * Runs a macro's commands locally via child_process.spawn (works in
+ * both Node and Bun). Streams all output through the shared LiveBus so
+ * connected home-page terminals see live output.
  */
 
 import { spawn } from "child_process";
 import { getMacro, createHistory, updateHistory, flushHistoryOutput } from "@/lib/db/queries";
 import { liveBus } from "@/lib/live-bus";
-import { agentRegistry } from "@/lib/agents/registry";
 import type { MacroCommand } from "@/types";
 
 /** How often the runner flushes partial output to the history row
@@ -32,7 +30,6 @@ function decodeChunk(chunk: Uint8Array): string {
 export async function runMacro(
   macroId: number,
   triggeredBy: string,
-  agentHostname?: string,
 ): Promise<{ historyId: number; status: string }> {
   // 1. Load macro
   const macro = await getMacro(macroId);
@@ -46,16 +43,7 @@ export async function runMacro(
     output: "",
   });
 
-  // 3. Resolve agent hostname. The URL `?agent=` override only applies
-  //    to macros that are actually flagged for agent execution — for
-  //    local macros we ignore it so a stale `agentHostname` on the row
-  //    can't cause the runner to print a misleading "Node:" header and
-  //    then fall through to local execution.
-  const resolvedAgent = macro.runOnAgent
-    ? (agentHostname || macro.agentHostname || "")
-    : "";
-
-  // 4. Parse commands
+  // 3. Parse commands
   let commands: MacroCommand[] = [];
   try {
     commands = JSON.parse(macro.commands || "[]");
@@ -107,127 +95,14 @@ export async function runMacro(
 
   // 6. Header
   try {
-  write(`=== Running Macro: ${macro.name} ===`);
-  if (macro.description) {
-    write(`Description: ${macro.description}`);
-  }
-  write(`Triggered By: ${triggeredBy}`);
-  if (macro.runOnAgent && resolvedAgent) {
-    write(`Node: ${resolvedAgent}`);
-  }
-  write("");
-
-  // 7. Run macro on agent
-  if (macro.runOnAgent) {
-    if (!resolvedAgent) {
-      write(
-        "ERROR: This macro is configured to run on an agent, but no agent was selected.",
-      );
-      write("=== FAILED ===");
-      const finalOutput = chunks.join("");
-      await updateHistory(history.id, {
-        endTime: new Date(),
-        status: "failed",
-        output: finalOutput,
-      });
-      return { historyId: history.id, status: "failed" };
+    write(`=== Running Macro: ${macro.name} ===`);
+    if (macro.description) {
+      write(`Description: ${macro.description}`);
     }
+    write(`Triggered By: ${triggeredBy}`);
+    write("");
 
-    if (!agentRegistry.isConnected(resolvedAgent)) {
-      write(
-        `ERROR: Agent ${resolvedAgent} is not connected. Run: curl -sL <server>/api/agent/install | sudo bash -s`,
-      );
-      write("=== FAILED ===");
-      const finalOutput = chunks.join("");
-      await updateHistory(history.id, {
-        endTime: new Date(),
-        status: "failed",
-        output: finalOutput,
-      });
-      return { historyId: history.id, status: "failed" };
-    }
-
-    // Dispatch each command to the agent and stream output through the
-    // live bus + the history buffer. The agent's SSE stream receives
-    // the command; the agent POSTs output/exit to /api/agent/result.
-    let agentFailed = false;
-    for (const mc of commands) {
-      write(`> ${mc.cmd}`);
-
-      try {
-        const final = await agentRegistry.dispatch(resolvedAgent, mc.cmd, {
-          dir: mc.working_dir,
-          timeoutMs: 5 * 60 * 1000, // 5 minutes per command, matches Go
-          onChunk: (text) => {
-            liveBus.publish({
-              type: "output",
-              text,
-              macroId,
-              timestamp: Date.now(),
-            });
-            chunks.push(text);
-            markDirty();
-          },
-          onExit: (exitCode) => {
-            if (exitCode !== 0) {
-              write(`\nCommand failed with exit code ${exitCode}`);
-            } else {
-              write("");
-            }
-          },
-        });
-
-        if (final.type === "exit" && final.exitCode !== 0) {
-          write("=== FAILED ===");
-          const finalOutput = chunks.join("");
-          await updateHistory(history.id, {
-            endTime: new Date(),
-            status: "failed",
-            output: finalOutput,
-          });
-          return { historyId: history.id, status: "failed" };
-        }
-        if (final.type === "error") {
-          write(`[agent error: ${final.payload ?? "unknown"}]`);
-          write("=== FAILED ===");
-          const finalOutput = chunks.join("");
-          await updateHistory(history.id, {
-            endTime: new Date(),
-            status: "failed",
-            output: finalOutput,
-          });
-          return { historyId: history.id, status: "failed" };
-        }
-      } catch (err) {
-        write(`[dispatch error: ${err instanceof Error ? err.message : String(err)}]`);
-        agentFailed = true;
-        break;
-      }
-    }
-
-    if (agentFailed) {
-      write("=== FAILED ===");
-      const finalOutput = chunks.join("");
-      await updateHistory(history.id, {
-        endTime: new Date(),
-        status: "failed",
-        output: finalOutput,
-      });
-      return { historyId: history.id, status: "failed" };
-    }
-
-    // All commands succeeded
-    write("=== DONE ===");
-    const finalOutput = chunks.join("");
-    await updateHistory(history.id, {
-      endTime: new Date(),
-      status: "success",
-      output: finalOutput,
-    });
-    return { historyId: history.id, status: "success" };
-  }
-
-  // 8. Execute commands locally. Uses child_process.spawn (available in
+  // 7. Execute commands locally. Uses child_process.spawn (available in
   //    both Node and Bun) so the runner doesn't blow up if the dev server
   //    is started under Node, or if the Next.js bundler strips the
   //    `Bun` global from the runtime context.
@@ -294,7 +169,7 @@ export async function runMacro(
       write("");
     }
 
-    // 9. All commands succeeded
+    // 8. All commands succeeded
     write("=== DONE ===");
     const finalOutput = chunks.join("");
     await updateHistory(history.id, {

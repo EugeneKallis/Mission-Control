@@ -60,7 +60,7 @@ const TABLE_LABELS: Record<TableKey, { label: string; description: string }> = {
   },
   macros: {
     label: "Macros",
-    description: "Saved shell-command bundles (incl. run-on-agent settings).",
+    description: "Saved shell-command bundles that run locally.",
   },
   scrapeResults: {
     label: "Scrape results (current)",

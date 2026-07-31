@@ -7,8 +7,6 @@ const updateMacroSchema = z.object({
   description: z.string().optional(),
   groupName: z.string().optional(),
   ord: z.number().int().optional(),
-  runOnAgent: z.boolean().optional(),
-  agentHostname: z.string().optional(),
   commands: z.string().optional(),
 });
 

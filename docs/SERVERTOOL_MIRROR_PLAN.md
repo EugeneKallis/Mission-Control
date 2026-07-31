@@ -32,12 +32,12 @@ When a Part is finished, mark it ✅ here so any agent can see progress at a gla
 | Part 8 — Scraper | Scraper management UI | ✅ Done |
 | Part 9 — Real-time Engine | WebSocket/SSE live terminal stream + macro runner | ✅ Done |
 | Part 10 — Cron Scheduler | In-process cron scheduler service | ✅ Done |
-| Part 11 — Agent System | Remote agent execution (Phase 2) | ✅ Done |
+| Part 11 — Agent System | Remote agent execution (Phase 2) | 🗑️ Retired — removed; Proxmox + Pi agent replace it |
 | Part 12 — File Scanner Worker | File-tree scanner worker (systemd timer) | ✅ Done |
 | Part 13 — Scraper Workers | Webscraper workers (141jav, ProjectJAV, PornRips) | ✅ Done |
 | Part 14 — Database Viewer | Table browser with column filters | ✅ Done |
 | Part 15 — Config | Global config page (Real-Debrid key) | ✅ Done |
-| Part 16 — Server Status | Agent metrics table with live refresh | ✅ Done |
+| Part 16 — Server Status | Agent metrics table with live refresh | 🗑️ Retired — removed; Proxmox dashboard (`/pve`) replaces it |
 | Part 17 — Log Viewer | Systemd journal log viewer | ✅ Done |
 | Part 18 — Scripts Migration | Rewrite cmd/* and scripts/* one-offs as TypeScript | ✅ Done |
 | Part 19 — ServerTool Migration | /migrate page: import macros/groups + scraped items from existing ServerTool DB | ✅ Done |
@@ -57,7 +57,7 @@ When a Part is finished, mark it ✅ here so any agent can see progress at a gla
 | `robfig/cron` in-process scheduler     | In-process scheduler started in a server module / instrumentation |
 | Background scraper goroutine (3h loop) | `src/workers/*-scraper.ts` run-once tasks via systemd timer     |
 | `fsnotify` file-tree scanner goroutine | `src/workers/file-scanner.ts` run-once task via systemd timer   |
-| Agent binary connects back over WS     | (Phase 2) Agent system — see Part 11                             |
+| Agent binary connects back over WS     | 🗑️ Retired — remote agent system removed (Parts 11/16)        |
 | Tabulator / Sortable / Material Web    | Native React + Tailwind (shadcn/ui where applicable)            |
 
 ### 0.2 Stack rules (must follow)
@@ -105,17 +105,16 @@ Every page shares a **left sidebar** + main content area (see
 - Brand "ServerTool" (rename to "Mission Control") + version + uptime.
 - A collapsible **Macros** section listing every macro grouped by `macro_group`,
   each clickable to run that macro (see Part 3 home + Part 4 admin for macro data).
-- Nav items: History, Schedules, NZB Viewer, Debrid Viewer, Server Status, Log Viewer,
-  Database, Admin, Config, Scraper.
+- Nav items: History, Schedules, NZB Viewer, Debrid Viewer, Log Viewer,
+  Database, Admin, Config, Scraper. (Server Status was retired with the
+  remote-agent system; Proxmox (`/pve`) replaces it.)
 - A Real-Debrid status badge at the bottom (fetches `/api/real-debrid/status`).
 - Mobile: collapsible drawer + top header with hamburger.
 
 There is also a right "Macros" rail on the **home** page only (`MacroSidebarRight`).
-An **agent selection modal** is global (for "Run on Agent" macros with no fixed agent).
 
 > **Agent task (Part 1):** build the shared layout shell + design system + global UI
-> primitives + sidebar nav + toast + agent modal. This is a hard dependency for every
-> page.
+> primitives + sidebar nav + toast. This is a hard dependency for every page.
 
 ---
 
@@ -133,11 +132,11 @@ Part 7  (NZB + Debrid viewers)       depends on 1,2 + Part 12 (file scanner)
 Part 8  (Scraper page)               depends on 1,2 + Part 13 (scraper workers)
 Part 14 (Database viewer)            depends on 1,2
 Part 15 (Config)                     depends on 1,2
-Part 16 (Server Status)              depends on 1,2 + Part 11 (agent system)
+Part 16 (Server Status)              🗑️ retired — removed (see Part 11)
 Part 17 (Log Viewer)                 depends on 1
 Part 9  (Real-time WS/SSE + macro run engine)  depends on 2
 Part 10 (Cron scheduler service)     depends on 2,9
-Part 11 (Agent remote-exec system)   depends on 2,9  (Phase 2 — can stub status page first)
+Part 11 (Agent remote-exec system)   🗑️ retired — removed; Proxmox + Pi agent replace it
 Part 12 (File-tree scanner worker)   depends on 2
 Part 13 (Scraper workers)            depends on 2 + lib clients (Part 2.5)
 Part 18 (One-off TS scripts)         depends on 2 + lib clients
@@ -164,16 +163,20 @@ Parts 0–2 are done. Parts 9–13 are **engine/worker parts** that some pages d
 Mirror the SQLite schema from `~/ServerTool/cmd/web/main.go` (the `initDB` schema block)
 and `~/ServerTool/schema.sql`. Tables:
 
-- `macros`: `id`, `name`, `description`, `group_name`, `ord`, `run_on_agent` (bool),
-  `agent_hostname`, `commands` (JSON string of `[{ord,cmd,working_dir}]`).
+- `macros`: `id`, `name`, `description`, `group_name`, `ord`, `commands`
+  (JSON string of `[{ord,cmd,working_dir}]`). (Legacy `run_on_agent` /
+  `agent_hostname` columns were dropped in
+  `20260731120000_remove_server_agents`.)
 - `macro_groups`: `id`, `name` (unique), `ord`.
 - `history`: `id`, `macro_id` (FK), `start_time`, `end_time?`, `status`
   (`running`|`success`|`failed`), `output?`, `triggered_by` (default `user`).
 - `schedules`: `id`, `macro_id` (FK), `cron_expression`, `enabled` (default true),
   `created_at`.
-- `server_agents`: `id`, `hostname` (unique), `ip_address?`, `cpu_usage?`,
-  `memory_total?`, `memory_used?`, `last_seen?`, `version?`, `update_requested`,
-  `restart_requested`, `network_sent`, `network_recv`.
+- `server_agents`: 🗑️ retired — table dropped in
+  `20260731120000_remove_server_agents`. (Was: `id`, `hostname` (unique),
+  `ip_address?`, `cpu_usage?`, `memory_total?`, `memory_used?`, `last_seen?`,
+  `version?`, `update_requested`, `restart_requested`, `network_sent`,
+  `network_recv`.)
 - `scrape_results`: `id`, `source`, `title`, `image_url?`, `magnet_link?`,
   `torrent_link?`, `unique_key` (unique), `info_hash?`, `file_size?`, `tags?`,
   `is_hidden`, `is_downloaded`, `hidden_at?`, `created_at`.
@@ -193,7 +196,7 @@ Enable SQLite WAL. Generate the first migration.
 Create `src/types/*.ts` mirroring the clean JSON shapes from
 `~/ServerTool/cmd/web/handler/response_types.go`:
 `Macro`, `MacroGroup`, `MacroCommand` (`{ord,cmd,working_dir}`), `History`,
-`Schedule`, `ServerAgent`, `ScrapeResult`, `NzbFile`/`DebridFile` (`{id,path,name,
+`Schedule`, `ScrapeResult`, `NzbFile`/`DebridFile` (`{id,path,name,
 is_dir,parent_path,link_target?,file_count?,updated_at?}`), `Config`.
 Use nullable fields (`string | null`) for the `*`-pointer fields.
 
@@ -224,18 +227,16 @@ Build `src/app/layout.tsx` (root) and a `AppShell` server/client component:
   Real-Debrid badge at bottom (loads from `/api/real-debrid/status`).
 - `NavItem` component (icon + label, active bg).
 - Macro list: groups as sub-headers, each macro a clickable row that triggers a run
-  (calls `/api/run/{id}` or, for "Run on Agent" macros, opens the agent modal / uses the
-  macro's fixed `agent_hostname`). See Part 3 for the run mechanics.
+  (calls `/api/run/{id}` — macros always run locally; the legacy remote-agent
+  "Run on Agent" path was removed). See Part 3 for the run mechanics.
 - Global **Toast** utility (imperative `showToast(msg, type)`).
-- Global **Agent selection modal**: fetches `/api/agents/options` (list of hostnames),
-  lets user pick, then runs macro on that agent.
 - Reusable UI primitives in `src/components/ui/`: `Button` (primary/ghost), `StatusPill`,
   `Modal` (glassmorphism), `Terminal` (scanline+glow), `IconButton`, `TextInput`,
   `Select`, `ToggleSwitch`, `EmptyState`, `DataTable` (generic, since many pages use
   tables), `ConfirmDialog`.
 
 **Acceptance:** visiting `/` shows the shell with sidebar, nav, mobile drawer works,
-toasts fire, agent modal opens.
+toasts fire.
 
 ---
 
@@ -248,7 +249,7 @@ toasts fire, agent modal opens.
 Create `src/lib/db/*.ts` with typed functions wrapping Prisma for every operation the
 pages/engines need: grouped macros (groups + macros ordered, auto-create "Ungrouped"),
 macro CRUD, command reorder, group CRUD/reorder/move, history list/detail/create/update/
-clear, schedule list/create/update/toggle/delete, agent list/get-by-hostname/upsert,
+clear, schedule list/create/update/toggle/delete,
 scrape results list/create/hide/undo/download/cleanup, nzb/debrid file tree
 list/search/delete, settings get/set, config get/upsert, database table introspection
 (list tables, list columns, select first 100 rows with per-column filters).
@@ -294,10 +295,9 @@ Clicking a macro in the sidebar runs it and its stdout/stderr streams here.
   incoming bytes/text to the terminal. Support a `"reload"` control message.
 - Reconnect with 3s backoff on close.
 - Track scroll: only auto-scroll if user is at bottom.
-- Running a macro: sidebar click → `POST /api/run/{id}` (optionally `?agent=...`).
-  Server runs the macro and streams output to all connected clients.
-- If a macro is "Run on Agent" with no fixed agent → open the global Agent modal first.
-- Deep link: `/?run_macro={id}&agent={host}` auto-runs on load (then cleans URL).
+- Running a macro: sidebar click → `POST /api/run/{id}`. The macro always runs
+  locally; the server runs it and streams output to all connected clients.
+- Deep link: `/?run_macro={id}` auto-runs on load (then cleans URL).
 
 ### Data/API needed
 - `GET /api/macros` (grouped) for the rails.
@@ -308,7 +308,7 @@ Clicking a macro in the sidebar runs it and its stdout/stderr streams here.
 1. Build the terminal UI + right rail using Part 1 primitives.
 2. Implement the WS/SSE client hook (`useLiveTerminal`) against Part 9's endpoint.
 3. Wire sidebar macro clicks → run + stream.
-4. Implement `?run_macro=` deep-link handling + agent-modal flow.
+4. Implement `?run_macro=` deep-link handling.
 
 **Acceptance:** clicking a macro streams its live output; reconnects on disconnect;
 deep-link auto-runs; export/clear work.
@@ -329,12 +329,11 @@ reordering and inline editing.
   Macro** (opens modal).
 - List of **groups**, each a card with: group name, move up/down, edit, delete; a table
   of its macros.
-- Each **macro row**: drag handle, expand arrow, name, "Agent" badge + hostname chip if
-  `run_on_agent`, description, edit/delete actions. Clicking the row toggles its commands.
+- Each **macro row**: drag handle, expand arrow, name, description, edit/delete actions.
+  Clicking the row toggles its commands.
 - Expanded commands panel (lazy-loaded): list of `MacroCommand` cards (`cmd`, working
   dir, drag handle, edit/delete) + "Add" button. Empty state when none.
-- **New Macro modal**: name, group select, description, initial command, "Run on Agent"
-  checkbox + agent hostname select.
+- **New Macro modal**: name, group select, description, initial command.
 - **Edit Macro form** (inline, replaces row): same fields.
 - **Edit Command form**: order, command (with a `<datalist>` of shortcut suggestions),
   working directory.
@@ -353,7 +352,6 @@ reordering and inline editing.
 - `GET /api/macros/{id}/commands`,
 - `POST /api/macros/groups`, `PUT/DELETE /api/macros/groups/{id}`,
 - reorder endpoints (add to the API surface even if not in the original JSON API).
-- `GET /api/agents/options` for the agent selects.
 - Command "shortcuts" suggestion list — expose via a settings/constants endpoint or
   hardcode a known list (consult `admin.go` for the shortcut source).
 
@@ -365,8 +363,8 @@ reordering and inline editing.
 4. Wire all mutations through Server Actions / API routes with Zod validation + toast
    feedback.
 
-**Acceptance:** full CRUD works, drag reorder persists, agent assignment works,
-expanding a macro loads its commands.
+**Acceptance:** full CRUD works, drag reorder persists, expanding a macro loads its
+commands.
 
 ---
 
@@ -557,11 +555,11 @@ scrape polling reflects worker status, keyboard nav works.
 ### Macro execution engine (`src/lib/runner.ts`)
 Port `RunMacro` + `runMacroOnAgent`:
 - Create a `history` row (status `running`, `triggered_by`).
-- Print header (macro name, description, triggered-by, node).
-- If `run_on_agent` + hostname → execute each command on the agent over WS (Part 11);
-  stream `output`/`exit`/`error` messages back; 5-min per-command timeout.
-- Else → run each command locally via `Bun.spawn` (`bash -c cmd`, cwd = working_dir),
-  streaming stdout/stderr chunks.
+- Print header (macro name, description, triggered-by).
+- Run each command locally via `Bun.spawn`/`child_process.spawn`
+  (`bash -c cmd`, cwd = working_dir), streaming stdout/stderr chunks.
+  (The legacy remote-agent path — `run_on_agent`/`agent_hostname` — was
+  removed; macros always run locally now.)
 - On failure → status `failed`; on completion → `success`; update history end_time +
   output.
 - Broadcast every output chunk to all connected terminal clients (the home page).
@@ -576,18 +574,17 @@ Because Next.js route handlers are request-scoped, implement a **persistent** st
 - `POST /api/run/{id}` kicks the runner in the background (don't await in the request).
 
 ### Run API
-- `POST /api/run/{id}` (optional `?agent=`): triggers `RunMacro(id, "user", agent)` and
-  returns 200 immediately.
+- `POST /api/run/{id}`: triggers `runMacro(id, "user")` and returns 200 immediately.
 
 ### Agent tasks
 1. Implement an in-process event bus (`src/lib/live-bus.ts`) for terminal output fan-out.
 2. Implement the WS/SSE route subscribing to the bus.
-3. Implement `runner.ts` (local + agent paths) writing to the bus + history.
+3. Implement `runner.ts` (local-only — the legacy remote-agent path was removed)
+   writing to the bus + history.
 4. Implement `POST /api/run/{id}`.
 
 **Acceptance:** running a macro streams output to all open home pages; history is
-recorded with correct status; agent path works once Part 11 is done (stub gracefully
-until then).
+recorded with correct status.
 
 ---
 
@@ -611,34 +608,19 @@ toggling/enabling/disabling updates the live scheduler.
 
 ## Part 11 — Agent remote-execution system (Phase 2)
 
-**Source:** `cmd/agent/main.go`, `agent.go`, `agents.md → Agent System`.
-
-> This is the largest subsystem and can be deferred. The Server Status page (Part 16)
-> can be built first against the `server_agents` table; the agent binary itself is a Go
-> program that connects back — decide whether to re-implement the agent in TS/Bun or keep
-> the Go agent and just rebuild the server side.
-
-### Server side (web)
-- `GET /api/agent/ws?hostname=` — upgrade to WS; register the agent connection by
-  hostname.
-- Receive `AgentMessage {type:"output"|"exit", payload, commandID, exitCode}` and route
-  to the active command channel (Part 9 agent path).
-- `POST /api/status` — agent heartbeat: upsert `server_agents` with cpu/mem/net/ip/
-  version/last_seen.
-- `POST /api/agent/request-update/{id}` + `/request-update-all` + `/request-restart/{id}`
-  — set flags returned in the next heartbeat response (`{command:"update"|"restart"}`).
-- `GET /api/agent/install` — serve an install shell script (detect arch, download binary,
-  install systemd service).
-- `GET /api/agent/download?arch=` — serve the agent binary for amd64/arm64/arm.
-- `GET /api/agents/options` — list hostnames (for the global agent modal).
-
-### Agent binary (optional reimplementation)
-Connects to server, opens WS, heartbeats every 5s, executes `exec` commands, streams
-output, handles `update`/`restart`. If re-implementing in TS, build a standalone Bun
-script + systemd unit.
-
-**Acceptance (server side):** agents register, heartbeats update the table, run-on-agent
-macros stream output, update/restart requests are honored.
+> 🗑️ **Retired.** The remote agent system (agent binary, `server_agents`
+> table, `/api/agent/*` + `/api/agents/*` routes, `src/lib/agents` registry,
+> `runOnAgent`/`agentHostname` macro fields, `/status` page) has been
+> **removed** from Mission Control. Server monitoring is covered by the
+> Proxmox dashboard (`/pve`, Part 15 of the Proxmox phase), and remote
+> execution by the Pi agent system (chat + scheduled agent tasks).
+>
+> The migration `20260731120000_remove_server_agents` drops the
+> `server_agents` table and the two Macro columns. Macros always run
+> locally. For operators: stop/uninstall any `mission-control-agent`
+> systemd units installed on external hosts manually; `just
+> remove-legacy-agents` clears residual `server_agents` rows from an
+> un-migrated database.
 
 ---
 
@@ -809,32 +791,12 @@ all Arr scripts and instance-map use DB-backed resolution.
 
 ## Part 16 — Server Status page
 
-**Route:** `/status` · **Source:** `server_status.templ`, `server_status.go`.
-**Depends on:** Part 11 (agent system) — can stub with empty state first.
-
-### UI
-- Header "Server Status" + version + actions: **Update All** (requests all agents
-  update), **Add Server** (opens modal with a `curl -sL <origin>/api/agent/install |
-  bash` one-liner, click-to-copy).
-- **Auto-refresh** the table every 5s (`GET /api/status` or `/status/table`).
-- Desktop: full table — Hostname, IP, CPU (bar + %), Memory (bar + used/total GB), Net
-  Up, Net Down, Version (with per-agent Update button if version ≠ server version), Last
-  Seen (EST), Actions (Restart).
-- Mobile: card layout per agent with the same metrics.
-- Agents unseen > 1 min are dimmed (opacity 50%).
-- Color thresholds: >80% → error red, >50% → amber, else green.
-- Empty state "No agents connected."
-
-### Data/API
-- `GET /api/agents` (list), `POST /api/agent/request-update-all`,
-  `POST /api/agent/request-update/{id}`, `POST /api/agent/request-restart/{id}`.
-
-### Agent tasks
-Build the table + mobile cards + refresh polling + update/restart actions + Add Server
-modal. Human-readable size + EST time format helpers (`src/lib/format.ts`).
-
-**Acceptance:** agents render with live metrics; update/restart requests send; Add
-Server modal copies install command.
+> 🗑️ **Retired.** The `/status` Server Status page and its API
+> (`/api/agents`, `/api/agent/*` routes) have been **removed**. The
+> Proxmox dashboard at `/pve` (with multi-endpoint cluster monitoring,
+> node→VM/LXC/storage drill-down) replaces it. See Part 11 for the
+> full retirement note and the operator steps for decommissioning
+> remote agents.
 
 ---
 
@@ -974,8 +936,8 @@ original behavior (dry-run output identical where feasible).
 3. **Parts 3, 4, 5, 6, 14, 15, 17** (pages with no heavy worker deps) — parallel.
 4. **Parts 7, 8** (depend on workers 12, 13) — parallel after workers start.
 5. **Parts 12, 13** (workers) — parallel with the page work.
-6. **Part 16 + Part 11** (agent system) — last.
-7. **Part 18** (scripts) — any time after Part 2; chunk by category.
+6. **Part 18** (scripts) — any time after Part 2; chunk by category.
+7. **Part 19** (ServerTool migration) — after the data layer lands.
 
 Each part ends with: working route(s), passing `just typecheck`, updated `AGENTS.md` if
 new dirs/commands/patterns were introduced.

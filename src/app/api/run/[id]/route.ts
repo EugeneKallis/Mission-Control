@@ -9,9 +9,6 @@ const paramsSchema = z.object({
 /**
  * POST /api/run/[id]
  * Triggers a macro and returns immediately. Output streams over SSE (/api/ws).
- *
- * Query params:
- *   ?agent=hostname   — override agent hostname for "Run on Agent" macros
  */
 export async function POST(
   request: NextRequest,
@@ -27,10 +24,8 @@ export async function POST(
     );
   }
 
-  const agent = request.nextUrl.searchParams.get("agent") || undefined;
-
   // Fire-and-forget: don't await — runMacro streams via the bus
-  runMacro(parsed.data.id, "user", agent).catch((err) => {
+  runMacro(parsed.data.id, "user").catch((err) => {
     console.error(`[runMacro] Unhandled runner error for macro ${parsed.data.id}:`, err);
   });
 

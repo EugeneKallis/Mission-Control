@@ -32,7 +32,6 @@ beforeEach(async () => {
   await testDB.db.macroGroup.deleteMany();
   await testDB.db.setting.deleteMany();
   await testDB.db.config.deleteMany();
-  await testDB.db.serverAgent.deleteMany();
   await testDB.db.nzbFile.deleteMany();
   await testDB.db.debridFile.deleteMany();
 });

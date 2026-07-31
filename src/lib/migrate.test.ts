@@ -48,8 +48,6 @@ function fakeSnapshot(): SourceSnapshot {
         description: "Daily pg_dump",
         groupName: "Backups",
         ord: 0,
-        runOnAgent: false,
-        agentHostname: "",
         commands: JSON.stringify([{ ord: 0, cmd: "scripts/backup.sh" }]),
       },
       {
@@ -58,8 +56,6 @@ function fakeSnapshot(): SourceSnapshot {
         description: "",
         groupName: "Monitoring",
         ord: 0,
-        runOnAgent: true,
-        agentHostname: "media-pc",
         commands: "[]",
       },
     ],
@@ -130,8 +126,6 @@ async function seedSource(
         description: m.description,
         groupName: m.groupName,
         ord: m.ord,
-        runOnAgent: m.runOnAgent,
-        agentHostname: m.agentHostname,
         commands: m.commands,
       },
     });
@@ -306,12 +300,7 @@ describe("previewSource + readSourceSnapshot", () => {
     const runBackup = snap.macros.find((m) => m.name === "Run Backup");
     expect(runBackup).toBeDefined();
     expect(runBackup?.groupName).toBe("Backups");
-    expect(runBackup?.runOnAgent).toBe(false);
     expect(runBackup?.commands).toContain("backup.sh");
-
-    const restartPlex = snap.macros.find((m) => m.name === "Restart Plex");
-    expect(restartPlex?.runOnAgent).toBe(true);
-    expect(restartPlex?.agentHostname).toBe("media-pc");
 
     expect(snap.scrapeResults).toHaveLength(2);
     expect(snap.scrapeResults[0]?.uniqueKey).toBe("141jav:FAKE-001");

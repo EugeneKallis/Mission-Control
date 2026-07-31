@@ -10,24 +10,13 @@ import type { GroupWithMacros, Macro } from "@/types";
 
 function MacroRightRail({ macros }: { macros: GroupWithMacros[] }) {
   const handleClick = useCallback((macro: Macro) => {
-    if (macro.runOnAgent && !macro.agentHostname) {
-      window.dispatchEvent(
-        new CustomEvent("macro:run-agent", {
-          detail: { macroId: macro.id, macroName: macro.name },
-        }),
-      );
-    } else {
-      // Home page is already mounted, so dispatch the in-app event
-      // rather than the deep-link URL. runMacro on Home will pick it up.
-      window.dispatchEvent(
-        new CustomEvent("macro:run", {
-          detail: {
-            macroId: macro.id,
-            agent: macro.agentHostname || undefined,
-          },
-        }),
-      );
-    }
+    // Home page is already mounted, so dispatch the in-app event
+    // rather than the deep-link URL. runMacro on Home will pick it up.
+    window.dispatchEvent(
+      new CustomEvent("macro:run", {
+        detail: { macroId: macro.id },
+      }),
+    );
   }, []);
 
   if (macros.length === 0) {
@@ -53,14 +42,9 @@ function MacroRightRail({ macros }: { macros: GroupWithMacros[] }) {
               title={macro.description || macro.name}
             >
               <span className="material-symbols-outlined text-sm text-primary/60">
-                {macro.runOnAgent ? "dns" : "terminal"}
+                terminal
               </span>
               <span className="truncate">{macro.name}</span>
-              {macro.runOnAgent && (
-                <span className="text-[9px] text-primary/40 font-mono ml-auto shrink-0">
-                  AGENT
-                </span>
-              )}
             </button>
           ))}
         </div>
@@ -90,21 +74,18 @@ export default function Home() {
   // ── Run macro ──────────────────────────────────────────────────────
 
   const runMacro = useCallback(
-    (macroId: number, agent?: string) => {
-      const url = agent
-        ? `/api/run/${macroId}?agent=${encodeURIComponent(agent)}`
-        : `/api/run/${macroId}`;
-      fetch(url, { method: "POST" }).catch(() => {});
+    (macroId: number) => {
+      fetch(`/api/run/${macroId}`, { method: "POST" }).catch(() => {});
       toast?.showToast("Running macro\u2026", "info");
     },
     [toast],
   );
 
-  // ── In-app macro trigger (sidebar, agent modal, right rail) ────────
+  // ── In-app macro trigger (sidebar, right rail) ────────────────────
   useEffect(() => {
     const handler = (e: Event) => {
-      const detail = (e as CustomEvent<{ macroId: number; agent?: string }>).detail;
-      runMacro(detail.macroId, detail.agent);
+      const detail = (e as CustomEvent<{ macroId: number }>).detail;
+      runMacro(detail.macroId);
     };
     window.addEventListener("macro:run", handler);
     return () => window.removeEventListener("macro:run", handler);
@@ -117,13 +98,11 @@ export default function Home() {
     if (deepLinkRan.current) return;
     const params = new URLSearchParams(window.location.search);
     const id = params.get("run_macro");
-    const agent = params.get("agent");
     if (id) {
       deepLinkRan.current = true;
-      runMacro(Number(id), agent || undefined);
+      runMacro(Number(id));
       const url = new URL(window.location.href);
       url.searchParams.delete("run_macro");
-      url.searchParams.delete("agent");
       window.history.replaceState({}, "", url.toString());
     }
   }, [runMacro]);

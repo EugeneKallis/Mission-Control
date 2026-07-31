@@ -50,7 +50,6 @@ beforeEach(async () => {
   await testDB.db.macroGroup.deleteMany();
   await testDB.db.setting.deleteMany();
   await testDB.db.config.deleteMany();
-  await testDB.db.serverAgent.deleteMany();
   await testDB.db.nzbFile.deleteMany();
   await testDB.db.debridFile.deleteMany();
 });
@@ -276,25 +275,6 @@ describe("toggleSchedule", () => {
     expect(flipped1.enabled).toBe(false);
     const flipped2 = await q.toggleSchedule(s.id);
     expect(flipped2.enabled).toBe(true);
-  });
-});
-
-// ── server agents ──────────────────────────────────────────────────────
-
-describe("upsertServerAgent", () => {
-  test("creates on first call, updates on second", async () => {
-    const q = await loadQueries("agent1");
-    const a = await q.upsertServerAgent({ hostname: "h1", cpuUsage: 10 });
-    expect(a.hostname).toBe("h1");
-    expect(a.cpuUsage).toBe(10);
-    const lastSeen1 = a.lastSeen;
-
-    // Sleep 10ms so lastSeen changes
-    await new Promise((r) => setTimeout(r, 10));
-    const b = await q.upsertServerAgent({ hostname: "h1", cpuUsage: 99 });
-    expect(b.id).toBe(a.id);
-    expect(b.cpuUsage).toBe(99);
-    expect(b.lastSeen.getTime()).toBeGreaterThanOrEqual(lastSeen1.getTime());
   });
 });
 

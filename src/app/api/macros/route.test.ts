@@ -35,7 +35,6 @@ beforeEach(async () => {
   await testDB.db.macroGroup.deleteMany();
   await testDB.db.setting.deleteMany();
   await testDB.db.config.deleteMany();
-  await testDB.db.serverAgent.deleteMany();
   await testDB.db.nzbFile.deleteMany();
   await testDB.db.debridFile.deleteMany();
 });
@@ -110,21 +109,17 @@ describe("POST /api/macros", () => {
         description: "deploys the app",
         groupName: "Ops",
         ord: 5,
-        runOnAgent: true,
-        agentHostname: "box1",
         commands: '[{"ord":0,"cmd":"echo hi"}]',
       }),
     );
     expect(res.status).toBe(201);
     const body = (await res.json()) as {
       description: string; groupName: string; ord: number;
-      runOnAgent: boolean; agentHostname: string; commands: string;
+      commands: string;
     };
     expect(body.description).toBe("deploys the app");
     expect(body.groupName).toBe("Ops");
     expect(body.ord).toBe(5);
-    expect(body.runOnAgent).toBe(true);
-    expect(body.agentHostname).toBe("box1");
     expect(JSON.parse(body.commands)).toEqual([{ ord: 0, cmd: "echo hi" }]);
   });
 

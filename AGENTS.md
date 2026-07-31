@@ -53,6 +53,7 @@ Run via `just <command>`:
 | `just energy-prices-restart` | Restart the energy-price scraper service |
 | `just energy-prices-stop` | Stop the energy-price scraper service |
 | `just run-worker path` | Run a worker task once (default: scraper)     |
+| `just remove-legacy-agents` | Drop residual legacy `server_agents` DB table (dry-run default) |
 | `just install-service` | One-time: install systemd service on server   |
 | `just deploy`          | Full deploy: pull → build → restart (N8N)     |
 | `just cleanup`         | Remove old systemd services (dry run)         |
@@ -294,12 +295,12 @@ This tells the next agent exactly where to pick up.
 | Phase | Parts | Status |
 |-------|-------|--------|
 | Phase 0 — Foundation | 0 (Design system + Prisma + Types + Config), 1 (Layout shell + Components), 2 (Data layer + Lib clients) | ✅ Done |
-| Phase 1 — Core CRUD Pages | 4 (Admin), 5 (History), 14 (Database), 15 (Config), 16 (Server Status), 17 (Log Viewer) | ✅ Done |
+| Phase 1 — Core CRUD Pages | 4 (Admin), 5 (History), 14 (Database), 15 (Config), 17 (Log Viewer) | ✅ Done |
 | Phase 2 — Home + Engines | 3 (Home/Terminal), 9 (Real-time engine), 10 (Cron scheduler) | ✅ Done |
 | Phase 3 — Media Viewers | 7 (NZB Viewer), 12 (File scanner worker) | ✅ Done |
 | Phase 4 — Scraper | 8 (Scraper page), 13 (Scraper workers) | ✅ Done |
 | Phase 5 — Scheduling | 6 (Schedules page) | ✅ Done |
-| Phase 6 — Agent System | 11 (Agent remote-exec) | ✅ Done |
+| Phase 6 — Agent System | 11 (Agent remote-exec) | 🗑️ Retired — replaced by Pi agent chat/tasks + Proxmox |
 | Phase 7 — Scripts Migration | 18 (One-off scripts → TS) | ✅ Done |
 | Phase 8 — ServerTool Migration | 19 (Import from existing ServerTool DB) | ✅ Done |
 | Phase 9 — Live history polling | 20 (Incremental output + DB-driven history pages) | ✅ Done |
@@ -390,9 +391,8 @@ test files.
   transitions, `cleanOldScrapeResults` date math,
   `deleteScrapeResultsBySource` filters, file tree + search + cleanup)
   with the same in-file DB.
-- The macro runner (`src/lib/runner.ts`) with real `Bun.spawn` for
-  local commands and a mock WebSocket on the *real* `agentRegistry`
-  singleton for the agent path.
+- The macro runner (`src/lib/runner.ts`) with real `child_process.spawn` for
+  local commands.
 - The cron scheduler lifecycle methods (`init`, `addSchedule`,
   `updateSchedule`, `removeSchedule`, `stopAll`).
 - The file scanner's pure helpers (`classifyTarget`, `toPosix`,
@@ -401,7 +401,7 @@ test files.
 - The magnet-bridge worker's pure helpers (`resolvePath`,
   `getDirSize`, `cleanupSmallSymlinks`, `moveToLibrary`).
 - **React components** in `src/components/ui/`, `src/components/layout/`,
-  `src/components/toast-provider.tsx`, `src/components/agent-modal.tsx`,
+  `src/components/toast-provider.tsx`,
   `src/components/macro-log-panel.tsx`, `src/components/browse-scripts.tsx`,
   `src/components/file-tree-viewer.tsx`, `src/components/schedules/*`,
   `src/components/scraper/*`, and `src/components/migrate/migrate-page.tsx`
@@ -455,9 +455,6 @@ mocked `@/lib/db` is used.
 - `mock.module("@/lib/db", ...)` is process-global; tests that mock
   the same module should be in their own files so the mock doesn't
   leak.
-- The `agentRegistry` singleton in `src/lib/agents/registry.ts` is
-  always the real one; the test installs a mock WebSocket on it
-  rather than replacing the module.
 - For `fetch` mocking, save the original `globalThis.fetch` in a
   module-level constant and restore it in `afterEach`.
 - For component tests, import `render` / `screen` / `userEvent` from
@@ -624,62 +621,26 @@ is in use, causing the next write to fail with `SQLITE_READONLY (1032)`
 because SQLite refuses to open a DB in read-write mode when its `-wal`
 file references pages from a previous version of the main file.
 
-## New directories added in Phase 6
+## Retired: Phase 6 remote agent system (ServerAgent / Server Status)
 
-```
-src/lib/agents/
-  registry.ts        # In-memory agent connection map (hostname → client)
-  event-stream.ts    # Per-hostname SSE bus for server→agent command push
-src/workers/agent.ts # Bun-native agent binary that runs on remote hosts
-```
+The legacy remote-agent system (a Bun agent binary on remote hosts, the
+`server_agents` table, `/status` Server Status page, `/api/agent/*` and
+`/api/agents/*` routes, `src/lib/agents/` registry, and the `runOnAgent` /
+`agentHostname` macro fields) has been **removed**. Server monitoring is
+now covered by the Proxmox dashboard (`/pve`), and remote execution is
+covered by the Pi agent system (chat + scheduled tasks).
 
-## Phase 6 agent system architecture
+All associated code, the Prisma model, and the `server_agents` table have
+been deleted. The migration `20260731120000_remove_server_agents` drops
+the table and the two Macro columns. Macros always run locally now; the
+runner no longer has a remote-execution path.
 
-The agent is a Bun process that runs on each remote host. Communication
-with the web server is split into two channels to avoid WebSocket
-(Next.js App Router doesn't natively support upgrades):
-
-- **Server → Agent (SSE):** the agent opens a long-lived `GET
-  /api/agent/events?hostname=X` connection. The server pushes commands
-  as JSON-encoded `data:` events. If the SSE stream drops, the agent
-  reconnects after 5s.
-- **Agent → Server (HTTP POST):** the agent POSTs `/api/agent/heartbeat`
-  every 5s with system stats (CPU, memory, IP, version), and POSTs
-  `/api/agent/result` for individual output chunks / exit codes so the
-  runner can stream output to the terminal in real time.
-
-This means the runner's `agentRegistry.dispatch()` blocks until the agent
-posts back an `exit` result, with an optional `onChunk` callback for
-streaming. Each command has a 5-minute timeout, matching the Go runner.
-
-The agent binary is in `src/workers/agent.ts` — Bun-native, no Go build
-step required. The install script (`/api/agent/install`) detects arch,
-pulls the source via `/api/agent/source`, and runs it under bun via a
-systemd unit. For users who ship a prebuilt Go binary, the
-`/api/agent/download?arch=amd64|arm64|arm` endpoint serves files from
-`bin/agent-linux-<arch>` if present.
-
-## Phase 6 agent API surface
-
-| Method | Path                                       | Purpose                                |
-| ------ | ------------------------------------------ | -------------------------------------- |
-| GET    | `/api/agent/events?hostname=`              | SSE — server pushes commands           |
-| POST   | `/api/agent/heartbeat`                     | Agent reports status + result delivery |
-| POST   | `/api/agent/result`                        | Agent streams output/exit              |
-| GET    | `/api/agent/install`                       | Install shell script (curl pipe)       |
-| GET    | `/api/agent/download?arch=ts\|amd64\|arm64\|arm` | Agent binary (TS wrapper or prebuilt) |
-| GET    | `/api/agent/source`                        | Bundled agent source (Bun-native)      |
-| GET    | `/api/agents`                              | List registered agents                 |
-| GET    | `/api/agents/options`                      | List hostnames for the agent modal     |
-| POST   | `/api/agent/request-update/[id]`           | Mark agent for update on next heartbeat |
-| POST   | `/api/agent/request-update-all`            | Mark every agent for update            |
-| POST   | `/api/agent/request-restart/[id]`          | Mark agent for restart on next heartbeat |
-
-## Important!
-
-This file is the living scope and convention document.  
-**When you add a new capability, update this file** — new directories, new commands, new patterns, new scripts.  
-Keeping AGENTS.md current ensures agents and collaborators stay aligned with the project shape.
+For operators: if any remote `mission-control-agent` systemd units were
+installed on external hosts before the removal, stop and uninstall them
+manually on those hosts — nothing in this repo manages them anymore. A
+`just remove-legacy-agents` command is available to clear any residual
+`server_agents` rows from an un-migrated database (dry-run by default;
+`just remove-legacy-agents -- --run` drops the table).
 
 ## Macro run funneling (home page owns the stream)
 
@@ -689,18 +650,13 @@ Every macro run has to be funneled through it so the user can watch
 the output stream live, regardless of where the run was triggered from.
 
 **Mechanism**: home page listens for a `macro:run` window event whose
-`detail` is `{ macroId: number, agent?: string }`. Triggers (sidebar,
-agent modal, right rail) check the current pathname:
+`detail` is `{ macroId: number }`. Triggers (sidebar, right rail) check
+the current pathname:
 
 - On `/` → `window.dispatchEvent(new CustomEvent("macro:run", { detail }))`
-- On any other page → `router.push("/?run_macro=<id>&agent=<agent>")`. The
+- On any other page → `router.push("/?run_macro=<id>")`. The
   home page's existing deep-link effect reads the query on mount, fires
   the run, and cleans the URL.
-
-The `macro:run-agent` event is the separate "open the agent-picker
-modal" signal (handled by `AppShell`). When the user confirms an agent
-in the modal, the modal's `onRun` callback also routes through the
-same funnel (`handleAgentRun` in `src/components/layout/app-shell.tsx`).
 
 **Why this matters**: if a user clicks a macro from `/admin` or
 `/scraper`, we cannot just `fetch("/api/run/...")` and stay on the
@@ -742,6 +698,7 @@ scripts/util/                # Utility scripts
   icon-gen.ts                # PWA/favicon generator from a source PNG (sharp)
   command-runner.ts          # SSH wrapper with fixed key/host
   github-release.ts          # Poll GitHub for latest releases of tracked repos
+  remove-legacy-agents.ts    # Drop residual legacy server_agents table (dry-run default)
 src/workers/torrent-watch.ts # Long-running watch dir → Decypharr (NEW worker)
 src/workers/magnet-bridge.ts # Long-running Decypharr poller — moves finished `special`
                             # torrents into the media library, cleans small symlinks,

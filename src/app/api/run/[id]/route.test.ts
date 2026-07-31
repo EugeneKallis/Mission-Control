@@ -61,26 +61,6 @@ describe("POST /api/run/[id]", () => {
     expect(runMacroMock.mock.calls[0][1]).toBe("user");
   });
 
-  test("passes the agent query param to runMacro", async () => {
-    const { POST } = await loadRoute();
-    await POST(
-      getRequest("/api/run/7?agent=host1.example.com"),
-      { params: Promise.resolve({ id: "7" }) },
-    );
-    await new Promise((resolve) => setTimeout(resolve, 5));
-    expect(runMacroMock).toHaveBeenCalledTimes(1);
-    expect(runMacroMock.mock.calls[0][2]).toBe("host1.example.com");
-  });
-
-  test("passes undefined as agent when query param is absent", async () => {
-    const { POST } = await loadRoute();
-    await POST(getRequest("/api/run/7"), {
-      params: Promise.resolve({ id: "7" }),
-    });
-    await new Promise((resolve) => setTimeout(resolve, 5));
-    expect(runMacroMock.mock.calls[0][2]).toBeUndefined();
-  });
-
   test("returns 400 on a non-numeric id", async () => {
     const { POST } = await loadRoute();
     const res = await POST(getRequest("/api/run/abc"), {

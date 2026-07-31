@@ -117,17 +117,6 @@ function SortableMacroRow({
           {/* Name */}
           <span className="min-w-0 flex-1 break-words text-sm font-medium text-on-surface sm:truncate" title={macro.name}>{macro.name}</span>
 
-          {/* Agent badge */}
-          {macro.runOnAgent && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-info/10 text-info border border-info/30">
-              <span className="material-symbols-outlined text-[10px]">terminal</span>
-              Agent
-            </span>
-          )}
-          {macro.runOnAgent && macro.agentHostname && (
-            <span className="hidden max-w-[120px] truncate text-[10px] text-on-surface-variant font-mono sm:block">{macro.agentHostname}</span>
-          )}
-
           {/* Description (desktop) */}
           {macro.description && (
             <span className="hidden md:block text-xs text-on-surface-variant max-w-[200px] truncate">{macro.description}</span>
@@ -733,9 +722,6 @@ export default function AdminPage() {
   const [newMacroGroup, setNewMacroGroup] = useState("");
   const [newMacroDesc, setNewMacroDesc] = useState("");
   const [newMacroCmd, setNewMacroCmd] = useState("");
-  const [newMacroRunOnAgent, setNewMacroRunOnAgent] = useState(false);
-  const [newMacroAgent, setNewMacroAgent] = useState("");
-  const [agentOptions, setAgentOptions] = useState<{ id: number; hostname: string }[]>([]);
 
   const [logPanelOpen, setLogPanelOpen] = useState(false);
   const [runningMacroId, setRunningMacroId] = useState<number | null>(null);
@@ -757,19 +743,9 @@ export default function AdminPage() {
     }
   }, []);
 
-  const fetchAgentOptions = useCallback(async () => {
-    try {
-      const res = await fetch("/api/agents/options");
-      if (res.ok) {
-        setAgentOptions(await res.json());
-      }
-    } catch {}
-  }, []);
-
   useEffect(() => {
     fetchMacros();
-    fetchAgentOptions();
-  }, [fetchMacros, fetchAgentOptions]);
+  }, [fetchMacros]);
 
   // ── Group CRUD ────────────────────────────────────────────────────────
 
@@ -823,8 +799,6 @@ export default function AdminPage() {
           description: newMacroDesc,
           groupName: newMacroGroup || "Ungrouped",
           commands: newMacroCmd ? JSON.stringify([{ ord: 0, cmd: newMacroCmd }]) : "[]",
-          runOnAgent: newMacroRunOnAgent,
-          agentHostname: newMacroAgent,
         }),
       });
       if (res.ok) {
@@ -836,15 +810,13 @@ export default function AdminPage() {
     } catch {
       showToast("Failed to create macro", "error");
     }
-  }, [newMacroName, newMacroDesc, newMacroGroup, newMacroCmd, newMacroRunOnAgent, newMacroAgent, showToast, fetchMacros]);
+  }, [newMacroName, newMacroDesc, newMacroGroup, newMacroCmd, showToast, fetchMacros]);
 
   const resetNewMacroForm = () => {
     setNewMacroName("");
     setNewMacroDesc("");
     setNewMacroGroup("");
     setNewMacroCmd("");
-    setNewMacroRunOnAgent(false);
-    setNewMacroAgent("");
   };
 
   const handleEditMacro = useCallback(async () => {
@@ -857,8 +829,6 @@ export default function AdminPage() {
           name: editMacroTarget.name,
           description: editMacroTarget.description,
           groupName: editMacroTarget.groupName,
-          runOnAgent: editMacroTarget.runOnAgent,
-          agentHostname: editMacroTarget.agentHostname,
         }),
       });
       if (res.ok) {
@@ -887,10 +857,7 @@ export default function AdminPage() {
 
   const handleRunMacro = useCallback(
     (macro: Macro) => {
-      const url = macro.runOnAgent && macro.agentHostname
-        ? `/api/run/${macro.id}?agent=${encodeURIComponent(macro.agentHostname)}`
-        : `/api/run/${macro.id}`;
-      fetch(url, { method: "POST" })
+      fetch(`/api/run/${macro.id}`, { method: "POST" })
         .then((r) => {
           if (r.ok) {
             showToast(`Running: ${macro.name}`, "info");
@@ -1094,33 +1061,6 @@ export default function AdminPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="run-on-agent"
-              checked={newMacroRunOnAgent}
-              onChange={(e) => setNewMacroRunOnAgent(e.target.checked)}
-              className="accent-primary"
-            />
-            <label htmlFor="run-on-agent" className="text-sm text-on-surface">Run on Agent</label>
-          </div>
-
-          {newMacroRunOnAgent && (
-            <div>
-              <label className="block text-xs text-on-surface-variant mb-1">Agent Hostname</label>
-              <select
-                className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-base sm:text-sm text-on-surface outline-none focus:border-primary transition-colors"
-                value={newMacroAgent}
-                onChange={(e) => setNewMacroAgent(e.target.value)}
-              >
-                <option value="">Select agent...</option>
-                {agentOptions.map((a) => (
-                  <option key={a.id} value={a.hostname}>{a.hostname}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
           <div className="flex justify-end gap-2">
             <Button onClick={() => setShowNewMacroModal(false)}>Cancel</Button>
             <Button onClick={handleCreateMacro}>Create</Button>
@@ -1161,33 +1101,6 @@ export default function AdminPage() {
               ))}
             </select>
           </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="edit-run-on-agent"
-              checked={editMacroTarget?.runOnAgent || false}
-              onChange={(e) => setEditMacroTarget((prev) => prev ? { ...prev, runOnAgent: e.target.checked } : null)}
-              className="accent-primary"
-            />
-            <label htmlFor="edit-run-on-agent" className="text-sm text-on-surface">Run on Agent</label>
-          </div>
-
-          {editMacroTarget?.runOnAgent && (
-            <div>
-              <label className="block text-xs text-on-surface-variant mb-1">Agent Hostname</label>
-              <select
-                className="w-full bg-bg border border-outline-variant/40 rounded px-3 py-2 text-base sm:text-sm text-on-surface outline-none focus:border-primary transition-colors"
-                value={editMacroTarget?.agentHostname || ""}
-                onChange={(e) => setEditMacroTarget((prev) => prev ? { ...prev, agentHostname: e.target.value } : null)}
-              >
-                <option value="">Select agent...</option>
-                {agentOptions.map((a) => (
-                  <option key={a.id} value={a.hostname}>{a.hostname}</option>
-                ))}
-              </select>
-            </div>
-          )}
 
           <div className="flex justify-end gap-2">
             <Button onClick={() => setEditMacroTarget(null)}>Cancel</Button>
