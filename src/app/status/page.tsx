@@ -175,7 +175,18 @@ export default function ServerStatusPage() {
           <div className="flex-1 min-h-0 overflow-y-auto">
             {/* Desktop table */}
             <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="min-w-[1100px] w-full table-fixed text-sm">
+                <colgroup>
+                  <col className="w-[11%]" />
+                  <col className="w-[11%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[19%]" />
+                  <col className="w-[7%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[7%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[13%]" />
+                </colgroup>
                 <thead>
                   <tr className="text-xs text-on-surface-variant uppercase tracking-wider">
                     <th className="p-3 text-left font-normal">Hostname</th>
