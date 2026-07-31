@@ -56,7 +56,8 @@ describe("GET /api/agent/download (arch=ts, default)", () => {
     const res = await GET(buildRequest("http://localhost/api/agent/download"));
     const body = await res.text();
     expect(body.startsWith("#!/bin/bash")).toBe(true);
-    expect(body).toContain("bun /opt/mission-control-agent/agent.ts");
+    expect(body).toContain('BUN_BIN="${BUN_BIN:-$(command -v bun || true)}"');
+    expect(body).toContain('exec "$BUN_BIN" /opt/mission-control-agent/agent.ts');
     expect(body).toContain("set -e");
   });
 

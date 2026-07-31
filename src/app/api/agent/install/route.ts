@@ -6,42 +6,32 @@
  *
  *   curl -sL http://server:port/api/agent/install | bash
  *
- * The server URL is inferred from the request host. The script detects
- * the architecture, downloads the binary via `/api/agent/download?arch=X`,
- * installs a systemd unit, and starts the agent pointing back at this
- * server.
+ * The server URL is inferred from the request host. The script downloads
+ * the Bun/TypeScript wrapper, installs a systemd unit, and starts the agent
+ * pointing back at this server.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
-  const scheme = request.nextUrl.protocol.replace(":", "");
   const host = request.headers.get("host") ?? request.nextUrl.host;
-  const serverURL = `${scheme}://${host}`;
+  if (!/^https?:$/.test(request.nextUrl.protocol) || !/^(?:[A-Za-z0-9.-]+|\[[0-9A-Fa-f:.]+\])(?::\d{1,5})?$/.test(host)) {
+    return NextResponse.json({ error: "Invalid request origin" }, { status: 400 });
+  }
+  // Use Host so agents behind a reverse proxy connect to the public server.
+  // The strict host allowlist makes interpolation into the generated shell safe.
+  const serverURL = `${request.nextUrl.protocol}//${host}`;
 
   const script = `#!/bin/bash
 set -e
 
-# Detect architecture
-ARCH=$(uname -m)
-case $ARCH in
-    x86_64)
-        BINARY_ARCH="amd64"
-        ;;
-    aarch64|arm64)
-        BINARY_ARCH="arm64"
-        ;;
-    armv7l)
-        BINARY_ARCH="arm"
-        ;;
-    *)
-        echo "Unsupported architecture: $ARCH"
-        exit 1
-        ;;
-esac
-
-echo "Detected architecture: $BINARY_ARCH"
 echo "Server URL: ${serverURL}"
+
+if ! command -v bun >/dev/null; then
+  echo "ERROR: Bun is required. Install it from https://bun.sh, then rerun this command."
+  exit 1
+fi
+BUN_BIN="$(command -v bun)"
 
 if [ "$EUID" -ne 0 ]; then
   SUDO="sudo"
@@ -54,7 +44,7 @@ $SUDO systemctl stop mission-control-agent 2>/dev/null || true
 $SUDO systemctl stop servertool-agent 2>/dev/null || true
 
 echo "Downloading agent..."
-$SUDO curl -L "${serverURL}/api/agent/download?arch=$BINARY_ARCH" -o /usr/local/bin/mission-control-agent
+$SUDO curl -fsSL "${serverURL}/api/agent/download?arch=ts" -o /usr/local/bin/mission-control-agent
 $SUDO chmod +x /usr/local/bin/mission-control-agent
 
 cat <<EOF | $SUDO tee /etc/systemd/system/mission-control-agent.service
@@ -63,7 +53,9 @@ Description=Mission Control Agent
 After=network.target
 
 [Service]
-ExecStart=/usr/local/bin/mission-control-agent -server ${serverURL}
+Environment="SERVER_URL=${serverURL}"
+Environment="BUN_BIN=$BUN_BIN"
+ExecStart=/usr/local/bin/mission-control-agent
 Restart=always
 User=root
 

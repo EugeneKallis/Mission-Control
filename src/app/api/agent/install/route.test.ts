@@ -42,8 +42,8 @@ describe("GET /api/agent/install", () => {
     const res = await GET(buildRequest("mission.local:9000", "http"));
     const body = await res.text();
     expect(body).toContain("Server URL: http://mission.local:9000");
-    expect(body).toContain("curl -L \"http://mission.local:9000/api/agent/download");
-    expect(body).toContain("-server http://mission.local:9000");
+    expect(body).toContain('curl -fsSL "http://mission.local:9000/api/agent/download?arch=ts"');
+    expect(body).toContain('Environment="SERVER_URL=http://mission.local:9000"');
   });
 
   test("supports https scheme", async () => {
@@ -53,15 +53,25 @@ describe("GET /api/agent/install", () => {
     expect(body).toContain("Server URL: https://mission.example.com");
   });
 
-  test("contains all three arch branches", async () => {
+  test("uses the public Host header instead of an internal request origin", async () => {
+    const { GET } = await loadRoute();
+    const res = await GET({
+      nextUrl: new URL("http://127.0.0.1:3000/api/agent/install"),
+      headers: new Headers({ host: "mission.local:9000" }),
+    } as NextRequest);
+    const body = await res.text();
+    expect(body).toContain("http://mission.local:9000");
+    expect(body).not.toContain("http://127.0.0.1:3000");
+  });
+
+  test("installs the Bun wrapper and checks that Bun is available", async () => {
     const { GET } = await loadRoute();
     const res = await GET(buildRequest("mission.local:9000", "http"));
     const body = await res.text();
-    expect(body).toContain("x86_64");
-    expect(body).toContain('BINARY_ARCH="amd64"');
-    expect(body).toContain('BINARY_ARCH="arm64"');
-    expect(body).toContain('BINARY_ARCH="arm"');
-    expect(body).toContain("Unsupported architecture");
+    expect(body).toContain("command -v bun");
+    expect(body).toContain('BUN_BIN="$(command -v bun)"');
+    expect(body).toContain("download?arch=ts");
+    expect(body).not.toContain("BINARY_ARCH");
   });
 
   test("writes a systemd unit and enables the service", async () => {
@@ -70,6 +80,14 @@ describe("GET /api/agent/install", () => {
     const body = await res.text();
     expect(body).toContain("/etc/systemd/system/mission-control-agent.service");
     expect(body).toContain("Restart=always");
+    expect(body).toContain('Environment="SERVER_URL=http://mission.local:9000"');
+    expect(body).toContain('Environment="BUN_BIN=$BUN_BIN"');
     expect(body).toContain("systemctl enable --now mission-control-agent");
+  });
+
+  test("rejects an origin with shell metacharacters", async () => {
+    const { GET } = await loadRoute();
+    const res = await GET(new NextRequest("http://foo$(id).local/api/agent/install"));
+    expect(res.status).toBe(400);
   });
 });

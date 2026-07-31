@@ -33,12 +33,17 @@ if [ -z "$SERVER_URL" ]; then
   echo "ERROR: SERVER_URL not set. Reinstall with: curl -sL <server>/api/agent/install | bash"
   exit 1
 fi
+BUN_BIN="\${BUN_BIN:-$(command -v bun || true)}"
+if [ -z "$BUN_BIN" ]; then
+  echo "ERROR: Bun is required. Reinstall after installing it from https://bun.sh"
+  exit 1
+fi
 
 # Pull the agent source once, then exec it. The agent will re-pull on
 # version mismatch if a newer version is reported in the next heartbeat.
 mkdir -p /opt/mission-control-agent
 curl -fsSL "$SERVER_URL/api/agent/source" -o /opt/mission-control-agent/agent.ts
-exec bun /opt/mission-control-agent/agent.ts -server "$SERVER_URL"
+exec "$BUN_BIN" /opt/mission-control-agent/agent.ts -server "$SERVER_URL"
 `;
     return new NextResponse(wrapper, {
       headers: {
