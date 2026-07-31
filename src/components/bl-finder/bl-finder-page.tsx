@@ -178,7 +178,11 @@ export function BlFinderPage() {
       const res = await fetch("/api/bl-finder/recheck", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(mediaDirFilter ? { mediaDir: mediaDirFilter } : {}),
+        body: JSON.stringify({
+          status: statusFilter || undefined,
+          mediaDir: mediaDirFilter || undefined,
+          search: search || undefined,
+        }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as { updated: number };
@@ -187,7 +191,7 @@ export function BlFinderPage() {
     } catch (err) {
       toast.showToast("Failed to queue recheck", "error");
     }
-  }, [mediaDirFilter, toast, fetchRows]);
+  }, [statusFilter, mediaDirFilter, search, toast, fetchRows]);
 
   const triggerScan = useCallback(async () => {
     try {

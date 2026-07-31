@@ -75,6 +75,24 @@ describe("POST /api/bl-finder/recheck (bulk)", () => {
     expect(special.status).toBe("ok");
   });
 
+  test("filters by status, mediaDir, and search when provided", async () => {
+    await seed({ filePath: "/m/movies/target.mkv", status: "broken", mediaDir: "movies" });
+    await seed({ filePath: "/m/special/target.mkv", status: "broken", mediaDir: "special" });
+    await seed({ filePath: "/m/movies/target-ok.mkv", status: "ok", mediaDir: "movies" });
+    await seed({ filePath: "/m/movies/other.mkv", status: "broken", mediaDir: "movies" });
+    const { POST } = await loadRoute();
+    const res = await POST(jsonRequest("/api/bl-finder/recheck", {
+      status: "broken",
+      mediaDir: "movies",
+      search: "target",
+    }, "POST"));
+    const body = (await jsonBody(res)) as { updated: number };
+    expect(body.updated).toBe(1);
+
+    const rows = await testDB.db.fileCheck.findMany({ orderBy: { filePath: "asc" } });
+    expect(rows.map((row) => row.status)).toEqual(["broken", "ok", "pending", "broken"]);
+  });
+
   test("ignores ignored rows", async () => {
     await seed({ filePath: "/m/a.mkv" });
     await seed({ filePath: "/m/b.mkv" });

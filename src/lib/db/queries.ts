@@ -896,11 +896,17 @@ export async function markFileRecheck(id: number) {
   });
 }
 
-export async function markAllFilesRecheck(opts: { mediaDir?: string } = {}) {
+export async function markAllFilesRecheck(opts: {
+  status?: string;
+  mediaDir?: string;
+  search?: string;
+} = {}) {
   return db.fileCheck.updateMany({
     where: {
       isIgnored: false,
+      ...(opts.status ? { status: opts.status } : {}),
       ...(opts.mediaDir ? { mediaDir: opts.mediaDir } : {}),
+      ...(opts.search ? { filePath: { contains: opts.search } } : {}),
     },
     data: { status: "pending" },
   });

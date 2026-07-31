@@ -896,7 +896,7 @@ Phase 9 makes the history tab a true database-driven view:
 | GET | `/api/bl-finder/status` | Worker status (running, lastPassAt, processed/ok/broken counts) |
 | GET | `/api/bl-finder/config` | Read checker config |
 | PUT | `/api/bl-finder/config` | Update config (batch size, interval, concurrency, timeout, recheck age, discover interval) |
-| POST | `/api/bl-finder/recheck` | Mark all (or filtered by mediaDir) rows `pending` for recheck |
+| POST | `/api/bl-finder/recheck` | Mark all (or rows filtered by status, mediaDir, and search) `pending` for recheck |
 | POST | `/api/bl-finder/recheck/[id]` | Recheck one file inline, returns result immediately |
 | POST | `/api/bl-finder/delete/[id]` | Delete broken symlink (safety-checked) + remove row |
 | POST | `/api/bl-finder/ignore/[id]` | Toggle `isIgnored` on a row |
