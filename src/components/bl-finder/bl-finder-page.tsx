@@ -35,6 +35,9 @@ export function BlFinderPage() {
 
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [mediaDirFilter, setMediaDirFilter] = useState<string>("");
+  const toggleStatusFilter = (nextStatus: string) => {
+    setStatusFilter((current) => current === nextStatus ? "" : nextStatus);
+  };
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [loading, setLoading] = useState(true);
@@ -404,22 +407,33 @@ export function BlFinderPage() {
             {/* DB totals */}
             <span className="inline-flex items-center gap-1 whitespace-nowrap">
               <span className="material-symbols-outlined text-[12px]">database</span>
-              <span>{total.toLocaleString()} total</span>
-              {counts.broken > 0 && (
-                <span style={{ color: "#FFB4AB" }}>
-                  · {counts.broken.toLocaleString()} broken
-                </span>
-              )}
-              {counts.pending > 0 && (
-                <span>
-                  · {counts.pending.toLocaleString()} pending
-                </span>
-              )}
-              {counts.ok > 0 && (
-                <span style={{ color: "rgba(86, 255, 167, 0.7)" }}>
-                  · {counts.ok.toLocaleString()} ok
-                </span>
-              )}
+              <button
+                type="button"
+                onClick={() => setStatusFilter("")}
+                className="cursor-pointer hover:underline focus-visible:outline focus-visible:outline-1"
+                aria-pressed={!statusFilter}
+                title="Show all statuses"
+              >
+                {total.toLocaleString()} total
+              </button>
+              {([
+                ["broken", "#FFB4AB"],
+                ["pending", "var(--color-on-surface-variant)"],
+                ["checking", "var(--color-primary-fixed)"],
+                ["ok", "rgba(86, 255, 167, 0.7)"],
+              ] as const).map(([value, color]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => toggleStatusFilter(value)}
+                  className="cursor-pointer hover:underline focus-visible:outline focus-visible:outline-1"
+                  style={{ color }}
+                  aria-pressed={statusFilter === value}
+                  title={`Filter by ${value}`}
+                >
+                  · {(counts[value] ?? 0).toLocaleString()} {value}
+                </button>
+              ))}
             </span>
 
             {/* Last pass */}
@@ -548,19 +562,20 @@ export function BlFinderPage() {
 
           {/* Status counts */}
           {(["pending", "checking", "ok", "broken"] as const).map((s) => (
-            <span
+            <button
               key={s}
-              className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-mono rounded-none"
+              type="button"
+              className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-mono rounded-none cursor-pointer"
               style={{
                 background: "var(--color-surface-container)",
                 color: statusFilter === s ? "var(--color-on-surface)" : "var(--color-on-surface-variant)",
                 border: "1px solid var(--color-border)",
               }}
-              onClick={() => setStatusFilter(statusFilter === s ? "" : s)}
-              role="button"
+              onClick={() => toggleStatusFilter(s)}
+              aria-pressed={statusFilter === s}
             >
               {s}: {counts[s] ?? 0}
-            </span>
+            </button>
           ))}
 
           <button
