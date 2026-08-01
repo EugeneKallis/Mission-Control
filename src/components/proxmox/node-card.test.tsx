@@ -1,5 +1,9 @@
-import { describe, expect, test } from "bun:test";
-import { render, screen, userEvent, within } from "@/test-utils/render";
+import { afterEach, describe, expect, test } from "bun:test";
+import { cleanup, render, screen, userEvent, within } from "@/test-utils/render";
+
+// Bun's test runner does not trigger React Testing Library's auto-cleanup
+// between these stateful card tests, so unmount explicitly.
+afterEach(cleanup);
 import { NodeCard, matchNodeQuery, sortGuests, sortStorage, filterGuests, filterStorage } from "./node-card";
 import type { PveGuest, PveNodeDetail, PveStoragePool } from "./proxmox-types";
 
@@ -150,9 +154,9 @@ describe("NodeCard search behavior", () => {
     expect(screen.getByRole("table", { name: "Main Cluster pve-1 VMs" })).toBeTruthy();
   });
 
-  test("empty query keeps the collapsed default", () => {
+  test("empty query keeps the expanded default", () => {
     render(<NodeCard node={node} endpointName="Main Cluster" query="" />);
-    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.getByRole("table", { name: "Main Cluster pve-1 LXC containers" })).toBeTruthy();
   });
 
   test("filters leaf rows: a query matching one guest hides its siblings", () => {
@@ -203,9 +207,12 @@ describe("NodeCard search behavior", () => {
     const user = userEvent.setup();
     render(<NodeCard node={node} endpointName="Main Cluster" />);
 
-    const disclosure = screen.getByRole("button", { name: /pve-1/i });
-    expect(disclosure).toHaveAttribute("aria-expanded", "false");
+    const disclosure = screen.getByRole("button", { name: /^pve-1 online/ });
+    expect(disclosure).toHaveAttribute("aria-expanded", "true");
     expect(disclosure).toHaveAttribute("aria-controls");
+
+    await user.click(disclosure);
+    expect(disclosure).toHaveAttribute("aria-expanded", "false");
 
     await user.click(disclosure);
     expect(disclosure).toHaveAttribute("aria-expanded", "true");
@@ -232,10 +239,8 @@ describe("NodeCard search behavior", () => {
     expect(panel).toHaveAttribute("aria-labelledby", vmsTab.id);
   });
 
-  test("mounts every tab panel and hides inactive ones while keeping aria-controls valid", async () => {
-    const user = userEvent.setup();
+  test("mounts every tab panel and hides inactive ones while keeping aria-controls valid", () => {
     render(<NodeCard node={node} endpointName="Main Cluster" />);
-    await user.click(screen.getByRole("button", { name: /^pve-1 online/ }));
 
     const lxcTab = screen.getByRole("tab", { name: /^LXC/ });
     const vmsTab = screen.getByRole("tab", { name: /^VMs/ });
@@ -259,7 +264,6 @@ describe("NodeCard search behavior", () => {
   test("supports roving tabIndex and Arrow/Home/End keyboard navigation", async () => {
     const user = userEvent.setup();
     render(<NodeCard node={node} endpointName="Main Cluster" />);
-    await user.click(screen.getByRole("button", { name: /^pve-1 online/ }));
 
     const lxcTab = screen.getByRole("tab", { name: /^LXC/ });
     const vmsTab = screen.getByRole("tab", { name: /^VMs/ });
@@ -299,11 +303,9 @@ describe("NodeCard search behavior", () => {
     expect(document.activeElement).toBe(storageTab);
   });
 
-  test("omits tabs for resource categories the node does not have", async () => {
-    const user = userEvent.setup();
+  test("omits tabs for resource categories the node does not have", () => {
     const storageOnlyNode: PveNodeDetail = { ...node, vms: [], containers: [] };
     render(<NodeCard node={storageOnlyNode} endpointName="Main Cluster" />);
-    await user.click(screen.getByRole("button", { name: /^pve-1 online/ }));
 
     expect(screen.getByRole("tab", { name: /^Storage/ })).toBeTruthy();
     expect(screen.queryByRole("tab", { name: /^LXC/ })).toBeNull();
@@ -358,7 +360,6 @@ describe("NodeCard sortable tables", () => {
     const user = userEvent.setup();
     render(<NodeCard node={node} endpointName="Main Cluster" />);
 
-    await user.click(screen.getByRole("button", { name: /pve-1/i }));
     const table = screen.getByRole("table", { name: "Main Cluster pve-1 LXC containers" });
 
     // Guest tables start in a predictable ID-ascending order.
@@ -380,7 +381,6 @@ describe("NodeCard sortable tables", () => {
     const user = userEvent.setup();
     render(<NodeCard node={node} endpointName="Main Cluster" />);
 
-    await user.click(screen.getByRole("button", { name: /pve-1/i }));
     const table = screen.getByRole("table", { name: "Main Cluster pve-1 LXC containers" });
 
     for (const label of ["ID", "Name", "Status", "CPU", "Memory", "Disk", "Uptime"]) {
@@ -397,7 +397,6 @@ describe("NodeCard sortable tables", () => {
     const user = userEvent.setup();
     render(<NodeCard node={node} endpointName="Main Cluster" />);
 
-    await user.click(screen.getByRole("button", { name: /pve-1/i }));
     const lxcTable = screen.getByRole("table", { name: "Main Cluster pve-1 LXC containers" });
     const nameSort = screen.getByRole("button", { name: /Sort by Name in Main Cluster pve-1 LXC containers/i });
     await user.click(nameSort);
@@ -414,7 +413,6 @@ describe("NodeCard sortable tables", () => {
     const user = userEvent.setup();
     render(<NodeCard node={node} endpointName="Main Cluster" />);
 
-    await user.click(screen.getByRole("button", { name: /pve-1/i }));
     await user.click(screen.getByRole("tab", { name: /^Storage/ }));
     const table = screen.getByRole("table", { name: "Main Cluster pve-1 storage" });
 
@@ -432,7 +430,6 @@ describe("NodeCard sortable tables", () => {
     const user = userEvent.setup();
     render(<NodeCard node={node} endpointName="Main Cluster" />);
 
-    await user.click(screen.getByRole("button", { name: /pve-1/i }));
     await user.click(screen.getByRole("tab", { name: /^Storage/ }));
     const table = screen.getByRole("table", { name: "Main Cluster pve-1 storage" });
 

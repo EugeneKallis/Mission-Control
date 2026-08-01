@@ -292,7 +292,8 @@ function GuestTable({
 
 export function NodeCard({ node, endpointName, query = "" }: NodeCardProps) {
   const id = useId();
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
+  const [previousQuery, setPreviousQuery] = useState(query);
   // A user's explicit disclosure choice for the current query string, so
   // auto-expansion can be overridden by a manual collapse/expand while a
   // search is active.
@@ -308,7 +309,15 @@ export function NodeCard({ node, endpointName, query = "" }: NodeCardProps) {
   // While a search query is active every rendered node is a match (the page
   // filters first), so cards auto-expand — including node-only and
   // endpoint-only matches. A manual disclosure toggle pins the choice for the
-  // current query string; clearing the query restores the local state.
+  // current query string; clearing the query restores the default expanded state.
+  // Reset to the expanded baseline whenever the query changes. Setting state
+  // during render is deliberate here: it synchronizes this local display
+  // state to the prop before children render, avoiding a collapse flicker.
+  if (previousQuery !== query) {
+    setPreviousQuery(query);
+    setExpanded(true);
+  }
+
   const effectiveExpanded = expandedOverride?.query === query
     ? expandedOverride.expanded
     : queryActive

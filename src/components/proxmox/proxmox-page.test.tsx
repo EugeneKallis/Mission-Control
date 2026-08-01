@@ -439,7 +439,7 @@ test("shows a no-results state when nothing matches", async () => {
   expect(screen.getByRole("button", { name: "Clear search" })).toBeTruthy();
 });
 
-test("clearing the search restores the full collapsed dashboard", async () => {
+test("clearing the search restores the full expanded dashboard", async () => {
   mockFetch(MOCK_SEARCH_SNAPSHOT, 200, SEARCH_ENDPOINTS);
   const { ProxmoxPage } = await import("./proxmox-page?bust=" + Math.random());
 
@@ -447,16 +447,22 @@ test("clearing the search restores the full collapsed dashboard", async () => {
   await new Promise((r) => setTimeout(r, 10));
 
   const input = screen.getByRole("searchbox", { name: "Search Proxmox" });
+  // A card collapsed before a search must return to the expanded default once
+  // the search is cleared.
+  const pve1Disclosure = screen.getByRole("button", { name: /^pve-1 online/ });
+  fireEvent.click(pve1Disclosure);
+  expect(pve1Disclosure).toHaveAttribute("aria-expanded", "false");
+
   fireEvent.change(input, { target: { value: "nginx" } });
   expect(screen.queryByText("pve-2")).toBeNull();
 
   fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
 
-  // Everything is back and cards are collapsed again.
+  // Everything is back and cards are expanded again.
   expect((input as HTMLInputElement).value).toBe("");
   expect(screen.getByText("pve-2")).toBeTruthy();
   expect(screen.getByRole("heading", { name: "Backup Cluster" })).toBeTruthy();
-  expect(screen.queryByText("nginx-ct")).toBeNull();
+  expect(screen.getByText("nginx-ct")).toBeTruthy();
 });
 
 test("filters leaf rows inside an expanded card during a query", async () => {
@@ -557,9 +563,7 @@ test("keeps NodeCard state on a later node when filtering changes its index", as
   render(<ProxmoxPage />);
   await new Promise((r) => setTimeout(r, 10));
 
-  // Expand the second node and select its Storage tab (non-default).
-  const pve2Disclosure = screen.getByRole("button", { name: /^pve-2 online/ });
-  fireEvent.click(pve2Disclosure);
+  // The second node is expanded by default; select its Storage tab (non-default).
   const pve2Tablist = screen.getAllByRole("tablist").find(
     (tl) => tl.getAttribute("aria-label") === "pve-2 resource views",
   )!;
@@ -586,8 +590,9 @@ test("keeps NodeCard state on a later node when filtering changes its index", as
   expect(within(afterFilter).queryByText("zfs-data")).toBeNull();
   expect(within(afterFilter).getByText("No storage pools match the search")).toBeTruthy();
 
-  // Clearing the search restores the default collapsed view.
+  // Clearing the search restores the default expanded view.
   fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
   await waitFor(() => expect(screen.getByText("pve-1")).toBeTruthy());
   expect(screen.getByText("pve-2")).toBeTruthy();
+  expect(screen.getByRole("table", { name: "Main Cluster pve-2 storage" })).toBeTruthy();
 });
