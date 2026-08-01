@@ -45,7 +45,7 @@ beforeEach(() => {
     execCalls.push({ cmd, args });
     // Default: pretend the service is running for ~5 minutes
     if (args.includes("show")) {
-      return "2024-01-01 12:00:00 UTC";
+      return "2024-01-01 12:00:00 UTC\n2024-01-01 12:00:00 UTC";
     }
     return "2024-01-01 12:00:00 web[123]: hello world\nweb[456]: another log\n";
   });
@@ -85,13 +85,15 @@ describe("GET /api/logs", () => {
     expect(journalCall!.args).toContain("mission-control-magnet-bridge.service");
   });
 
-  test("passes the lines count to journalctl when lines is numeric", async () => {
+  test("passes --since and the lines count to journalctl when lines is numeric", async () => {
     const { GET } = await loadRoute();
     const res = await GET(
       buildRequest("http://localhost/api/logs?lines=200"),
     );
     expect(status(res)).toBe(200);
     const journalCall = execCalls.find((c) => c.cmd === "journalctl");
+    expect(journalCall!.args).toContain("--since");
+    expect(journalCall!.args).toContain("2024-01-01 12:00:00 UTC");
     expect(journalCall!.args).toContain("-n");
     expect(journalCall!.args).toContain("200");
   });
@@ -108,40 +110,50 @@ describe("GET /api/logs", () => {
     expect(journalCall!.args).not.toContain("-n");
   });
 
-  test("omits --since when lines=all and ActiveEnterTimestamp is 'n/a' (no fallback)", async () => {
-    // The route's fallback to -n 10000 only triggers on a thrown
-    // exception, NOT on a "n/a" string return. When ActiveEnterTimestamp
-    // is "n/a", the route simply doesn't add --since — the journalctl
-    // call returns whatever the journal has for that service.
+  test("uses InactiveExitTimestamp for an inactive one-shot service when ActiveEnterTimestamp is n/a", async () => {
+    // A one-shot service that has finished is inactive, so systemd may not
+    // expose ActiveEnterTimestamp. The route should fall back to the unit's
+    // InactiveExitTimestamp, which marks when the service last left the
+    // inactive state (i.e. its most recent start).
     execFileSyncMock = mock((cmd: string, args: string[]) => {
       execCalls.push({ cmd, args });
-      if (args.includes("show")) return "n/a";
-      return "fallback logs";
+      if (args.includes("show")) {
+        return "n/a\n2024-01-02 08:30:00 UTC";
+      }
+      return "one-shot run output";
     });
     const { GET } = await loadRoute();
     const res = await GET(
-      buildRequest("http://localhost/api/logs?lines=all"),
+      buildRequest("http://localhost/api/logs?service=scraper&lines=all"),
     );
     expect(status(res)).toBe(200);
-    const journalCall = execCalls.find((c) => c.cmd === "journalctl");
-    expect(journalCall!.args).not.toContain("--since");
+    const text = await res.text();
+    expect(text).toBe("one-shot run output");
+    const journalCall = execCalls.find(
+      (c) =>
+        c.cmd === "journalctl" &&
+        c.args.includes("mission-control-scraper.service"),
+    );
+    expect(journalCall).toBeDefined();
+    expect(journalCall!.args).toContain("--since");
+    expect(journalCall!.args).toContain("2024-01-02 08:30:00 UTC");
   });
 
-  test("falls back to -n 10000 when the `show` subprocess throws", async () => {
+  test("does not return historical logs when the unit is unavailable", async () => {
     execFileSyncMock = mock((cmd: string, args: string[]) => {
       execCalls.push({ cmd, args });
       if (args.includes("show")) {
         throw new Error("service not loaded");
       }
-      return "fallback logs";
+      return "historical logs";
     });
     const { GET } = await loadRoute();
     const res = await GET(
-      buildRequest("http://localhost/api/logs?lines=all"),
+      buildRequest("http://localhost/api/logs?service=scraper&lines=all"),
     );
     expect(status(res)).toBe(200);
-    const journalCall = execCalls.find((c) => c.cmd === "journalctl");
-    expect(journalCall!.args).toContain("10000");
+    expect(await res.text()).toContain("Unable to determine the most recent start");
+    expect(execCalls.find((c) => c.cmd === "journalctl")).toBeUndefined();
   });
 
   test("returns 400 on unknown service", async () => {

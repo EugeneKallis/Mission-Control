@@ -23,11 +23,58 @@ export interface LogFetchResult {
 }
 
 /**
+ * Ask systemd for the most recent time the unit started.
+ *
+ * For running services this is `ActiveEnterTimestamp`. For an inactive
+ * one-shot service (e.g. the scraper) `ActiveEnterTimestamp` may be
+ * unavailable, so `InactiveExitTimestamp` (the last time the unit left the
+ * inactive state) is used as a fallback.
+ *
+ * Returns `null` when the unit has no recorded start. Throws when the
+ * `systemctl` subprocess itself fails (e.g. on a dev machine without systemd).
+ */
+function getLastStartTimestamp(unit: string): string | null {
+  const output = execFileSync(
+    "systemctl",
+    [
+      "show",
+      "-p",
+      "ActiveEnterTimestamp",
+      "-p",
+      "InactiveExitTimestamp",
+      "--value",
+      `${unit}.service`,
+    ],
+    { encoding: "utf-8", timeout: 5000 },
+  ).trim();
+
+  if (!output) return null;
+
+  const candidates = output
+    .split("\n")
+    .map((s) => s.trim())
+    .filter((s) => s && s !== "n/a");
+
+  if (candidates.length === 0) return null;
+
+  let latest = candidates[0];
+  let latestMs = new Date(latest).getTime();
+  for (const ts of candidates.slice(1)) {
+    const ms = new Date(ts).getTime();
+    if (ms > latestMs) {
+      latest = ts;
+      latestMs = ms;
+    }
+  }
+  return latest;
+}
+
+/**
  * Fetch journal output for a single systemd service.
  *
- * Mirrors the `/api/logs` implementation: `lines="all"` first tries
- * `--since <ActiveEnterTimestamp>`, falling back to the last 10,000 lines if
- * `systemctl show` throws; numeric `lines` uses `-n`.
+ * Returns only logs since the unit's most recent start. If the start time
+ * cannot be determined, returns no logs rather than historical output. When
+ * the unit has simply never started, an empty text response is returned.
  *
  * Returns `{ text: "", error: "..." }` on failure so callers can decide
  * whether to display the error text (route) or count zero errors (badges).
@@ -48,26 +95,28 @@ export function fetchJournalctlLogs(
 
   const serviceName = `${unit}.service`;
 
+  let since: string | null;
   try {
-    const args: string[] = ["-u", serviceName, "--no-pager", "-o", "cat"];
+    since = getLastStartTimestamp(unit);
+  } catch {
+    return {
+      text: "",
+      error: `Unable to determine the most recent start for ${serviceName}; historical logs are not shown.`,
+    };
+  }
 
-    if (lines === "all") {
-      try {
-        const startOutput = execFileSync(
-          "systemctl",
-          ["show", "-p", "ActiveEnterTimestamp", "--value", serviceName],
-          { encoding: "utf-8", timeout: 5000 },
-        ).trim();
-        if (startOutput && startOutput !== "n/a") {
-          args.push("--since", startOutput);
-        }
-      } catch {
-        args.push("-n", "10000");
-      }
-    } else {
-      args.push("-n", String(lines));
-    }
+  // No recorded start means there are no "since last start" logs to show.
+  if (!since) return { text: "", error: null };
 
+  const args: string[] = ["-u", serviceName, "--no-pager", "-o", "cat"];
+
+  if (since) {
+    args.push("--since", since);
+  }
+
+  if (lines !== "all") args.push("-n", String(lines));
+
+  try {
     const output = execFileSync("journalctl", args, {
       encoding: "utf-8",
       timeout: 10000,
