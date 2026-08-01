@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NodeCard, matchNodeQuery } from "./node-card";
 import { EndpointSettings } from "./endpoint-settings";
+import { PveThresholdsModal } from "./pve-thresholds-modal";
+import { DEFAULT_PVE_THRESHOLDS, type PveThresholds } from "@/lib/pve-alerts";
 import type { PveClusterStatus, PveNodeDetail, PveEndpointConfig, PveRawNodeSnapshot } from "./proxmox-types";
 
 /** Convert a raw API node snapshot to the UI detail shape */
@@ -48,6 +50,8 @@ export function ProxmoxPage() {
   const [error, setError] = useState<string | null>(null);
   const [endpoints, setEndpoints] = useState<PveEndpointConfig[]>([]);
   const [configOpen, setConfigOpen] = useState(false);
+  const [thresholdsOpen, setThresholdsOpen] = useState(false);
+  const [thresholds, setThresholds] = useState<PveThresholds>(DEFAULT_PVE_THRESHOLDS);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -82,11 +86,24 @@ export function ProxmoxPage() {
     }
   }, []);
 
+  const fetchThresholds = useCallback(async () => {
+    try {
+      const res = await fetch("/api/pve/thresholds");
+      if (res.ok) {
+        const data = (await res.json()) as { config: PveThresholds };
+        setThresholds(data.config);
+      }
+    } catch {
+      // non-critical
+    }
+  }, []);
+
   // Fetch on mount
   useEffect(() => {
     fetchStatus();
     fetchEndpoints();
-  }, [fetchStatus, fetchEndpoints]);
+    fetchThresholds();
+  }, [fetchStatus, fetchEndpoints, fetchThresholds]);
 
   // Poll status every 30s
   useEffect(() => {
@@ -158,7 +175,8 @@ export function ProxmoxPage() {
   const handleRefresh = useCallback(() => {
     fetchStatus();
     fetchEndpoints();
-  }, [fetchStatus, fetchEndpoints]);
+    fetchThresholds();
+  }, [fetchStatus, fetchEndpoints, fetchThresholds]);
 
   // ── Search filtering (client-side) ──────────────────────────────────────
 
@@ -210,6 +228,13 @@ export function ProxmoxPage() {
           >
             <span className="material-symbols-outlined text-sm">refresh</span>
             Refresh
+          </button>
+          <button
+            onClick={() => setThresholdsOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 bg-surface-container text-on-surface hover:bg-surface-container-high active:scale-[0.98]"
+          >
+            <span className="material-symbols-outlined text-sm">monitoring</span>
+            Thresholds
           </button>
           <button
             onClick={() => setConfigOpen(true)}
@@ -345,7 +370,7 @@ export function ProxmoxPage() {
                   </div>
                 ) : (
                   nodeDetails.map((nd) => (
-                    <NodeCard key={`node-${nd.node.node}-${ep.apiUrl}`} node={nd} endpointName={endpointName} query={query} />
+                    <NodeCard key={`node-${nd.node.node}-${ep.apiUrl}`} node={nd} endpointName={endpointName} query={query} thresholds={thresholds} />
                   ))
                 )}
               </div>
@@ -363,6 +388,14 @@ export function ProxmoxPage() {
             fetchEndpoints();
             fetchStatus();
           }}
+        />
+      )}
+
+      {thresholdsOpen && (
+        <PveThresholdsModal
+          open={thresholdsOpen}
+          onClose={() => setThresholdsOpen(false)}
+          onSaved={() => fetchThresholds()}
         />
       )}
     </div>

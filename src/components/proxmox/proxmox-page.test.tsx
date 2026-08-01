@@ -161,6 +161,8 @@ function mockFetch(data: unknown, status = 200, endpoints = DEFAULT_ENDPOINTS) {
       body = data;
     } else if (path.includes("/api/pve/endpoints")) {
       body = endpoints;
+    } else if (path.includes("/api/pve/thresholds")) {
+      body = { config: { cpu: 80, memory: 80, storage: 80 }, defaults: { cpu: 80, memory: 80, storage: 80 } };
     } else {
       body = [];
     }

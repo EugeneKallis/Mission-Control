@@ -5,6 +5,7 @@
 
 import { db } from "./index";
 import type { Prisma } from "@prisma/client";
+import { buildThresholds, DEFAULT_PVE_THRESHOLDS, type PveThresholds } from "@/lib/pve-alerts";
 
 // ── Constants ─────────────────────────────────────────────────────────────
 
@@ -918,6 +919,32 @@ export async function setBlFinderConfig(config: Partial<BlFinderConfig>): Promis
     where: { key: BLFINDER_CONFIG_KEY },
     update: { value: JSON.stringify(merged) },
     create: { key: BLFINDER_CONFIG_KEY, value: JSON.stringify(merged) },
+  });
+  return merged;
+}
+
+// ── PVE thresholds (settings table) ─────────────────────────────────
+
+export const PVE_THRESHOLDS_KEY = "pve_thresholds";
+
+export async function getPveThresholds(): Promise<PveThresholds> {
+  const row = await db.setting.findUnique({ where: { key: PVE_THRESHOLDS_KEY } });
+  if (!row?.value) return { ...DEFAULT_PVE_THRESHOLDS };
+  try {
+    const parsed = JSON.parse(row.value) as Partial<PveThresholds>;
+    return buildThresholds(parsed);
+  } catch {
+    return { ...DEFAULT_PVE_THRESHOLDS };
+  }
+}
+
+export async function setPveThresholds(thresholds: Partial<PveThresholds>): Promise<PveThresholds> {
+  const current = await getPveThresholds();
+  const merged = buildThresholds({ ...current, ...thresholds });
+  await db.setting.upsert({
+    where: { key: PVE_THRESHOLDS_KEY },
+    update: { value: JSON.stringify(merged) },
+    create: { key: PVE_THRESHOLDS_KEY, value: JSON.stringify(merged) },
   });
   return merged;
 }

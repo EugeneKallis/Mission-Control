@@ -3,11 +3,47 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { PveNodeDetail, PveGuest, PveStoragePool } from "./proxmox-types";
+import type { PveThresholds } from "@/lib/pve-alerts";
+import { guestAlerts, storageAlerts, thresholdColorFor } from "@/lib/pve-alerts";
 
 interface NodeCardProps {
   node: PveNodeDetail;
   endpointName: string;
   query?: string;
+  thresholds?: PveThresholds;
+}
+
+function alertClassForPve(
+  value: number,
+  max: number,
+  thresholds: PveThresholds,
+  metric: "cpu" | "memory" | "storage",
+): string {
+  const pct = max > 0 ? (value / max) * 100 : 0;
+  const { color } = thresholdColorFor(pct, thresholds, metric);
+  if (color === "error") return "bg-error/10 border-error/30";
+  if (color === "warning") return "bg-warning/10 border-warning/30";
+  return "";
+}
+
+function rowClassForGuest(guest: PveGuest, thresholds: PveThresholds): string {
+  if (guest.status !== "running") return "";
+  const alerts = guestAlerts(guest, thresholds);
+  if (alerts.length === 0) return "";
+  const error = alerts.some((a) => thresholdColorFor(a.pct, thresholds, a.metric).color === "error");
+  const warning = alerts.some((a) => thresholdColorFor(a.pct, thresholds, a.metric).color === "warning");
+  if (error) return "bg-error/10 border-error/30";
+  if (warning) return "bg-warning/10 border-warning/30";
+  return "";
+}
+
+function rowClassForStorage(pool: PveStoragePool, thresholds: PveThresholds): string {
+  const alerts = storageAlerts(pool, thresholds);
+  if (alerts.length === 0) return "";
+  const { color } = thresholdColorFor(alerts[0].pct, thresholds, "storage");
+  if (color === "error") return "bg-error/10 border-error/30";
+  if (color === "warning") return "bg-warning/10 border-warning/30";
+  return "";
 }
 
 /** Result of matching a search query against a node's content. */
@@ -198,9 +234,21 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
-function ProgressBar({ value, max, color = "bg-primary" }: { value: number; max: number; color?: string }) {
+function ProgressBar({
+  value,
+  max,
+  thresholds,
+  metric,
+  baseColor = "bg-primary",
+}: {
+  value: number;
+  max: number;
+  thresholds?: PveThresholds;
+  metric: "cpu" | "memory" | "storage";
+  baseColor?: string;
+}) {
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
-  const barColor = pct > 90 ? "bg-error" : pct > 75 ? "bg-warning" : color;
+  const barColor = thresholds ? thresholdColorFor(pct, thresholds, metric).className : pct > 90 ? "bg-error" : pct > 75 ? "bg-warning" : baseColor;
   return (
     <div className="w-full bg-outline-variant/30 rounded-full h-2 overflow-hidden">
       <div className={`h-full rounded-full ${barColor} transition-all duration-500`} style={{ width: `${pct}%` }} />
@@ -208,9 +256,10 @@ function ProgressBar({ value, max, color = "bg-primary" }: { value: number; max:
   );
 }
 
-function GuestRow({ guest }: { guest: PveGuest }) {
+function GuestRow({ guest, thresholds }: { guest: PveGuest; thresholds?: PveThresholds }) {
+  const alertClass = thresholds ? rowClassForGuest(guest, thresholds) : "";
   return (
-    <div role="row" className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-container/50 rounded-[var(--radius-button)] transition-colors">
+    <div role="row" className={`flex items-center gap-3 px-4 py-2.5 hover:bg-surface-container/50 rounded-[var(--radius-button)] transition-colors ${alertClass}`}>
       <span role="cell" className="text-on-surface-variant text-xs font-mono w-12 shrink-0">{guest.vmid}</span>
       <span role="cell" className="flex-1 text-sm font-medium text-on-surface truncate">{guest.name}</span>
       <span role="cell"><StatusPill status={guest.status} /></span>
@@ -218,19 +267,19 @@ function GuestRow({ guest }: { guest: PveGuest }) {
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-on-surface-variant w-8 text-right">{(guest.cpu * 100).toFixed(0)}%</span>
           <div className="flex-1">
-            <ProgressBar value={guest.cpu * guest.cpus * 100} max={guest.cpus * 100} color="bg-primary" />
+            <ProgressBar value={guest.cpu * guest.cpus * 100} max={guest.cpus * 100} thresholds={thresholds} metric="cpu" baseColor="bg-primary" />
           </div>
         </div>
       </div>
       <div role="cell" className="w-32 shrink-0 hidden md:block">
         <div className="flex items-center gap-1.5">
-          <ProgressBar value={guest.mem} max={guest.maxmem} color="bg-secondary" />
+          <ProgressBar value={guest.mem} max={guest.maxmem} thresholds={thresholds} metric="memory" baseColor="bg-secondary" />
           <span className="text-xs text-on-surface-variant w-20 text-right">{humanBytes(guest.mem)}/{humanBytes(guest.maxmem)}</span>
         </div>
       </div>
       <div role="cell" className="w-32 shrink-0 hidden lg:block">
         <div className="flex items-center gap-1.5">
-          <ProgressBar value={guest.disk} max={guest.maxdisk} color="bg-success" />
+          <ProgressBar value={guest.disk} max={guest.maxdisk} thresholds={thresholds} metric="storage" baseColor="bg-success" />
           <span className="text-xs text-on-surface-variant w-20 text-right">{humanBytes(guest.disk)}/{humanBytes(guest.maxdisk)}</span>
         </div>
       </div>
@@ -241,14 +290,15 @@ function GuestRow({ guest }: { guest: PveGuest }) {
   );
 }
 
-function StorageRow({ pool }: { pool: PveStoragePool }) {
+function StorageRow({ pool, thresholds }: { pool: PveStoragePool; thresholds?: PveThresholds }) {
+  const alertClass = thresholds ? rowClassForStorage(pool, thresholds) : "";
   return (
-    <div role="row" className="flex items-center gap-3 px-4 py-2 hover:bg-surface-container/50 rounded-[var(--radius-button)] transition-colors">
+    <div role="row" className={`flex items-center gap-3 px-4 py-2 hover:bg-surface-container/50 rounded-[var(--radius-button)] transition-colors ${alertClass}`}>
       <span role="cell" className="flex-1 text-sm font-medium text-on-surface truncate">{pool.storage}</span>
       <span role="cell" className="text-xs text-on-surface-variant w-16 shrink-0">{pool.type}</span>
       <div role="cell" className="w-48 shrink-0">
         <div className="flex items-center gap-1.5">
-          <ProgressBar value={pool.used} max={pool.total} color="bg-success" />
+          <ProgressBar value={pool.used} max={pool.total} thresholds={thresholds} metric="storage" baseColor="bg-success" />
           <span className="text-xs text-on-surface-variant w-24 text-right">{humanBytes(pool.used)}/{humanBytes(pool.total)}</span>
         </div>
       </div>
@@ -263,12 +313,14 @@ function GuestTable({
   sort,
   onSort,
   emptyText,
+  thresholds,
 }: {
   guests: PveGuest[];
   scope: string;
   sort: SortState<GuestSortKey>;
   onSort: (key: GuestSortKey) => void;
   emptyText: string;
+  thresholds?: PveThresholds;
 }) {
   return (
     <div role="table" aria-label={scope}>
@@ -284,13 +336,13 @@ function GuestTable({
       {guests.length === 0 ? (
         <p className="text-on-surface-variant text-sm py-4 text-center">{emptyText}</p>
       ) : (
-        guests.map((guest) => <GuestRow key={guest.vmid} guest={guest} />)
+        guests.map((guest) => <GuestRow key={guest.vmid} guest={guest} thresholds={thresholds} />)
       )}
     </div>
   );
 }
 
-export function NodeCard({ node, endpointName, query = "" }: NodeCardProps) {
+export function NodeCard({ node, endpointName, query = "", thresholds }: NodeCardProps) {
   const id = useId();
   const [expanded, setExpanded] = useState(true);
   const [previousQuery, setPreviousQuery] = useState(query);
@@ -454,7 +506,7 @@ export function NodeCard({ node, endpointName, query = "" }: NodeCardProps) {
         <div className="w-28 shrink-0 hidden sm:block">
           <div className="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">CPU</div>
           <div className="flex items-center gap-1.5">
-            <ProgressBar value={n.cpu * n.maxcpu * 100} max={n.maxcpu * 100} color="bg-primary" />
+            <ProgressBar value={n.cpu * n.maxcpu * 100} max={n.maxcpu * 100} thresholds={thresholds} metric="cpu" baseColor="bg-primary" />
             <span className="text-xs text-on-surface-variant w-8 text-right">{(n.cpu * 100).toFixed(0)}%</span>
           </div>
         </div>
@@ -463,7 +515,7 @@ export function NodeCard({ node, endpointName, query = "" }: NodeCardProps) {
         <div className="w-36 shrink-0 hidden md:block">
           <div className="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">RAM</div>
           <div className="flex items-center gap-1.5">
-            <ProgressBar value={n.mem} max={n.maxmem} color="bg-secondary" />
+            <ProgressBar value={n.mem} max={n.maxmem} thresholds={thresholds} metric="memory" baseColor="bg-secondary" />
             <span className="text-xs text-on-surface-variant w-14 text-right">{humanBytes(n.mem)}</span>
           </div>
         </div>
@@ -472,7 +524,7 @@ export function NodeCard({ node, endpointName, query = "" }: NodeCardProps) {
         <div className="w-36 shrink-0 hidden lg:block">
           <div className="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">Disk</div>
           <div className="flex items-center gap-1.5">
-            <ProgressBar value={n.disk} max={n.maxdisk} color="bg-success" />
+            <ProgressBar value={n.disk} max={n.maxdisk} thresholds={thresholds} metric="storage" baseColor="bg-success" />
             <span className="text-xs text-on-surface-variant w-14 text-right">{humanBytes(n.disk)}</span>
           </div>
         </div>
@@ -529,6 +581,7 @@ export function NodeCard({ node, endpointName, query = "" }: NodeCardProps) {
                     sort={lxcSort}
                     onSort={(key) => setLxcSort((current) => nextSort(current, key))}
                     emptyText={queryActive ? "No LXC containers match the search" : "No LXC containers on this node"}
+                    thresholds={thresholds}
                   />
                 </div>
               )}
@@ -540,6 +593,7 @@ export function NodeCard({ node, endpointName, query = "" }: NodeCardProps) {
                     sort={vmSort}
                     onSort={(key) => setVmSort((current) => nextSort(current, key))}
                     emptyText={queryActive ? "No VMs match the search" : "No VMs on this node"}
+                    thresholds={thresholds}
                   />
                 </div>
               )}
@@ -557,7 +611,7 @@ export function NodeCard({ node, endpointName, query = "" }: NodeCardProps) {
                         {sortedStorage.length === 0 ? (
                           <p className="text-on-surface-variant text-sm py-4 text-center">{queryActive ? "No storage pools match the search" : "No storage pools on this node"}</p>
                         ) : (
-                          sortedStorage.map((s) => <StorageRow key={s.storage} pool={s} />)
+                          sortedStorage.map((s) => <StorageRow key={s.storage} pool={s} thresholds={thresholds} />)
                         )}
                       </div>
                     </div>

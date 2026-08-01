@@ -44,6 +44,7 @@ export function SidebarContent({
   const [brokenCount, setBrokenCount] = useState<number | null>(null);
   const [logErrorCount, setLogErrorCount] = useState<number | null>(null);
   const [energyBetterCount, setEnergyBetterCount] = useState<number | null>(null);
+  const [pveAlertCount, setPveAlertCount] = useState<number | null>(null);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -111,6 +112,32 @@ export function SidebarContent({
     fetchEnergy();
     const interval = setInterval(fetchEnergy, 60_000);
     const onVis = () => { if (!document.hidden) fetchEnergy(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
+
+  // Poll the PVE alert count so the nav badge stays fresh.
+  // GET /api/pve/alerts uses the same cached snapshot as the dashboard,
+  // but the cached snapshot itself is only valid for 15s; the sidebar may
+  // trigger a fresh Proxmox API call if the cache has expired.
+  useEffect(() => {
+    let cancelled = false;
+    const fetchPveAlerts = () => {
+      fetch("/api/pve/alerts")
+        .then((r) => r.json())
+        .then((data: { count?: number }) => {
+          if (cancelled) return;
+          if (typeof data.count === "number") setPveAlertCount(data.count);
+        })
+        .catch(() => { /* leave previous value */ });
+    };
+    fetchPveAlerts();
+    const interval = setInterval(fetchPveAlerts, 60_000);
+    const onVis = () => { if (!document.hidden) fetchPveAlerts(); };
     document.addEventListener("visibilitychange", onVis);
     return () => {
       cancelled = true;
@@ -257,7 +284,7 @@ export function SidebarContent({
         {/* Divider */}
         <div className="my-3 mx-5 h-px bg-outline-variant/30" />
 
-        <NavItem label="Proxmox" icon="dns" href="/pve" color="green" />
+        <NavItem label="Proxmox" icon="dns" href="/pve" color="green" badge={pveAlertCount ?? undefined} badgeTitle="alerts" />
         <NavItem
           label="Log Viewer"
           icon="terminal"

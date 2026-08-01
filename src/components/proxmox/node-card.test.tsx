@@ -6,6 +6,7 @@ import { cleanup, render, screen, userEvent, within } from "@/test-utils/render"
 afterEach(cleanup);
 import { NodeCard, matchNodeQuery, sortGuests, sortStorage, filterGuests, filterStorage } from "./node-card";
 import type { PveGuest, PveNodeDetail, PveStoragePool } from "./proxmox-types";
+import { DEFAULT_PVE_THRESHOLDS } from "@/lib/pve-alerts";
 
 const guests: PveGuest[] = [
   {
@@ -467,5 +468,107 @@ describe("NodeCard sortable tables", () => {
     await user.click(usageSort);
     expectTextOrder(table, "local", "zfs-data");
     expect(usageSort.parentElement).toHaveAttribute("aria-sort", "descending");
+  });
+});
+
+describe("NodeCard threshold highlighting", () => {
+  test("adds an alert background class to a guest row that breaches the CPU threshold", () => {
+    const alertingGuests: PveGuest[] = [
+      {
+        vmid: 101,
+        name: "alpha",
+        status: "running",
+        cpu: 0.85,
+        cpus: 4,
+        mem: 2,
+        maxmem: 10,
+        disk: 10,
+        maxdisk: 100,
+        uptime: 3_600,
+        type: "lxc",
+      },
+    ];
+    const alertingNode: PveNodeDetail = {
+      node: { ...node.node, cpu: 0.1 },
+      containers: alertingGuests,
+      vms: [],
+      storage: [],
+    };
+
+    render(<NodeCard node={alertingNode} endpointName="Main Cluster" thresholds={DEFAULT_PVE_THRESHOLDS} />);
+    const row = screen.getByRole("row", { name: /alpha/ });
+    expect(row.className).toMatch(/bg-error/);
+  });
+
+  test("adds an alert background class to a storage row that breaches the storage threshold", async () => {
+    const user = userEvent.setup();
+    const storageOnlyNode: PveNodeDetail = {
+      ...node,
+      vms: [],
+      containers: [],
+      storage: [{ storage: "local", type: "dir", total: 100, used: 81, avail: 19 }],
+    };
+
+    render(<NodeCard node={storageOnlyNode} endpointName="Main Cluster" thresholds={DEFAULT_PVE_THRESHOLDS} />);
+    await user.click(screen.getByRole("tab", { name: /^Storage/ }));
+    const row = screen.getByRole("row", { name: /local/ });
+    expect(row.className).toMatch(/bg-error/);
+  });
+
+  test("does not highlight rows when all metrics are within thresholds", () => {
+    const safeGuests: PveGuest[] = [
+      {
+        vmid: 101,
+        name: "alpha",
+        status: "running",
+        cpu: 0.5,
+        cpus: 4,
+        mem: 2,
+        maxmem: 10,
+        disk: 10,
+        maxdisk: 100,
+        uptime: 3_600,
+        type: "lxc",
+      },
+    ];
+    const safeNode: PveNodeDetail = {
+      node: { ...node.node, cpu: 0.1 },
+      containers: safeGuests,
+      vms: [],
+      storage: [],
+    };
+
+    render(<NodeCard node={safeNode} endpointName="Main Cluster" thresholds={DEFAULT_PVE_THRESHOLDS} />);
+    const row = screen.getByRole("row", { name: /alpha/ });
+    expect(row.className).not.toMatch(/bg-error/);
+  });
+
+  test("does not highlight stopped guests even when their retained values breach thresholds", () => {
+    const stoppedGuests: PveGuest[] = [
+      {
+        vmid: 101,
+        name: "alpha",
+        status: "stopped",
+        cpu: 0.85,
+        cpus: 4,
+        mem: 2,
+        maxmem: 10,
+        disk: 80,
+        maxdisk: 100,
+        uptime: 3_600,
+        type: "lxc",
+      },
+    ];
+    const stoppedNode: PveNodeDetail = {
+      node: { ...node.node, cpu: 0.1 },
+      containers: stoppedGuests,
+      vms: [],
+      storage: [],
+    };
+
+    render(<NodeCard node={stoppedNode} endpointName="Main Cluster" thresholds={DEFAULT_PVE_THRESHOLDS} />);
+    const row = screen.getByRole("row", { name: /alpha/ });
+    expect(row.className).not.toMatch(/bg-error/);
+    expect(row.className).not.toMatch(/bg-warning/);
   });
 });

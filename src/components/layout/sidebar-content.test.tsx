@@ -214,6 +214,21 @@ describe("SidebarContent — macro click", () => {
   });
 });
 
+describe("SidebarContent — Proxmox badge", () => {
+  test("shows the alert badge from /api/pve/alerts count", async () => {
+    mockFetch((url) => {
+      if (url.includes("/api/real-debrid/status")) return { label: "Premium", ok: true };
+      if (url.includes("/api/macros")) return [];
+      if (url.includes("/api/pve/alerts")) return { count: 3 };
+      return {};
+    });
+    render(<SidebarContent />);
+    await waitFor(() => {
+      expect(screen.getByTitle("3 alerts")).toBeInTheDocument();
+    });
+  });
+});
+
 describe("SidebarContent — Log Viewer badge", () => {
   test("shows the badge from /api/logs/alerts total", async () => {
     mockFetch((url) => {
