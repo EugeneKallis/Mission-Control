@@ -606,3 +606,86 @@ test("keeps NodeCard state on a later node when filtering changes its index", as
   expect(screen.getByText("pve-2")).toBeTruthy();
   expect(screen.getByRole("table", { name: "Main Cluster pve-2 storage" })).toBeTruthy();
 });
+
+test("routes global typing to the search input after focus moves elsewhere", async () => {
+  mockFetch(MOCK_SEARCH_SNAPSHOT, 200, SEARCH_ENDPOINTS);
+  const { ProxmoxPage } = await import("./proxmox-page?bust=" + Math.random());
+
+  render(<ProxmoxPage />);
+  const input = await screen.findByRole("searchbox", { name: "Search Proxmox" }) as HTMLInputElement;
+  await waitFor(() => expect(document.activeElement).toBe(input));
+
+  const refreshButton = screen.getByText("Refresh").closest("button") as HTMLButtonElement;
+  refreshButton.focus();
+  expect(document.activeElement).toBe(refreshButton);
+
+  fireEvent.keyDown(refreshButton, { key: "b", code: "KeyB" });
+
+  await waitFor(() => expect(document.activeElement).toBe(input));
+  await waitFor(() => expect(input.value).toBe("b"));
+});
+
+test("does not hijack typing when another editable is focused", async () => {
+  mockFetch(MOCK_SEARCH_SNAPSHOT, 200, SEARCH_ENDPOINTS);
+  const { ProxmoxPage } = await import("./proxmox-page?bust=" + Math.random());
+
+  const { container } = render(<ProxmoxPage />);
+  const input = await screen.findByRole("searchbox", { name: "Search Proxmox" }) as HTMLInputElement;
+  await waitFor(() => expect(document.activeElement).toBe(input));
+
+  // Add an external input and focus it.
+  const externalInput = document.createElement("input");
+  container.appendChild(externalInput);
+  externalInput.focus();
+  expect(document.activeElement).toBe(externalInput);
+
+  // Fire the key event on the external input, as the browser would bubble it.
+  fireEvent.keyDown(externalInput, { key: "b", code: "KeyB" });
+
+  // External input should keep focus and the search should stay empty.
+  expect(document.activeElement).toBe(externalInput);
+  expect(input.value).toBe("");
+  container.removeChild(externalInput);
+});
+
+test("does not pull focus out of an open modal", async () => {
+  mockFetch(MOCK_SEARCH_SNAPSHOT, 200, SEARCH_ENDPOINTS);
+  const { ProxmoxPage } = await import("./proxmox-page?bust=" + Math.random());
+
+  const { container } = render(<ProxmoxPage />);
+  const input = await screen.findByRole("searchbox", { name: "Search Proxmox" }) as HTMLInputElement;
+  await waitFor(() => expect(document.activeElement).toBe(input));
+
+  const dialog = document.createElement("div");
+  dialog.setAttribute("role", "dialog");
+  dialog.setAttribute("aria-modal", "true");
+  const dialogButton = document.createElement("button");
+  dialog.appendChild(dialogButton);
+  container.appendChild(dialog);
+  dialogButton.focus();
+
+  fireEvent.keyDown(dialogButton, { key: "b", code: "KeyB" });
+
+  expect(document.activeElement).toBe(dialogButton);
+  expect(input.value).toBe("");
+  container.removeChild(dialog);
+});
+
+test("ignores modifier keys for global type-to-search", async () => {
+  mockFetch(MOCK_SEARCH_SNAPSHOT, 200, SEARCH_ENDPOINTS);
+  const { ProxmoxPage } = await import("./proxmox-page?bust=" + Math.random());
+
+  const { container } = render(<ProxmoxPage />);
+  const input = await screen.findByRole("searchbox", { name: "Search Proxmox" }) as HTMLInputElement;
+  await waitFor(() => expect(document.activeElement).toBe(input));
+
+  input.blur();
+  expect(document.activeElement).not.toBe(input);
+
+  const target = container.ownerDocument?.body ?? document.body;
+  fireEvent.keyDown(target, { key: "c", code: "KeyC", ctrlKey: true });
+  fireEvent.keyDown(target, { key: "c", code: "KeyC", metaKey: true });
+
+  expect(document.activeElement).not.toBe(input);
+  expect(input.value).toBe("");
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NodeCard, matchNodeQuery } from "./node-card";
 import { EndpointSettings } from "./endpoint-settings";
 import type { PveClusterStatus, PveNodeDetail, PveEndpointConfig, PveRawNodeSnapshot } from "./proxmox-types";
@@ -50,6 +50,7 @@ export function ProxmoxPage() {
   const [configOpen, setConfigOpen] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -93,6 +94,67 @@ export function ProxmoxPage() {
     return () => clearInterval(interval);
   }, [fetchStatus]);
 
+  // ── Render helpers ──────────────────────────────────────────────────────
+
+  const hasEndpoints = status && status.endpoints.length > 0;
+  const totalVMs = hasEndpoints
+    ? status.endpoints.reduce(
+        (sum, ep) => sum + ep.nodes.reduce((s, n) => s + n.vms.length, 0), 0
+      )
+    : 0;
+  const totalLXC = hasEndpoints
+    ? status.endpoints.reduce(
+        (sum, ep) => sum + ep.nodes.reduce((s, n) => s + n.containers.length, 0), 0
+      )
+    : 0;
+  const totalEndpoints = hasEndpoints ? status.endpoints.length : endpoints.length;
+
+  // Global type-to-search: when focus is outside an editable field, printable
+  // keystrokes are redirected to the live search input so the user can start
+  // filtering without first clicking the box.
+  useEffect(() => {
+    if (!hasEndpoints) return;
+    const input = searchInputRef.current;
+    if (!input) return;
+    let rafId: number | null = null;
+
+    const isEditable = (el: Element | null): boolean => {
+      if (!el || !(el instanceof HTMLElement)) return false;
+      const tag = el.tagName.toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select") return true;
+      if (el.isContentEditable) return true;
+      return false;
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore modifier shortcuts and function keys.
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+      if (e.key.length !== 1) return;
+      // Don't pull focus out of a modal or away from another editable field.
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+      if (isEditable(document.activeElement)) return;
+      input.focus();
+      e.preventDefault();
+      const value = input.value;
+      const start = input.selectionStart ?? value.length;
+      const end = input.selectionEnd ?? value.length;
+      const next = value.slice(0, start) + e.key + value.slice(end);
+      setQuery(next);
+      // Restore caret after the inserted character on next frame.
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        input.setSelectionRange(start + 1, start + 1);
+        rafId = null;
+      });
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, [hasEndpoints]);
+
   const handleRefresh = useCallback(() => {
     fetchStatus();
     fetchEndpoints();
@@ -127,21 +189,6 @@ export function ProxmoxPage() {
       })
       .filter((s) => s.endpointMatches || s.nodeDetails.length > 0);
   }, [status, endpoints, query]);
-
-  // ── Render ──────────────────────────────────────────────────────────
-
-  const hasEndpoints = status && status.endpoints.length > 0;
-  const totalVMs = hasEndpoints
-    ? status.endpoints.reduce(
-        (sum, ep) => sum + ep.nodes.reduce((s, n) => s + n.vms.length, 0), 0
-      )
-    : 0;
-  const totalLXC = hasEndpoints
-    ? status.endpoints.reduce(
-        (sum, ep) => sum + ep.nodes.reduce((s, n) => s + n.containers.length, 0), 0
-      )
-    : 0;
-  const totalEndpoints = hasEndpoints ? status.endpoints.length : endpoints.length;
 
   return (
     <div className="h-full flex flex-col">
@@ -182,6 +229,7 @@ export function ProxmoxPage() {
               search
             </span>
             <input
+              ref={searchInputRef}
               id="pve-search"
               type="search"
               value={query}
