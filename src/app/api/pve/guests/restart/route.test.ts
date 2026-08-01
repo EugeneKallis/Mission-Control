@@ -22,6 +22,7 @@ const endpoint = {
   name: "Main Cluster",
   apiUrl: "https://pve1:8006",
   apiToken: "token",
+  sshTargetMap: "pve-1 = root@192.168.1.10",
   verifyTls: false,
   enabled: true,
 };
@@ -65,7 +66,7 @@ test("prepares a hidden VM restart macro only after a fresh running-state check"
     description: "Prepared Proxmox VM restart on Main Cluster.",
     commands: JSON.stringify([{
       ord: 0,
-      cmd: "bun run scripts/util/command-runner.ts --host root@pve-1 -- qm reboot 100",
+      cmd: "bun run scripts/util/command-runner.ts --host root@192.168.1.10 -- qm reboot 100",
     }]),
     isInternal: true,
   });
@@ -76,7 +77,7 @@ test("prepares the canonical LXC restart command", async () => {
 
   expect(res.status).toBe(200);
   const command = JSON.parse(mockCreateMacro.mock.calls[0][0].commands)[0].cmd;
-  expect(command).toBe("bun run scripts/util/command-runner.ts --host root@pve-1 -- pct reboot 200");
+  expect(command).toBe("bun run scripts/util/command-runner.ts --host root@192.168.1.10 -- pct reboot 200");
 });
 
 test("rejects invalid request bodies before loading an endpoint or creating a macro", async () => {
@@ -97,6 +98,14 @@ test("rejects missing and disabled endpoints without creating a macro", async ()
 
   expect(mockCreateMacro).not.toHaveBeenCalled();
   expect(mockGetSnapshot).not.toHaveBeenCalled();
+});
+
+test("returns a clear conflict when the freshly verified node has no SSH target", async () => {
+  mockGetEndpoint.mockResolvedValueOnce({ ...endpoint, sshTargetMap: "" });
+  const res = await POST(restartRequest({ endpointId: 1, node: "pve-1", vmid: 100, type: "vm" }));
+  expect(res.status).toBe(409);
+  expect((await res.json()).error).toBe("No SSH target is configured for Proxmox node pve-1");
+  expect(mockCreateMacro).not.toHaveBeenCalled();
 });
 
 test("rejects stopped, absent, or unsafe-node guests from the fresh endpoint snapshot", async () => {

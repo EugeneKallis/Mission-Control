@@ -14,6 +14,7 @@ interface EndpointFormData {
   name: string;
   apiUrl: string;
   apiToken: string;
+  sshTargetMap: string;
   verifyTls: boolean;
   enabled: boolean;
 }
@@ -22,6 +23,7 @@ const emptyForm: EndpointFormData = {
   name: "",
   apiUrl: "",
   apiToken: "",
+  sshTargetMap: "",
   verifyTls: false,
   enabled: true,
 };
@@ -62,6 +64,7 @@ export function EndpointSettings({ endpoints, onClose, onSaved }: EndpointSettin
       name: ep.name,
       apiUrl: ep.apiUrl,
       apiToken: fullToken,
+      sshTargetMap: ep.sshTargetMap,
       verifyTls: ep.verifyTls,
       enabled: ep.enabled,
     });
@@ -78,6 +81,7 @@ export function EndpointSettings({ endpoints, onClose, onSaved }: EndpointSettin
         const payload: Record<string, unknown> = {
           name: form.name,
           apiUrl: form.apiUrl,
+          sshTargetMap: form.sshTargetMap,
           verifyTls: form.verifyTls,
           enabled: form.enabled,
         };
@@ -228,6 +232,18 @@ export function EndpointSettings({ endpoints, onClose, onSaved }: EndpointSettin
                   value={form.apiToken}
                   onChange={(e) => setForm({ ...form, apiToken: e.target.value })}
                 />
+              </div>
+              <div>
+                <label htmlFor="pve-ssh-target-map" className="block text-xs text-on-surface-variant mb-1">Per-node SSH targets <span className="text-on-surface-variant">(optional)</span></label>
+                <textarea
+                  id="pve-ssh-target-map"
+                  className="w-full px-3 py-2 bg-bg border border-outline-variant/40 rounded-[var(--radius-button)] text-sm text-on-surface outline-none focus:border-primary transition-colors font-mono resize-y"
+                  placeholder={"pve-master = root@192.168.1.10"}
+                  rows={3}
+                  value={form.sshTargetMap}
+                  onChange={(e) => setForm({ ...form, sshTargetMap: e.target.value })}
+                />
+                <p className="mt-1 text-xs text-on-surface-variant">One mapping per line: <code>node = user@hostname-or-IPv4</code>. Required only to restart guests; monitoring works without it.</p>
               </div>
               <div className="flex items-center gap-4">
                 <label className="flex items-center gap-2 cursor-pointer text-sm text-on-surface">

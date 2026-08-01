@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { listProxmoxEndpoints, createProxmoxEndpoint } from "@/lib/db/queries";
 import { z } from "zod";
+import { normalizeSshTargetMap } from "@/lib/pve-restart";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,7 @@ const createSchema = z.object({
   name: z.string().min(1, "Name is required"),
   apiUrl: z.string().min(1, "API URL is required"),
   apiToken: z.string().min(1, "API token is required"),
+  sshTargetMap: z.string().optional().default(""),
   verifyTls: z.boolean().optional().default(true),
   enabled: z.boolean().optional().default(true),
   order: z.number().int().optional().default(0),
@@ -49,7 +51,13 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    const created = await createProxmoxEndpoint(parsed.data);
+    let sshTargetMap: string;
+    try {
+      sshTargetMap = normalizeSshTargetMap(parsed.data.sshTargetMap);
+    } catch (error) {
+      return NextResponse.json({ error: error instanceof Error ? error.message : "Invalid SSH target mappings" }, { status: 400 });
+    }
+    const created = await createProxmoxEndpoint({ ...parsed.data, sshTargetMap });
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
     console.error("Failed to create Proxmox endpoint:", error);

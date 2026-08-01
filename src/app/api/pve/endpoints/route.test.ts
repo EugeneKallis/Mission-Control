@@ -45,7 +45,7 @@ afterEach(() => {
 
 test("GET returns masked endpoints list", async () => {
   mockListEndpoints.mockReturnValue([
-    { id: 1, name: "Main", apiUrl: "https://pve1:8006", apiToken: "root@pam!tok=abc123", verifyTls: false, enabled: true, order: 0 },
+    { id: 1, name: "Main", apiUrl: "https://pve1:8006", apiToken: "root@pam!tok=abc123", sshTargetMap: "pve-master = root@192.168.1.10", verifyTls: false, enabled: true, order: 0 },
   ]);
 
   const res = await GET();
@@ -55,6 +55,7 @@ test("GET returns masked endpoints list", async () => {
   expect(json[0].apiToken).not.toBe("root@pam!tok=abc123");
   expect(json[0].apiToken).toMatch(/c123$/); // masked, last 4 visible
   expect(json[0].name).toBe("Main");
+  expect(json[0].sshTargetMap).toBe("pve-master = root@192.168.1.10");
 });
 
 // ── POST /api/pve/endpoints ─────────────────────────────────────────────────
@@ -65,13 +66,22 @@ test("POST creates endpoint", async () => {
   const req = new Request("http://localhost/api/pve/endpoints", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: "New", apiUrl: "https://pve2:8006", apiToken: "tok456", verifyTls: true, enabled: true }),
+    body: JSON.stringify({ name: "New", apiUrl: "https://pve2:8006", apiToken: "tok456", sshTargetMap: " pve-master = root@192.168.1.10 ", verifyTls: true, enabled: true }),
   });
   const res = await POST(req);
   expect(res.status).toBe(201);
   const json = await res.json();
   expect(json.name).toBe("New");
-  expect(mockCreateEndpoint.mock.calls[0][0]).not.toHaveProperty("sshHost");
+  expect(mockCreateEndpoint.mock.calls[0][0].sshTargetMap).toBe("pve-master = root@192.168.1.10");
+});
+
+test("POST rejects unsafe SSH target mappings", async () => {
+  const req = new Request("http://localhost/api/pve/endpoints", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "New", apiUrl: "https://pve2:8006", apiToken: "tok", sshTargetMap: "pve = root@host;id" }),
+  });
+  expect((await POST(req)).status).toBe(400);
 });
 
 test("POST validates required fields", async () => {
@@ -89,12 +99,13 @@ test("POST validates required fields", async () => {
 // ── GET /api/pve/endpoints/:id ──────────────────────────────────────────────
 
 test("GET single endpoint returns full token", async () => {
-  mockGetEndpoint.mockResolvedValue({ id: 1, name: "Main", apiUrl: "https://pve1:8006", apiToken: "secret-long-token", verifyTls: true, enabled: true, order: 0 });
+  mockGetEndpoint.mockResolvedValue({ id: 1, name: "Main", apiUrl: "https://pve1:8006", apiToken: "secret-long-token", sshTargetMap: "pve-master = root@192.168.1.10", verifyTls: true, enabled: true, order: 0 });
 
   const res = await GetSingle(new Request("http://localhost"), paramsOf("1"));
   expect(res.status).toBe(200);
   const json = await res.json();
   expect(json.apiToken).toBe("secret-long-token");
+  expect(json.sshTargetMap).toBe("pve-master = root@192.168.1.10");
 });
 
 test("GET single returns 404 for missing endpoint", async () => {
@@ -112,7 +123,7 @@ test("PUT updates endpoint", async () => {
   const req = new Request("http://localhost", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: "Updated", verifyTls: true }),
+    body: JSON.stringify({ name: "Updated", verifyTls: true, sshTargetMap: "pve-master = root@192.168.1.10" }),
   });
   const res = await PUT(req, paramsOf("1"));
   expect(res.status).toBe(200);
@@ -120,7 +131,7 @@ test("PUT updates endpoint", async () => {
   expect(json.name).toBe("Updated");
   // Should keep existing token when not provided
   expect(mockUpdateEndpoint.mock.calls[0][1].apiToken).toBeUndefined();
-  expect(mockUpdateEndpoint.mock.calls[0][1]).not.toHaveProperty("sshHost");
+  expect(mockUpdateEndpoint.mock.calls[0][1].sshTargetMap).toBe("pve-master = root@192.168.1.10");
 });
 
 test("PUT replaces token when provided", async () => {

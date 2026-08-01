@@ -7,6 +7,7 @@
 import { NextResponse } from "next/server";
 import { getProxmoxEndpoint, updateProxmoxEndpoint, deleteProxmoxEndpoint } from "@/lib/db/queries";
 import { z } from "zod";
+import { normalizeSshTargetMap } from "@/lib/pve-restart";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,7 @@ const updateSchema = z.object({
   name: z.string().min(1).optional(),
   apiUrl: z.string().min(1).optional(),
   apiToken: z.string().optional(), // empty string = keep existing
+  sshTargetMap: z.string().optional(),
   verifyTls: z.boolean().optional(),
   enabled: z.boolean().optional(),
   order: z.number().int().optional(),
@@ -70,6 +72,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (parsed.data.apiUrl !== undefined) updateData.apiUrl = parsed.data.apiUrl;
     if (parsed.data.apiToken && parsed.data.apiToken.length > 0) {
       updateData.apiToken = parsed.data.apiToken;
+    }
+    if (parsed.data.sshTargetMap !== undefined) {
+      try {
+        updateData.sshTargetMap = normalizeSshTargetMap(parsed.data.sshTargetMap);
+      } catch (error) {
+        return NextResponse.json({ error: error instanceof Error ? error.message : "Invalid SSH target mappings" }, { status: 400 });
+      }
     }
     if (parsed.data.verifyTls !== undefined) updateData.verifyTls = parsed.data.verifyTls;
     if (parsed.data.enabled !== undefined) updateData.enabled = parsed.data.enabled;

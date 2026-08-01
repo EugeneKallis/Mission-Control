@@ -224,6 +224,7 @@ model ProxmoxEndpoint {
   name        String
   apiUrl      String   @map("api_url")
   apiToken    String   @map("api_token")
+  sshTargetMap String  @default("") @map("ssh_target_map")
   verifyTls   Boolean  @default(false) @map("verify_tls")
   enabled     Boolean  @default(true)
   order       Int      @default(0)

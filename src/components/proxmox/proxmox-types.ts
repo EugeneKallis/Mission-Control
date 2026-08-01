@@ -83,6 +83,7 @@ export interface PveEndpointConfig {
   name: string;
   apiUrl: string;
   apiToken: string;
+  sshTargetMap: string;
   verifyTls: boolean;
   enabled: boolean;
   order: number;

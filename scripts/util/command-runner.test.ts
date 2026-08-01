@@ -9,9 +9,13 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { buildSshCommand } from "./command-runner";
+import { buildSshCommand, defaultSshKey } from "./command-runner";
 
 describe("buildSshCommand", () => {
+  test("uses a supplied OS-home fallback when SSH_KEY and HOME are unavailable", () => {
+    expect(defaultSshKey("/root", undefined)).toBe("/root/.ssh/id_ed25519");
+    expect(defaultSshKey("/root", "/configured/key")).toBe("/configured/key");
+  });
   test("places the binary first, the host, and the cmd last", () => {
     const argv = buildSshCommand("user@host", "/key/path", 22, "uptime");
     expect(argv[0]).toBe("ssh");

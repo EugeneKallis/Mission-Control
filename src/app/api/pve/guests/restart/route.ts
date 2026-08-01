@@ -10,7 +10,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createMacro, getProxmoxEndpoint } from "@/lib/db/queries";
 import { ProxmoxClient } from "@/lib/clients/proxmox";
-import { buildGuestRestartCommand, isValidSshHostname } from "@/lib/pve-restart";
+import { buildGuestRestartCommand, isValidSshHostname, resolveSshTarget } from "@/lib/pve-restart";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +59,12 @@ export async function POST(request: Request) {
     if (!freshNode || !isValidSshHostname(freshNode.node)) {
       return NextResponse.json({ error: "Requested Proxmox node is not a safe SSH hostname" }, { status: 409 });
     }
+    // The actual SSH destination is endpoint configuration keyed by the
+    // authenticated snapshot node, never the browser request or API URL.
+    const sshTarget = resolveSshTarget(endpoint.sshTargetMap, freshNode.node);
+    if (!sshTarget) {
+      return NextResponse.json({ error: `No SSH target is configured for Proxmox node ${freshNode.node}` }, { status: 409 });
+    }
     const guests = type === "vm" ? freshNode.vms : freshNode.containers;
     const guest = guests.find((candidate) => candidate.vmid === vmid);
     if (!guest || guest.status !== "running") {
@@ -70,7 +76,7 @@ export async function POST(request: Request) {
       description: `Prepared Proxmox ${type === "vm" ? "VM" : "LXC container"} restart on ${endpoint.name}.`,
       commands: JSON.stringify([{
         ord: 0,
-        cmd: buildGuestRestartCommand(freshNode.node, vmid, type),
+        cmd: buildGuestRestartCommand(sshTarget, vmid, type),
       }]),
       isInternal: true,
     });

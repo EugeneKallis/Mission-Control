@@ -7,6 +7,7 @@ const endpoint = {
   name: "Main Cluster",
   apiUrl: "https://192.168.1.10:8006",
   apiToken: "••••abcd",
+  sshTargetMap: "pve-master = root@192.168.1.10",
   verifyTls: false,
   enabled: true,
   order: 0,
@@ -30,6 +31,8 @@ describe("EndpointSettings", () => {
     expect(screen.getByLabelText("Name")).toBeInTheDocument();
     expect(screen.getByLabelText("API URL")).toBeInTheDocument();
     expect(screen.getByLabelText("API Token")).toBeInTheDocument();
+    expect(screen.getByLabelText(/Per-node SSH targets/)).toBeInTheDocument();
+    expect(screen.getByText(/One mapping per line/)).toBeInTheDocument();
   });
 
   test("gives each existing endpoint an accessible edit action", () => {

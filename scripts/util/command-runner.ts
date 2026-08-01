@@ -18,6 +18,7 @@
  */
 
 import { spawn } from "bun";
+import { homedir } from "node:os";
 import { parseArgs } from "../_lib/cli";
 import { error, info } from "../_lib/log";
 
@@ -26,6 +27,10 @@ import { error, info } from "../_lib/log";
  * testing — the order of flags and the StrictHostKeyChecking policy
  * matter and previously were only verifiable by running ssh for real.
  */
+export function defaultSshKey(home = process.env.HOME || homedir(), sshKey = process.env.SSH_KEY): string {
+  return sshKey || `${home}/.ssh/id_ed25519`;
+}
+
 export function buildSshCommand(
   host: string,
   key: string,
@@ -47,7 +52,7 @@ export async function main(argv?: string[]) {
   const args = parseArgs(
     {
       host: { type: "string", default: process.env.SSH_HOST || "root@mission-control.local" },
-      key: { type: "string", default: process.env.SSH_KEY || `${process.env.HOME}/.ssh/id_ed25519` },
+      key: { type: "string", default: defaultSshKey() },
       port: { type: "number", default: Number(process.env.SSH_PORT ?? 22) },
     },
     argv,

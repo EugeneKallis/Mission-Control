@@ -1114,6 +1114,7 @@ export async function listProxmoxEndpoints(): Promise<{
   name: string;
   apiUrl: string;
   apiToken: string;
+  sshTargetMap: string;
   verifyTls: boolean;
   enabled: boolean;
   order: number;
@@ -1129,6 +1130,7 @@ export async function createProxmoxEndpoint(data: {
   name: string;
   apiUrl: string;
   apiToken: string;
+  sshTargetMap?: string;
   verifyTls?: boolean;
   enabled?: boolean;
   order?: number;
@@ -1142,6 +1144,7 @@ export async function updateProxmoxEndpoint(
     name?: string;
     apiUrl?: string;
     apiToken?: string;
+    sshTargetMap?: string;
     verifyTls?: boolean;
     enabled?: boolean;
     order?: number;
