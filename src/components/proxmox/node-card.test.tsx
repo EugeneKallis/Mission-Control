@@ -472,6 +472,24 @@ describe("NodeCard sortable tables", () => {
 });
 
 describe("NodeCard threshold highlighting", () => {
+  test("keeps a node CPU bar at the configured threshold non-alerting", () => {
+    const utilizedNode: PveNodeDetail = {
+      ...node,
+      node: { ...node.node, cpu: 0.8, mem: 16 },
+    };
+
+    render(<NodeCard node={utilizedNode} endpointName="Main Cluster" thresholds={DEFAULT_PVE_THRESHOLDS} />);
+
+    const cpuBar = screen.getByText("CPU", { selector: "div" }).parentElement?.querySelector<HTMLElement>("div[style]");
+    const ramBar = screen.getByText("RAM", { selector: "div" }).parentElement?.querySelector<HTMLElement>("div[style]");
+    expect(cpuBar).toHaveClass("bg-primary");
+    expect(cpuBar).not.toHaveClass("bg-warning");
+    expect(cpuBar).not.toHaveClass("bg-error");
+    expect(cpuBar?.style.width).toBe("80%");
+    expect(ramBar).toHaveClass("bg-secondary");
+    expect(ramBar?.style.width).toBe("50%");
+  });
+
   test("adds an alert background class to a guest row that breaches the CPU threshold", () => {
     const alertingGuests: PveGuest[] = [
       {

@@ -248,7 +248,13 @@ function ProgressBar({
   baseColor?: string;
 }) {
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
-  const barColor = thresholds ? thresholdColorFor(pct, thresholds, metric).className : pct > 90 ? "bg-error" : pct > 75 ? "bg-warning" : baseColor;
+  const barColor = thresholds
+    ? thresholdColorFor(pct, thresholds, metric).className || baseColor
+    : pct > 90
+      ? "bg-error"
+      : pct > 75
+        ? "bg-warning"
+        : baseColor;
   return (
     <div className="w-full bg-outline-variant/30 rounded-full h-2 overflow-hidden">
       <div className={`h-full rounded-full ${barColor} transition-all duration-500`} style={{ width: `${pct}%` }} />
