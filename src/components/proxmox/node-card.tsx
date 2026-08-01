@@ -316,6 +316,10 @@ export function NodeCard({ node, endpointName, query = "" }: NodeCardProps) {
   if (previousQuery !== query) {
     setPreviousQuery(query);
     setExpanded(true);
+    // A query-scoped override is only valid for the exact query that created it.
+    // Reset it whenever the query changes so re-entering the same search starts
+    // fresh with the default expanded state.
+    setExpandedOverride(null);
   }
 
   const effectiveExpanded = expandedOverride?.query === query

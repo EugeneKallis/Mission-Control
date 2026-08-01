@@ -159,6 +159,29 @@ describe("NodeCard search behavior", () => {
     expect(screen.getByRole("table", { name: "Main Cluster pve-1 LXC containers" })).toBeTruthy();
   });
 
+  test("clearing search and re-entering the same query resets a collapsed override", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<NodeCard node={node} endpointName="Main Cluster" query="" />);
+
+    const disclosure = screen.getByRole("button", { name: /^pve-1 online/ });
+    expect(disclosure).toHaveAttribute("aria-expanded", "true");
+
+    // Enter a search and collapse the card while it is active.
+    rerender(<NodeCard node={node} endpointName="Main Cluster" query="Zulu" />);
+    expect(disclosure).toHaveAttribute("aria-expanded", "true");
+    await user.click(disclosure);
+    expect(disclosure).toHaveAttribute("aria-expanded", "false");
+
+    // Clear the search — the card should return to the default expanded state.
+    rerender(<NodeCard node={node} endpointName="Main Cluster" query="" />);
+    expect(disclosure).toHaveAttribute("aria-expanded", "true");
+
+    // Re-enter the same query — the stale override must be gone, so it auto-expands.
+    rerender(<NodeCard node={node} endpointName="Main Cluster" query="Zulu" />);
+    expect(disclosure).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("table", { name: "Main Cluster pve-1 VMs" })).toBeTruthy();
+  });
+
   test("filters leaf rows: a query matching one guest hides its siblings", () => {
     render(<NodeCard node={node} endpointName="Main Cluster" query="Zulu" />);
     // VMs tab is auto-selected and contains only the matching VM; the sibling
