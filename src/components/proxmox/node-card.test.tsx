@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { render, screen, userEvent } from "@/test-utils/render";
-import { NodeCard, sortGuests, sortStorage } from "./node-card";
+import { render, screen, userEvent, within } from "@/test-utils/render";
+import { NodeCard, matchNodeQuery, sortGuests, sortStorage, filterGuests, filterStorage } from "./node-card";
 import type { PveGuest, PveNodeDetail, PveStoragePool } from "./proxmox-types";
 
 const guests: PveGuest[] = [
@@ -61,6 +61,259 @@ function expectTextOrder(container: HTMLElement, first: string, second: string) 
   expect(text.indexOf(first)).toBeLessThan(text.indexOf(second));
 }
 
+describe("matchNodeQuery", () => {
+  test("matches node name and status", () => {
+    expect(matchNodeQuery("pve-1", node)).toEqual({
+      node: true, vms: false, containers: false, storage: false,
+    });
+    expect(matchNodeQuery("online", node).node).toBe(true);
+  });
+
+  test("matches guest name, vmid, and status case-insensitively", () => {
+    const m = matchNodeQuery("ZULU", node);
+    expect(m.vms).toBe(true);
+    expect(m.containers).toBe(true);
+    const byVmid = matchNodeQuery("202", node);
+    expect(byVmid.vms).toBe(true);
+    expect(byVmid.containers).toBe(true);
+    expect(matchNodeQuery("stopped", node).containers).toBe(true);
+  });
+
+  test("matches storage name and type", () => {
+    const byName = matchNodeQuery("zfs-data", node);
+    expect(byName.storage).toBe(true);
+    expect(byName.node).toBe(false);
+    expect(matchNodeQuery("zfspool", node).storage).toBe(true);
+  });
+
+  test("empty query matches everything, unmatched query matches nothing", () => {
+    expect(matchNodeQuery("", node)).toEqual({ node: true, vms: true, containers: true, storage: true });
+    expect(matchNodeQuery("zzz-no-match", node)).toEqual({ node: false, vms: false, containers: false, storage: false });
+  });
+});
+
+describe("filterGuests / filterStorage", () => {
+  test("filterGuests keeps only matching guests and returns all on an empty query", () => {
+    expect(filterGuests(guests, "Zulu").map((g) => g.name)).toEqual(["Zulu"]);
+    expect(filterGuests(guests, "alpha").map((g) => g.name)).toEqual(["alpha"]);
+    expect(filterGuests(guests, "202").map((g) => g.name)).toEqual(["Zulu"]);
+    expect(filterGuests(guests, "running").map((g) => g.name)).toEqual(["alpha"]);
+    expect(filterGuests(guests, "")).toHaveLength(guests.length);
+    expect(filterGuests(guests, "  ")).toHaveLength(guests.length);
+    expect(filterGuests(guests, "nope")).toHaveLength(0);
+  });
+
+  test("filterStorage keeps only matching pools by name or type", () => {
+    expect(filterStorage(storage, "zfs").map((p) => p.storage)).toEqual(["zfs-data"]);
+    expect(filterStorage(storage, "dir").map((p) => p.storage)).toEqual(["local"]);
+    expect(filterStorage(storage, "")).toHaveLength(storage.length);
+    expect(filterStorage(storage, "nope")).toHaveLength(0);
+  });
+});
+
+describe("NodeCard search behavior", () => {
+  test("auto-expands and selects the storage tab when a storage pool matches", () => {
+    render(<NodeCard node={node} endpointName="Main Cluster" query="zfs-data" />);
+    expect(screen.getByRole("table", { name: "Main Cluster pve-1 storage" })).toBeTruthy();
+    expect(screen.getByText("zfs-data")).toBeTruthy();
+  });
+
+  test("auto-expands and prefers the VM tab when a guest matches", () => {
+    render(<NodeCard node={node} endpointName="Main Cluster" query="Zulu" />);
+    expect(screen.getByRole("table", { name: "Main Cluster pve-1 VMs" })).toBeTruthy();
+  });
+
+  test("auto-expands for a node-name-only match with no content match", () => {
+    render(<NodeCard node={node} endpointName="Main Cluster" query="pve-1" />);
+    // Node-name-only matches now auto-expand; the default LXC tab is shown
+    // even though no guest row itself matches.
+    expect(screen.getByRole("table", { name: "Main Cluster pve-1 LXC containers" })).toBeTruthy();
+    expect(screen.getByText("No LXC containers match the search")).toBeTruthy();
+  });
+
+  test("lets the user collapse and re-expand a card while a search is active", async () => {
+    const user = userEvent.setup();
+    render(<NodeCard node={node} endpointName="Main Cluster" query="Zulu" />);
+
+    const disclosure = screen.getByRole("button", { name: /^pve-1 online/ });
+    expect(disclosure).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("table", { name: "Main Cluster pve-1 VMs" })).toBeTruthy();
+
+    // Manual collapse is respected even though the card content matches.
+    await user.click(disclosure);
+    expect(disclosure).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("table")).toBeNull();
+
+    // Manual re-expansion works too.
+    await user.click(disclosure);
+    expect(disclosure).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("table", { name: "Main Cluster pve-1 VMs" })).toBeTruthy();
+  });
+
+  test("empty query keeps the collapsed default", () => {
+    render(<NodeCard node={node} endpointName="Main Cluster" query="" />);
+    expect(screen.queryByRole("table")).toBeNull();
+  });
+
+  test("filters leaf rows: a query matching one guest hides its siblings", () => {
+    render(<NodeCard node={node} endpointName="Main Cluster" query="Zulu" />);
+    // VMs tab is auto-selected and contains only the matching VM; the sibling
+    // is filtered out of every panel.
+    const vmTable = screen.getByRole("table", { name: "Main Cluster pve-1 VMs" });
+    expect(within(vmTable).getByText("Zulu")).toBeTruthy();
+    expect(within(vmTable).queryByText("alpha")).toBeNull();
+  });
+
+  test("filters storage rows so only the matching pool is shown", () => {
+    render(<NodeCard node={node} endpointName="Main Cluster" query="zfs-data" />);
+    expect(screen.getByRole("table", { name: "Main Cluster pve-1 storage" })).toBeTruthy();
+    expect(screen.getByText("zfs-data")).toBeTruthy();
+    expect(screen.queryByText("local")).toBeNull();
+  });
+
+  test("respects a user's tab click during an active query and shows an empty-in-tab state", async () => {
+    const user = userEvent.setup();
+    render(<NodeCard node={node} endpointName="Main Cluster" query="Zulu" />);
+
+    // Auto-selected VMs tab shows the matching row.
+    const vmTable = screen.getByRole("table", { name: "Main Cluster pve-1 VMs" });
+    expect(within(vmTable).getByText("Zulu")).toBeTruthy();
+
+    // A manual click on Storage is respected even though it has no matches.
+    await user.click(screen.getByRole("tab", { name: /^Storage/ }));
+    const storageTable = screen.getByRole("table", { name: "Main Cluster pve-1 storage" });
+    expect(within(storageTable).queryByText("Zulu")).toBeNull();
+    expect(screen.getByText("No storage pools match the search")).toBeTruthy();
+
+    // Clicking back to VMs restores the matching row.
+    await user.click(screen.getByRole("tab", { name: /^VMs/ }));
+    const vmTableAgain = screen.getByRole("table", { name: "Main Cluster pve-1 VMs" });
+    expect(within(vmTableAgain).getByText("Zulu")).toBeTruthy();
+  });
+
+  test("a query matching multiple categories auto-selects VMs and still filters leaves", () => {
+    render(<NodeCard node={node} endpointName="Main Cluster" query="alpha" />);
+    // "alpha" matches a VM and a container; VMs wins the auto-select priority.
+    const vmTable = screen.getByRole("table", { name: "Main Cluster pve-1 VMs" });
+    expect(within(vmTable).getByText("alpha")).toBeTruthy();
+    expect(within(vmTable).queryByText("Zulu")).toBeNull();
+  });
+
+  test("exposes disclosure and tab semantics for assistive technology", async () => {
+    const user = userEvent.setup();
+    render(<NodeCard node={node} endpointName="Main Cluster" />);
+
+    const disclosure = screen.getByRole("button", { name: /pve-1/i });
+    expect(disclosure).toHaveAttribute("aria-expanded", "false");
+    expect(disclosure).toHaveAttribute("aria-controls");
+
+    await user.click(disclosure);
+    expect(disclosure).toHaveAttribute("aria-expanded", "true");
+
+    // The expanded content is a labelled region containing a tablist.
+    const region = document.getElementById(disclosure.getAttribute("aria-controls")!);
+    expect(region).not.toBeNull();
+    expect(region).toHaveAttribute("role", "region");
+    expect(region).toHaveAttribute("aria-labelledby", disclosure.id);
+
+    const lxcTab = screen.getByRole("tab", { name: /^LXC/ });
+    const vmsTab = screen.getByRole("tab", { name: /^VMs/ });
+    expect(lxcTab).toHaveAttribute("aria-selected", "true");
+    expect(vmsTab).toHaveAttribute("aria-selected", "false");
+    expect(lxcTab).toHaveAttribute("aria-controls");
+
+    await user.click(vmsTab);
+    expect(vmsTab).toHaveAttribute("aria-selected", "true");
+    expect(lxcTab).toHaveAttribute("aria-selected", "false");
+
+    const panel = document.getElementById(vmsTab.getAttribute("aria-controls")!);
+    expect(panel).not.toBeNull();
+    expect(panel).toHaveAttribute("role", "tabpanel");
+    expect(panel).toHaveAttribute("aria-labelledby", vmsTab.id);
+  });
+
+  test("mounts every tab panel and hides inactive ones while keeping aria-controls valid", async () => {
+    const user = userEvent.setup();
+    render(<NodeCard node={node} endpointName="Main Cluster" />);
+    await user.click(screen.getByRole("button", { name: /^pve-1 online/ }));
+
+    const lxcTab = screen.getByRole("tab", { name: /^LXC/ });
+    const vmsTab = screen.getByRole("tab", { name: /^VMs/ });
+    const storageTab = screen.getByRole("tab", { name: /^Storage/ });
+
+    // Every tab's aria-controls resolves to a mounted, labelled panel.
+    for (const tab of [lxcTab, vmsTab, storageTab]) {
+      const panel = document.getElementById(tab.getAttribute("aria-controls")!);
+      expect(panel).not.toBeNull();
+      expect(panel).toHaveAttribute("role", "tabpanel");
+      expect(panel).toHaveAttribute("aria-labelledby", tab.id);
+    }
+
+    // Only the active panel is visible; inactive panels stay mounted but hidden.
+    expect(lxcTab).toHaveAttribute("aria-selected", "true");
+    expect(document.getElementById(lxcTab.getAttribute("aria-controls")!)).not.toHaveAttribute("hidden");
+    expect(document.getElementById(vmsTab.getAttribute("aria-controls")!)).toHaveAttribute("hidden");
+    expect(document.getElementById(storageTab.getAttribute("aria-controls")!)).toHaveAttribute("hidden");
+  });
+
+  test("supports roving tabIndex and Arrow/Home/End keyboard navigation", async () => {
+    const user = userEvent.setup();
+    render(<NodeCard node={node} endpointName="Main Cluster" />);
+    await user.click(screen.getByRole("button", { name: /^pve-1 online/ }));
+
+    const lxcTab = screen.getByRole("tab", { name: /^LXC/ });
+    const vmsTab = screen.getByRole("tab", { name: /^VMs/ });
+    const storageTab = screen.getByRole("tab", { name: /^Storage/ });
+
+    // Roving tabIndex: only the active tab is in the tab order.
+    expect(lxcTab).toHaveAttribute("tabindex", "0");
+    expect(vmsTab).toHaveAttribute("tabindex", "-1");
+    expect(storageTab).toHaveAttribute("tabindex", "-1");
+
+    lxcTab.focus();
+    await user.keyboard("{ArrowRight}");
+    expect(vmsTab).toHaveAttribute("aria-selected", "true");
+    expect(document.activeElement).toBe(vmsTab);
+    expect(vmsTab).toHaveAttribute("tabindex", "0");
+    expect(lxcTab).toHaveAttribute("tabindex", "-1");
+
+    await user.keyboard("{ArrowRight}");
+    expect(storageTab).toHaveAttribute("aria-selected", "true");
+    expect(document.activeElement).toBe(storageTab);
+
+    // Wraps around to the first tab.
+    await user.keyboard("{ArrowRight}");
+    expect(lxcTab).toHaveAttribute("aria-selected", "true");
+    expect(document.activeElement).toBe(lxcTab);
+
+    await user.keyboard("{ArrowLeft}");
+    expect(storageTab).toHaveAttribute("aria-selected", "true");
+    expect(document.activeElement).toBe(storageTab);
+
+    await user.keyboard("{Home}");
+    expect(lxcTab).toHaveAttribute("aria-selected", "true");
+    expect(document.activeElement).toBe(lxcTab);
+
+    await user.keyboard("{End}");
+    expect(storageTab).toHaveAttribute("aria-selected", "true");
+    expect(document.activeElement).toBe(storageTab);
+  });
+
+  test("omits tabs for resource categories the node does not have", async () => {
+    const user = userEvent.setup();
+    const storageOnlyNode: PveNodeDetail = { ...node, vms: [], containers: [] };
+    render(<NodeCard node={storageOnlyNode} endpointName="Main Cluster" />);
+    await user.click(screen.getByRole("button", { name: /^pve-1 online/ }));
+
+    expect(screen.getByRole("tab", { name: /^Storage/ })).toBeTruthy();
+    expect(screen.queryByRole("tab", { name: /^LXC/ })).toBeNull();
+    expect(screen.queryByRole("tab", { name: /^VMs/ })).toBeNull();
+    // The only available tab is selected automatically.
+    expect(screen.getByRole("tab", { name: /^Storage/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("table", { name: "Main Cluster pve-1 storage" })).toBeTruthy();
+  });
+});
+
 describe("Proxmox sorting helpers", () => {
   test("sorts every guest column in both directions without mutating the API data", () => {
     const cases = [
@@ -103,30 +356,32 @@ describe("Proxmox sorting helpers", () => {
 describe("NodeCard sortable tables", () => {
   test("sorts LXC rows, reports direction, and supports keyboard activation", async () => {
     const user = userEvent.setup();
-    const { container } = render(<NodeCard node={node} endpointName="Main Cluster" />);
+    render(<NodeCard node={node} endpointName="Main Cluster" />);
 
     await user.click(screen.getByRole("button", { name: /pve-1/i }));
+    const table = screen.getByRole("table", { name: "Main Cluster pve-1 LXC containers" });
 
     // Guest tables start in a predictable ID-ascending order.
-    expectTextOrder(container, "alpha", "Zulu");
+    expectTextOrder(table, "alpha", "Zulu");
 
     const nameSort = screen.getByRole("button", { name: /Sort by Name in Main Cluster pve-1 LXC containers/i });
     await user.click(nameSort);
-    expectTextOrder(container, "alpha", "Zulu");
+    expectTextOrder(table, "alpha", "Zulu");
     expect(nameSort.parentElement).toHaveAttribute("role", "columnheader");
     expect(nameSort.parentElement).toHaveAttribute("aria-sort", "ascending");
 
     nameSort.focus();
     await user.keyboard("{Enter}");
-    expectTextOrder(container, "Zulu", "alpha");
+    expectTextOrder(table, "Zulu", "alpha");
     expect(nameSort.parentElement).toHaveAttribute("aria-sort", "descending");
   });
 
   test("wires every guest header to the only active aria-sort state", async () => {
     const user = userEvent.setup();
-    const { container } = render(<NodeCard node={node} endpointName="Main Cluster" />);
+    render(<NodeCard node={node} endpointName="Main Cluster" />);
 
     await user.click(screen.getByRole("button", { name: /pve-1/i }));
+    const table = screen.getByRole("table", { name: "Main Cluster pve-1 LXC containers" });
 
     for (const label of ["ID", "Name", "Status", "CPU", "Memory", "Disk", "Uptime"]) {
       const button = screen.getByRole("button", { name: new RegExp(`Sort by ${label} in Main Cluster pve-1 LXC containers`, "i") });
@@ -134,30 +389,34 @@ describe("NodeCard sortable tables", () => {
       const expectedDirection = label === "ID" ? "descending" : "ascending";
       expect(button.parentElement).toHaveAttribute("role", "columnheader");
       expect(button.parentElement).toHaveAttribute("aria-sort", expectedDirection);
-      expect(container.querySelectorAll('[role="columnheader"][aria-sort]')).toHaveLength(1);
+      expect(table.querySelectorAll('[role="columnheader"][aria-sort]')).toHaveLength(1);
     }
   });
 
   test("keeps VM and LXC sort choices independent", async () => {
     const user = userEvent.setup();
-    const { container } = render(<NodeCard node={node} endpointName="Main Cluster" />);
+    render(<NodeCard node={node} endpointName="Main Cluster" />);
 
     await user.click(screen.getByRole("button", { name: /pve-1/i }));
-    await user.click(screen.getByRole("button", { name: /Sort by Name in Main Cluster pve-1 LXC containers/i }));
-    await user.click(screen.getByRole("button", { name: /Sort by Name in Main Cluster pve-1 LXC containers/i }));
-    expectTextOrder(container, "Zulu", "alpha");
+    const lxcTable = screen.getByRole("table", { name: "Main Cluster pve-1 LXC containers" });
+    const nameSort = screen.getByRole("button", { name: /Sort by Name in Main Cluster pve-1 LXC containers/i });
+    await user.click(nameSort);
+    await user.click(nameSort);
+    expectTextOrder(lxcTable, "Zulu", "alpha");
 
-    await user.click(screen.getByRole("button", { name: /^VMs/ }));
-    expectTextOrder(container, "alpha", "Zulu");
+    await user.click(screen.getByRole("tab", { name: /^VMs/ }));
+    const vmsTable = screen.getByRole("table", { name: "Main Cluster pve-1 VMs" });
+    expectTextOrder(vmsTable, "alpha", "Zulu");
     expect(screen.getByRole("button", { name: /Sort by ID in Main Cluster pve-1 VMs, currently ascending/i })).toBeTruthy();
   });
 
   test("wires every storage header to the only active aria-sort state", async () => {
     const user = userEvent.setup();
-    const { container } = render(<NodeCard node={node} endpointName="Main Cluster" />);
+    render(<NodeCard node={node} endpointName="Main Cluster" />);
 
     await user.click(screen.getByRole("button", { name: /pve-1/i }));
-    await user.click(screen.getByRole("button", { name: /^Storage/ }));
+    await user.click(screen.getByRole("tab", { name: /^Storage/ }));
+    const table = screen.getByRole("table", { name: "Main Cluster pve-1 storage" });
 
     for (const label of ["Name", "Type", "Usage", "Free"]) {
       const button = screen.getByRole("button", { name: new RegExp(`Sort by ${label} in Main Cluster pve-1 storage`, "i") });
@@ -165,27 +424,28 @@ describe("NodeCard sortable tables", () => {
       const expectedDirection = label === "Name" ? "descending" : "ascending";
       expect(button.parentElement).toHaveAttribute("role", "columnheader");
       expect(button.parentElement).toHaveAttribute("aria-sort", expectedDirection);
-      expect(container.querySelectorAll('[role="columnheader"][aria-sort]')).toHaveLength(1);
+      expect(table.querySelectorAll('[role="columnheader"][aria-sort]')).toHaveLength(1);
     }
   });
 
   test("sorts storage rows by usage and toggles direction", async () => {
     const user = userEvent.setup();
-    const { container } = render(<NodeCard node={node} endpointName="Main Cluster" />);
+    render(<NodeCard node={node} endpointName="Main Cluster" />);
 
     await user.click(screen.getByRole("button", { name: /pve-1/i }));
-    await user.click(screen.getByRole("button", { name: /^Storage/ }));
+    await user.click(screen.getByRole("tab", { name: /^Storage/ }));
+    const table = screen.getByRole("table", { name: "Main Cluster pve-1 storage" });
 
     // Storage starts by name ascending.
-    expectTextOrder(container, "local", "zfs-data");
+    expectTextOrder(table, "local", "zfs-data");
 
     const usageSort = screen.getByRole("button", { name: /Sort by Usage in Main Cluster pve-1 storage/i });
     await user.click(usageSort);
-    expectTextOrder(container, "zfs-data", "local");
+    expectTextOrder(table, "zfs-data", "local");
     expect(usageSort.parentElement).toHaveAttribute("aria-sort", "ascending");
 
     await user.click(usageSort);
-    expectTextOrder(container, "local", "zfs-data");
+    expectTextOrder(table, "local", "zfs-data");
     expect(usageSort.parentElement).toHaveAttribute("aria-sort", "descending");
   });
 });

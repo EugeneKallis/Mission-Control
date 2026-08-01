@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { NodeCard } from "./node-card";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { NodeCard, matchNodeQuery } from "./node-card";
 import { EndpointSettings } from "./endpoint-settings";
 import type { PveClusterStatus, PveNodeDetail, PveEndpointConfig, PveRawNodeSnapshot } from "./proxmox-types";
 
@@ -49,6 +49,7 @@ export function ProxmoxPage() {
   const [endpoints, setEndpoints] = useState<PveEndpointConfig[]>([]);
   const [configOpen, setConfigOpen] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -97,6 +98,36 @@ export function ProxmoxPage() {
     fetchEndpoints();
   }, [fetchStatus, fetchEndpoints]);
 
+  // ── Search filtering (client-side) ──────────────────────────────────────
+
+  const queryActive = query.trim().length > 0;
+
+  /**
+   * Sections visible under the current query. Empty query → everything.
+   * Otherwise: a node is kept if it (or its guests/storage) matches, and an
+   * endpoint section is kept if its header matches or ≥1 node survives.
+   */
+  const sections = useMemo(() => {
+    if (!status) return [];
+    const q = query.trim().toLowerCase();
+    const includes = (value: string) => value.toLowerCase().includes(q);
+    return status.endpoints
+      .map((ep, ei) => {
+        const endpointName = endpoints.find((e) => e.apiUrl === ep.apiUrl)?.name ?? ep.apiUrl;
+        const nodeDetails = ep.nodes.map(detailFromApi);
+        if (!q) {
+          return { ep, ei, endpointName, nodeDetails, endpointMatches: true };
+        }
+        const endpointMatches = includes(ep.name) || includes(ep.apiUrl) || includes(endpointName);
+        const matching = nodeDetails.filter((nd) => {
+          const m = matchNodeQuery(q, nd);
+          return endpointMatches || m.node || m.vms || m.containers || m.storage;
+        });
+        return { ep, ei, endpointName, nodeDetails: matching, endpointMatches };
+      })
+      .filter((s) => s.endpointMatches || s.nodeDetails.length > 0);
+  }, [status, endpoints, query]);
+
   // ── Render ──────────────────────────────────────────────────────────
 
   const hasEndpoints = status && status.endpoints.length > 0;
@@ -142,6 +173,36 @@ export function ProxmoxPage() {
           </button>
         </div>
       </div>
+
+      {/* Top-level live search */}
+      {hasEndpoints && (
+        <div className="px-6 py-3 border-b border-outline-variant/30 shrink-0">
+          <div className="relative max-w-md">
+            <span aria-hidden="true" className="material-symbols-outlined text-sm absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none">
+              search
+            </span>
+            <input
+              id="pve-search"
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search nodes, VMs, containers, storage…"
+              aria-label="Search Proxmox"
+              className="w-full bg-surface-container-high border border-outline-variant/50 pl-9 pr-9 py-2 text-sm text-on-surface transition-colors focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none rounded-[var(--radius-button)]"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors"
+              >
+                <span aria-hidden="true" className="material-symbols-outlined text-sm">close</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Surface refresh failures even when stale data remains on screen. */}
       {error && (
@@ -204,12 +265,24 @@ export function ProxmoxPage() {
               {endpoints.length === 0 ? "Add Endpoint" : "Manage Servers"}
             </button>
           </div>
+        ) : queryActive && sections.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 text-on-surface-variant gap-3">
+            <span className="material-symbols-outlined text-5xl text-on-surface-variant/30">search_off</span>
+            <p className="text-sm">
+              No Proxmox resources match <span className="font-mono text-on-surface">&ldquo;{query}&rdquo;</span>.
+            </p>
+            <button
+              onClick={() => setQuery("")}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 bg-surface-container text-on-surface hover:bg-surface-container-high active:scale-[0.98]"
+            >
+              <span className="material-symbols-outlined text-sm">close</span>
+              Clear search
+            </button>
+          </div>
         ) : (
-          status.endpoints.map((ep, ei) => {
-            const endpointName = endpoints.find((e) => e.apiUrl === ep.apiUrl)?.name ?? ep.apiUrl;
-            const nodeDetails = ep.nodes.map(detailFromApi);
+          sections.map(({ ep, ei, endpointName, nodeDetails }) => {
             return (
-              <div key={`ep-${ei}`} className="space-y-3">
+              <div key={`ep-${ep.id}`} className="space-y-3">
                 <div className="flex items-center gap-3 px-1">
                   <h2 className="text-sm font-semibold text-on-surface font-display">{endpointName}</h2>
                   <EndpointStatusPill online={ep.online} />
@@ -217,13 +290,13 @@ export function ProxmoxPage() {
                     {ep.apiUrl}
                   </span>
                 </div>
-                {ep.nodes.length === 0 ? (
+                {nodeDetails.length === 0 ? (
                   <div className="px-4 py-6 text-center text-sm text-on-surface-variant bg-surface-container/30 rounded-[var(--radius-card)] border border-outline-variant/20">
                     <p>No nodes available on this endpoint.</p>
                   </div>
                 ) : (
-                  nodeDetails.map((nd, ni) => (
-                    <NodeCard key={`node-${ni}`} node={nd} endpointName={endpointName} />
+                  nodeDetails.map((nd) => (
+                    <NodeCard key={`node-${nd.node.node}-${ep.apiUrl}`} node={nd} endpointName={endpointName} query={query} />
                   ))
                 )}
               </div>
