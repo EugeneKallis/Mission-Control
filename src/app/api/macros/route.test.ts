@@ -67,6 +67,15 @@ describe("GET /api/macros", () => {
     expect(daily?.macros.map((m) => m.name)).toEqual(["m1", "m2"]);
   });
 
+  test("hides internal action macros from ordinary macro listings", async () => {
+    await testDB.db.macro.create({ data: { name: "visible" } });
+    await testDB.db.macro.create({ data: { name: "prepared restart", isInternal: true } });
+
+    const { GET } = await loadRoute("get-internal-filtered");
+    const body = await (await GET()).json() as Array<{ macros: { name: string }[] }>;
+    expect(body.flatMap((group) => group.macros).map((macro) => macro.name)).toEqual(["visible"]);
+  });
+
   test("returns 500 when the underlying DB throws", async () => {
     // Re-mock @/lib/db to return a stub that throws.
     const broken = {

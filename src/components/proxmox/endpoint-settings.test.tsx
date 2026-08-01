@@ -1,5 +1,5 @@
-import { describe, expect, mock, test } from "bun:test";
-import { fireEvent, render, screen } from "@/test-utils/render";
+import { afterEach, describe, expect, mock, test } from "bun:test";
+import { cleanup, fireEvent, render, screen } from "@/test-utils/render";
 import { EndpointSettings } from "./endpoint-settings";
 
 const endpoint = {
@@ -11,6 +11,8 @@ const endpoint = {
   enabled: true,
   order: 0,
 };
+
+afterEach(cleanup);
 
 describe("EndpointSettings", () => {
   test("opens the create form when adding a second server", () => {

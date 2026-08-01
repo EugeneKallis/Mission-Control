@@ -17,15 +17,20 @@ import {
 import { getRequest, jsonBody, status } from "@/test-utils/route-helpers";
 
 let runMacroMock: ReturnType<typeof mock>;
+let claimInternalMacroMock: ReturnType<typeof mock>;
 
 beforeAll(() => {
   mock.module("@/lib/runner", () => ({
     runMacro: (...args: unknown[]) => runMacroMock(...args),
   }));
+  mock.module("@/lib/db/queries", () => ({
+    claimInternalMacro: (...args: unknown[]) => claimInternalMacroMock(...args),
+  }));
 });
 
 beforeEach(() => {
   runMacroMock = mock(async () => ({ historyId: 1, status: "started" }));
+  claimInternalMacroMock = mock(async () => "normal");
 });
 
 afterEach(() => {
@@ -59,6 +64,17 @@ describe("POST /api/run/[id]", () => {
     expect(runMacroMock).toHaveBeenCalledTimes(1);
     expect(runMacroMock.mock.calls[0][0]).toBe(42);
     expect(runMacroMock.mock.calls[0][1]).toBe("user");
+  });
+
+  test("returns 409 and does not run an already consumed generated action", async () => {
+    claimInternalMacroMock = mock(async () => "consumed");
+    const { POST } = await loadRoute();
+    const res = await POST(getRequest("/api/run/42"), {
+      params: Promise.resolve({ id: "42" }),
+    });
+    expect(status(res)).toBe(409);
+    expect(await jsonBody(res)).toEqual({ error: "This generated action has already been used" });
+    expect(runMacroMock).not.toHaveBeenCalled();
   });
 
   test("returns 400 on a non-numeric id", async () => {

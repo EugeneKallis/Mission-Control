@@ -95,17 +95,19 @@ export default function Home() {
 
   const deepLinkRan = useRef(false);
   useEffect(() => {
-    if (deepLinkRan.current) return;
+    if (deepLinkRan.current || !isConnected) return;
     const params = new URLSearchParams(window.location.search);
     const id = params.get("run_macro");
     if (id) {
+      // Keep the deep link until the SSE terminal has connected, then claim
+      // and run it exactly once so the first command output is observable.
       deepLinkRan.current = true;
       runMacro(Number(id));
       const url = new URL(window.location.href);
       url.searchParams.delete("run_macro");
       window.history.replaceState({}, "", url.toString());
     }
-  }, [runMacro]);
+  }, [isConnected, runMacro]);
 
   // ── Clear & Export ─────────────────────────────────────────────────
 

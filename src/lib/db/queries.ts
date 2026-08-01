@@ -17,11 +17,35 @@ export const SCRAPE_CLEANUP_DAYS = 20;
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function getMacros() {
-  return db.macro.findMany({ orderBy: [{ groupName: "asc" }, { ord: "asc" }, { name: "asc" }] });
+  return db.macro.findMany({
+    where: { isInternal: false },
+    orderBy: [{ groupName: "asc" }, { ord: "asc" }, { name: "asc" }],
+  });
 }
 
 export async function getMacro(id: number) {
   return db.macro.findUniqueOrThrow({ where: { id } });
+}
+
+/** Whether a macro is an internal generated action rather than a user macro. */
+export async function isInternalMacro(id: number) {
+  const macro = await db.macro.findUnique({ where: { id }, select: { isInternal: true } });
+  return macro?.isInternal === true;
+}
+
+/**
+ * Atomically consume an internal action macro. Normal macros deliberately
+ * bypass this helper's claim, preserving their existing repeatable behavior.
+ */
+export async function claimInternalMacro(id: number): Promise<"normal" | "claimed" | "consumed"> {
+  const macro = await db.macro.findUnique({ where: { id }, select: { isInternal: true } });
+  if (!macro?.isInternal) return "normal";
+
+  const result = await db.macro.updateMany({
+    where: { id, isInternal: true, isConsumed: false },
+    data: { isConsumed: true },
+  });
+  return result.count === 1 ? "claimed" : "consumed";
 }
 
 export async function createMacro(data: {
@@ -30,6 +54,7 @@ export async function createMacro(data: {
   groupName?: string;
   ord?: number;
   commands?: string;
+  isInternal?: boolean;
 }) {
   return db.macro.create({ data });
 }
@@ -47,7 +72,10 @@ export async function deleteMacro(id: number) {
 
 export async function getGroupedMacros() {
   const groups = await db.macroGroup.findMany({ orderBy: { ord: "asc" } });
-  const macros = await db.macro.findMany({ orderBy: [{ groupName: "asc" }, { ord: "asc" }, { name: "asc" }] });
+  const macros = await db.macro.findMany({
+    where: { isInternal: false },
+    orderBy: [{ groupName: "asc" }, { ord: "asc" }, { name: "asc" }],
+  });
 
   // Ensure "Ungrouped" group exists
   const hasUngrouped = groups.some((g) => g.name === "Ungrouped");
@@ -202,6 +230,7 @@ export async function createSchedule(data: {
 
 export async function listSchedules() {
   return db.schedule.findMany({
+    where: { macro: { is: { isInternal: false } } },
     orderBy: { createdAt: "desc" },
     include: { macro: { select: { name: true } } },
   });
@@ -232,7 +261,7 @@ export async function deleteSchedule(id: number) {
 
 export async function getEnabledSchedules() {
   return db.schedule.findMany({
-    where: { enabled: true },
+    where: { enabled: true, macro: { is: { isInternal: false } } },
     include: { macro: { select: { name: true } } },
   });
 }

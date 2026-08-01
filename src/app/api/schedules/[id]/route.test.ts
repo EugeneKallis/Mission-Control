@@ -153,6 +153,21 @@ describe("PUT /api/schedules/[id]", () => {
     expect(updateScheduleMock.mock.calls[0]?.[0]).toBe(seededScheduleId);
   });
 
+  test("rejects a legacy internal schedule before mutation or scheduler registration", async () => {
+    const internal = await testDB.db.macro.create({ data: { name: "prepared restart", isInternal: true } });
+    const legacy = await testDB.db.schedule.create({
+      data: { macroId: internal.id, cronExpression: "*/5 * * * *", enabled: true },
+    });
+    const { PUT } = await loadRoute();
+    const res = await PUT(
+      jsonRequest(`/api/schedules/${legacy.id}`, { cronExpression: "0 9 * * *" }, "PUT"),
+      idParam(legacy.id),
+    );
+    expect(status(res)).toBe(409);
+    expect(updateScheduleMock).not.toHaveBeenCalled();
+    expect((await testDB.db.schedule.findUniqueOrThrow({ where: { id: legacy.id } })).cronExpression).toBe("*/5 * * * *");
+  });
+
   test("returns 404 when the schedule does not exist", async () => {
     const { PUT } = await loadRoute();
     const res = await PUT(

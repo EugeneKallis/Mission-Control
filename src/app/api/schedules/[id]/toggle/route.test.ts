@@ -136,6 +136,19 @@ describe("POST /api/schedules/[id]/toggle", () => {
     expect(after?.enabled).toBe(false);
   });
 
+  test("rejects a legacy internal schedule before toggling or scheduler registration", async () => {
+    const internal = await testDB.db.macro.create({ data: { name: "prepared restart", isInternal: true } });
+    const legacy = await testDB.db.schedule.create({
+      data: { macroId: internal.id, cronExpression: "*/5 * * * *", enabled: false },
+    });
+    const { POST } = await loadRoute();
+    const res = await POST({} as never, idParam(legacy.id));
+    expect(status(res)).toBe(409);
+    expect(addScheduleMock).not.toHaveBeenCalled();
+    expect(removeScheduleMock).not.toHaveBeenCalled();
+    expect((await testDB.db.schedule.findUniqueOrThrow({ where: { id: legacy.id } })).enabled).toBe(false);
+  });
+
   test("returns 404 when the schedule does not exist", async () => {
     const { POST } = await loadRoute();
     const res = await POST({} as never, idParam(999_999));

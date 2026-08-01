@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { NodeCard, matchNodeQuery } from "./node-card";
+import { useRouter } from "next/navigation";
+import { NodeCard, matchNodeQuery, type GuestRestartRequest } from "./node-card";
 import { EndpointSettings } from "./endpoint-settings";
 import { PveThresholdsModal } from "./pve-thresholds-modal";
 import { DEFAULT_PVE_THRESHOLDS, type PveThresholds } from "@/lib/pve-alerts";
+import { useToast } from "@/components/toast-provider";
 import type { PveClusterStatus, PveNodeDetail, PveEndpointConfig, PveRawNodeSnapshot } from "./proxmox-types";
 
 /** Convert a raw API node snapshot to the UI detail shape */
@@ -45,6 +47,8 @@ function EndpointStatusPill({ online }: { online: boolean }) {
 }
 
 export function ProxmoxPage() {
+  const router = useRouter();
+  const toast = useToast();
   const [status, setStatus] = useState<PveClusterStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -177,6 +181,31 @@ export function ProxmoxPage() {
     fetchEndpoints();
     fetchThresholds();
   }, [fetchStatus, fetchEndpoints, fetchThresholds]);
+
+  const handleRestartGuest = useCallback(async (endpointId: number, endpointName: string, guest: GuestRestartRequest) => {
+    const guestType = guest.type === "vm" ? "VM" : "LXC container";
+    if (!window.confirm(`Restart ${guestType} ${guest.name} (ID ${guest.vmid}) on endpoint ${endpointName}, node ${guest.node}?`)) return;
+
+    try {
+      const res = await fetch("/api/pve/guests/restart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          endpointId,
+          node: guest.node,
+          vmid: guest.vmid,
+          type: guest.type,
+        }),
+      });
+      const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+      router.push(`/?run_macro=${body.macroId}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+      toast?.showToast(`Unable to prepare restart: ${message}`, "error");
+    }
+  }, [router, toast]);
 
   // ── Search filtering (client-side) ──────────────────────────────────────
 
@@ -370,7 +399,14 @@ export function ProxmoxPage() {
                   </div>
                 ) : (
                   nodeDetails.map((nd) => (
-                    <NodeCard key={`node-${nd.node.node}-${ep.apiUrl}`} node={nd} endpointName={endpointName} query={query} thresholds={thresholds} />
+                    <NodeCard
+                      key={`node-${nd.node.node}-${ep.apiUrl}`}
+                      node={nd}
+                      endpointName={endpointName}
+                      query={query}
+                      thresholds={thresholds}
+                      onRestartGuest={(guest) => handleRestartGuest(ep.id, endpointName, guest)}
+                    />
                   ))
                 )}
               </div>

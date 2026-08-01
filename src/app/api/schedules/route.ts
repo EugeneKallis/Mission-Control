@@ -8,6 +8,7 @@ import { z } from "zod";
 import {
   listSchedules,
   createSchedule,
+  isInternalMacro,
 } from "@/lib/db/queries";
 import { cronScheduler } from "@/lib/cron-scheduler";
 
@@ -50,6 +51,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    if (await isInternalMacro(parsed.data.macroId)) {
+      return NextResponse.json({ error: "Internal macros cannot be scheduled" }, { status: 409 });
+    }
+
     const schedule = await createSchedule(parsed.data);
 
     // Register with cron scheduler if enabled

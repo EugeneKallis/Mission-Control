@@ -13,7 +13,7 @@
  *   });
  *
  * Supports `--key=value`, `--key value`, short aliases (`-w /path`),
- * and `--no-key` negation for boolean flags (e.g. `--no-dry-run`
+ * the `--` end-of-options delimiter, and `--no-key` negation for boolean flags (e.g. `--no-dry-run`
  * sets `dryRun = false`). Unknown flags throw — fail loud at the
  * top, not deep in the run.
  */
@@ -47,8 +47,17 @@ export function parseArgs<S extends ArgSchema>(
   }
 
   const positional: string[] = (out._ as string[]);
+  let endOfOptions = false;
   for (let i = 0; i < argv.length; i++) {
     const tok = argv[i];
+    if (endOfOptions) {
+      positional.push(tok);
+      continue;
+    }
+    if (tok === "--") {
+      endOfOptions = true;
+      continue;
+    }
     if (!tok.startsWith("-")) {
       positional.push(tok);
       continue;

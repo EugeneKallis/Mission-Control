@@ -5,6 +5,10 @@
 import { test, expect, mock, afterEach } from "bun:test";
 import { fireEvent, render, screen, waitFor, within } from "@/test-utils/render";
 
+mock.module("next/navigation", () => ({
+  useRouter: () => ({ push: mock() }),
+}));
+
 // ── Fixtures ───────────────────────────────────────────────────────────────
 
 const MOCK_SNAPSHOT = {
@@ -140,9 +144,11 @@ const SEARCH_ENDPOINTS = [
 ];
 
 const originalFetch = globalThis.fetch;
+const originalConfirm = window.confirm;
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  window.confirm = originalConfirm;
 });
 
 /**
@@ -210,6 +216,18 @@ test("renders endpoint with nodes and guests", async () => {
   expect(screen.getByText(/1 endpoint/)).toBeTruthy();
   expect(screen.getByText(/1 VM/)).toBeTruthy();
   expect(screen.getByText(/1 container/)).toBeTruthy();
+});
+
+test("identifies the endpoint and node in restart confirmation", async () => {
+  mockFetch(MOCK_SNAPSHOT);
+  window.confirm = mock(() => false);
+  const { ProxmoxPage } = await import("./proxmox-page?bust=" + Math.random());
+
+  render(<ProxmoxPage />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "Restart LXC container nginx-ct (200)" })).toBeTruthy());
+  fireEvent.click(screen.getByRole("button", { name: "Restart LXC container nginx-ct (200)" }));
+
+  expect(window.confirm).toHaveBeenCalledWith("Restart LXC container nginx-ct (ID 200) on endpoint Main Cluster, node pve-1?");
 });
 
 test("renders error state on fetch failure (no data)", async () => {

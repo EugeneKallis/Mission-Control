@@ -13,8 +13,10 @@ model Macro {
   groupName   String    @default("Ungrouped") @map("group_name")
   ord         Int       @default(0)
   commands    String    @default("[]")
-  history       History[]
-  schedules     Schedule[]
+  isInternal  Boolean   @default(false) @map("is_internal")
+  isConsumed  Boolean   @default(false) @map("is_consumed")
+  history     History[]
+  schedules   Schedule[]
 
   @@map("macros")
 }

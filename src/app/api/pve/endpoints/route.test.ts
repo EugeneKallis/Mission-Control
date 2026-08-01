@@ -71,6 +71,7 @@ test("POST creates endpoint", async () => {
   expect(res.status).toBe(201);
   const json = await res.json();
   expect(json.name).toBe("New");
+  expect(mockCreateEndpoint.mock.calls[0][0]).not.toHaveProperty("sshHost");
 });
 
 test("POST validates required fields", async () => {
@@ -119,6 +120,7 @@ test("PUT updates endpoint", async () => {
   expect(json.name).toBe("Updated");
   // Should keep existing token when not provided
   expect(mockUpdateEndpoint.mock.calls[0][1].apiToken).toBeUndefined();
+  expect(mockUpdateEndpoint.mock.calls[0][1]).not.toHaveProperty("sshHost");
 });
 
 test("PUT replaces token when provided", async () => {

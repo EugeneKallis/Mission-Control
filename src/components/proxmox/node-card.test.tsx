@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, mock, test } from "bun:test";
 import { cleanup, render, screen, userEvent, within } from "@/test-utils/render";
 
 // Bun's test runner does not trigger React Testing Library's auto-cleanup
@@ -337,6 +337,21 @@ describe("NodeCard search behavior", () => {
     // The only available tab is selected automatically.
     expect(screen.getByRole("tab", { name: /^Storage/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("table", { name: "Main Cluster pve-1 storage" })).toBeTruthy();
+  });
+
+  test("shows restart only for running guests and passes canonical guest details", async () => {
+    const user = userEvent.setup();
+    const onRestartGuest = mock();
+    render(<NodeCard node={node} endpointName="Main Cluster" onRestartGuest={onRestartGuest} />);
+
+    const runningLxc = screen.getByRole("button", { name: "Restart LXC container alpha (101)" });
+    expect(screen.queryByRole("button", { name: "Restart LXC container Zulu (202)" })).toBeNull();
+    await user.click(runningLxc);
+    expect(onRestartGuest).toHaveBeenCalledWith({ node: "pve-1", vmid: 101, type: "lxc", name: "alpha" });
+
+    await user.click(screen.getByRole("tab", { name: /^VMs/ }));
+    expect(screen.getByRole("button", { name: "Restart VM alpha (101)" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Restart VM Zulu (202)" })).toBeNull();
   });
 });
 

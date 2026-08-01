@@ -6,11 +6,19 @@ import type { PveNodeDetail, PveGuest, PveStoragePool } from "./proxmox-types";
 import type { PveThresholds } from "@/lib/pve-alerts";
 import { guestAlerts, storageAlerts, thresholdColorFor } from "@/lib/pve-alerts";
 
+export interface GuestRestartRequest {
+  node: string;
+  vmid: number;
+  type: "vm" | "lxc";
+  name: string;
+}
+
 interface NodeCardProps {
   node: PveNodeDetail;
   endpointName: string;
   query?: string;
   thresholds?: PveThresholds;
+  onRestartGuest?: (request: GuestRestartRequest) => void;
 }
 
 function alertClassForPve(
@@ -262,7 +270,17 @@ function ProgressBar({
   );
 }
 
-function GuestRow({ guest, thresholds }: { guest: PveGuest; thresholds?: PveThresholds }) {
+function GuestRow({
+  guest,
+  nodeName,
+  thresholds,
+  onRestartGuest,
+}: {
+  guest: PveGuest;
+  nodeName: string;
+  thresholds?: PveThresholds;
+  onRestartGuest?: (request: GuestRestartRequest) => void;
+}) {
   const alertClass = thresholds ? rowClassForGuest(guest, thresholds) : "";
   return (
     <div role="row" className={`flex items-center gap-3 px-4 py-2.5 hover:bg-surface-container/50 rounded-[var(--radius-button)] transition-colors ${alertClass}`}>
@@ -292,6 +310,20 @@ function GuestRow({ guest, thresholds }: { guest: PveGuest; thresholds?: PveThre
       <span role="cell" className="text-xs text-on-surface-variant/60 w-14 text-right shrink-0 hidden xl:block">
         {guest.status === "running" ? humanUptime(guest.uptime) : "\u2014"}
       </span>
+      {onRestartGuest && (
+        <span role="cell" className="w-20 shrink-0 text-right">
+          {guest.status === "running" && (
+            <button
+              type="button"
+              onClick={() => onRestartGuest({ node: nodeName, vmid: guest.vmid, type: guest.type, name: guest.name })}
+              className="px-2 py-1 text-xs font-medium text-warning hover:text-warning/80 hover:bg-warning/10 rounded-[var(--radius-button)] transition-colors"
+              aria-label={`Restart ${guest.type === "vm" ? "VM" : "LXC container"} ${guest.name} (${guest.vmid})`}
+            >
+              Restart
+            </button>
+          )}
+        </span>
+      )}
     </div>
   );
 }
@@ -319,14 +351,18 @@ function GuestTable({
   sort,
   onSort,
   emptyText,
+  nodeName,
   thresholds,
+  onRestartGuest,
 }: {
   guests: PveGuest[];
   scope: string;
   sort: SortState<GuestSortKey>;
   onSort: (key: GuestSortKey) => void;
   emptyText: string;
+  nodeName: string;
   thresholds?: PveThresholds;
+  onRestartGuest?: (request: GuestRestartRequest) => void;
 }) {
   return (
     <div role="table" aria-label={scope}>
@@ -338,17 +374,18 @@ function GuestTable({
         <SortHeader label="Memory" scope={scope} sortKey="memory" sort={sort} onSort={onSort} className="w-32 shrink-0 hidden md:flex" />
         <SortHeader label="Disk" scope={scope} sortKey="disk" sort={sort} onSort={onSort} className="w-32 shrink-0 hidden lg:flex" />
         <SortHeader label="Uptime" scope={scope} sortKey="uptime" sort={sort} onSort={onSort} className="w-14 shrink-0 hidden xl:flex" />
+        {onRestartGuest && <span role="columnheader" className="w-20 shrink-0 text-right">Action</span>}
       </div>
       {guests.length === 0 ? (
         <p className="text-on-surface-variant text-sm py-4 text-center">{emptyText}</p>
       ) : (
-        guests.map((guest) => <GuestRow key={guest.vmid} guest={guest} thresholds={thresholds} />)
+        guests.map((guest) => <GuestRow key={guest.vmid} guest={guest} nodeName={nodeName} thresholds={thresholds} onRestartGuest={onRestartGuest} />)
       )}
     </div>
   );
 }
 
-export function NodeCard({ node, endpointName, query = "", thresholds }: NodeCardProps) {
+export function NodeCard({ node, endpointName, query = "", thresholds, onRestartGuest }: NodeCardProps) {
   const id = useId();
   const [expanded, setExpanded] = useState(true);
   const [previousQuery, setPreviousQuery] = useState(query);
@@ -587,7 +624,9 @@ export function NodeCard({ node, endpointName, query = "", thresholds }: NodeCar
                     sort={lxcSort}
                     onSort={(key) => setLxcSort((current) => nextSort(current, key))}
                     emptyText={queryActive ? "No LXC containers match the search" : "No LXC containers on this node"}
+                    nodeName={n.node}
                     thresholds={thresholds}
+                    onRestartGuest={onRestartGuest}
                   />
                 </div>
               )}
@@ -599,7 +638,9 @@ export function NodeCard({ node, endpointName, query = "", thresholds }: NodeCar
                     sort={vmSort}
                     onSort={(key) => setVmSort((current) => nextSort(current, key))}
                     emptyText={queryActive ? "No VMs match the search" : "No VMs on this node"}
+                    nodeName={n.node}
                     thresholds={thresholds}
+                    onRestartGuest={onRestartGuest}
                   />
                 </div>
               )}

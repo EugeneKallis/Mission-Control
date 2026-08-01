@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSchedule, toggleSchedule } from "@/lib/db/queries";
+import { getSchedule, isInternalMacro, toggleSchedule } from "@/lib/db/queries";
 import { cronScheduler } from "@/lib/cron-scheduler";
 
 export async function POST(
@@ -20,6 +20,9 @@ export async function POST(
 
   try {
     const current = await getSchedule(sid);
+    if (await isInternalMacro(current.macroId)) {
+      return NextResponse.json({ error: "Internal macros cannot be scheduled" }, { status: 409 });
+    }
     const updated = await toggleSchedule(sid);
 
     if (updated.enabled) {

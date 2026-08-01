@@ -10,6 +10,7 @@ import {
   getSchedule,
   updateSchedule,
   deleteSchedule,
+  isInternalMacro,
 } from "@/lib/db/queries";
 import { cronScheduler } from "@/lib/cron-scheduler";
 
@@ -71,8 +72,12 @@ export async function PUT(
 
   const sid = Number(id);
   try {
-    // Fetch current schedule to merge with update data
+    // Reject legacy internal schedules before mutating or registering them.
     const current = await getSchedule(sid);
+    const targetMacroId = parsed.data.macroId ?? current.macroId;
+    if (await isInternalMacro(current.macroId) || await isInternalMacro(targetMacroId)) {
+      return NextResponse.json({ error: "Internal macros cannot be scheduled" }, { status: 409 });
+    }
     const updated = await updateSchedule(sid, parsed.data);
 
     // Sync with cron scheduler

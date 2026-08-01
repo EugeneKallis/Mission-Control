@@ -47,6 +47,12 @@ describe("parseArgs", () => {
     expect(args.limit).toBe(5);
   });
 
+  test("treats -- as an end-of-options delimiter", () => {
+    const args = parseArgs(schema, ["--limit", "5", "--", "qm", "--not-a-flag", "100"]);
+    expect(args.limit).toBe(5);
+    expect(args._).toEqual(["qm", "--not-a-flag", "100"]);
+  });
+
   test("rejects unknown flags", () => {
     expect(() => parseArgs(schema, ["--unknown"])).toThrow(/Unknown flag/);
   });

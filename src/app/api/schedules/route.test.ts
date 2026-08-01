@@ -94,6 +94,15 @@ describe("GET /api/schedules", () => {
     expect(body[0].macro.name).toBe("Test Macro");
   });
 
+  test("hides schedules that point to internal action macros", async () => {
+    const internal = await testDB.db.macro.create({ data: { name: "prepared restart", isInternal: true } });
+    await testDB.db.schedule.create({ data: { macroId: internal.id, cronExpression: "* * * * *" } });
+
+    const { GET } = await loadRoute();
+    const body = await jsonBody(await GET()) as Array<{ macroId: number }>;
+    expect(body.map((schedule) => schedule.macroId)).not.toContain(internal.id);
+  });
+
   test("returns 500 when the DB throws", async () => {
     // Override the @/lib/db/queries mock to simulate a failure
     // (this takes precedence over the real Prisma mock).
@@ -197,6 +206,19 @@ describe("POST /api/schedules", () => {
     }));
     expect(status(res)).toBe(201);
     expect(addScheduleMock).not.toHaveBeenCalled();
+  });
+
+  test("rejects an internal macro before creating or registering a schedule", async () => {
+    const internal = await testDB.db.macro.create({ data: { name: "prepared restart", isInternal: true } });
+    const { POST } = await loadRoute();
+    const res = await POST(jsonRequest("/api/schedules", {
+      macroId: internal.id,
+      cronExpression: "*/10 * * * *",
+    }));
+    expect(status(res)).toBe(409);
+    expect(await jsonBody(res)).toEqual({ error: "Internal macros cannot be scheduled" });
+    expect(addScheduleMock).not.toHaveBeenCalled();
+    expect(await testDB.db.schedule.count({ where: { macroId: internal.id } })).toBe(0);
   });
 
   test("returns 500 on create failure", async () => {
