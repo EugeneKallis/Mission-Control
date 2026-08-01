@@ -43,7 +43,7 @@ beforeEach(async () => {
   execFileSyncMock = mock((cmd: string, args: string[]) => {
     execCalls.push({ cmd, args: [...args] });
     if (cmd === "systemctl" && args.includes("show")) {
-      return "2024-01-01 12:00:00 UTC";
+      return "2024-01-01 12:00:00 UTC\n2024-01-01 12:00:00 UTC";
     }
     if (cmd === "journalctl") {
       return "info: running\nERROR: something failed\n";
@@ -72,7 +72,7 @@ describe("fetchJournalctlLogs", () => {
     expect(result.text).toContain("ERROR: something failed");
   });
 
-  test("uses --since with ActiveEnterTimestamp for lines=all", async () => {
+  test("uses --since with the last start timestamp for lines=all", async () => {
     const { fetchJournalctlLogs } = await loadModule();
     fetchJournalctlLogs("web", "all");
     const call = execCalls.find((c) => c.cmd === "journalctl");
@@ -82,17 +82,63 @@ describe("fetchJournalctlLogs", () => {
     expect(call!.args).not.toContain("-n");
   });
 
-  test("uses -n for numeric lines", async () => {
+  test("uses --since and -n for numeric lines", async () => {
     const { fetchJournalctlLogs } = await loadModule();
     fetchJournalctlLogs("web", 250);
     const call = execCalls.find((c) => c.cmd === "journalctl");
+    expect(call!.args).toContain("--since");
+    expect(call!.args).toContain("2024-01-01 12:00:00 UTC");
     expect(call!.args).toContain("-n");
     expect(call!.args).toContain("250");
-    expect(call!.args).not.toContain("--since");
+  });
+
+  test("uses InactiveExitTimestamp when ActiveEnterTimestamp is n/a for an inactive one-shot service", async () => {
+    execFileSyncMock = mock((cmd: string, args: string[]) => {
+      execCalls.push({ cmd, args: [...args] });
+      if (cmd === "systemctl" && args.includes("show")) {
+        return "n/a\n2024-01-02 08:30:00 UTC";
+      }
+      if (cmd === "journalctl") {
+        return "one-shot run output";
+      }
+      return "";
+    });
+    const { fetchJournalctlLogs } = await loadModule();
+    const result = fetchJournalctlLogs("scraper", "all");
+    expect(result.error).toBeNull();
+    expect(result.text).toBe("one-shot run output");
+    const call = execCalls.find(
+      (c) =>
+        c.cmd === "journalctl" &&
+        c.args.includes("mission-control-scraper.service"),
+    );
+    expect(call).toBeDefined();
+    expect(call!.args).toContain("--since");
+    expect(call!.args).toContain("2024-01-02 08:30:00 UTC");
+  });
+
+  test("returns empty text when the unit has never started", async () => {
+    execFileSyncMock = mock((cmd: string, args: string[]) => {
+      execCalls.push({ cmd, args: [...args] });
+      if (cmd === "systemctl" && args.includes("show")) {
+        return "n/a\nn/a";
+      }
+      return "";
+    });
+    const { fetchJournalctlLogs } = await loadModule();
+    const result = fetchJournalctlLogs("scraper", "all");
+    expect(result.error).toBeNull();
+    expect(result.text).toBe("");
+    const journalCall = execCalls.find((c) => c.cmd === "journalctl");
+    expect(journalCall).toBeUndefined();
   });
 
   test("returns an error message on journalctl failure", async () => {
-    execFileSyncMock = mock((cmd: string) => {
+    execFileSyncMock = mock((cmd: string, args: string[]) => {
+      execCalls.push({ cmd, args: [...args] });
+      if (cmd === "systemctl" && args.includes("show")) {
+        return "2024-01-01 12:00:00 UTC";
+      }
       if (cmd === "journalctl") throw new Error("boom");
       return "";
     });
@@ -100,6 +146,21 @@ describe("fetchJournalctlLogs", () => {
     const result = fetchJournalctlLogs("web", "all");
     expect(result.text).toBe("");
     expect(result.error).toContain("Failed to fetch logs");
+  });
+
+  test("does not return historical logs when the systemctl show subprocess throws", async () => {
+    execFileSyncMock = mock((cmd: string, args: string[]) => {
+      execCalls.push({ cmd, args: [...args] });
+      if (cmd === "systemctl" && args.includes("show")) {
+        throw new Error("service not loaded");
+      }
+      return "historical logs";
+    });
+    const { fetchJournalctlLogs } = await loadModule();
+    const result = fetchJournalctlLogs("scraper", "all");
+    expect(result.text).toBe("");
+    expect(result.error).toContain("Unable to determine the most recent start");
+    expect(execCalls.find((c) => c.cmd === "journalctl")).toBeUndefined();
   });
 
   test("returns an error for unknown services", async () => {
