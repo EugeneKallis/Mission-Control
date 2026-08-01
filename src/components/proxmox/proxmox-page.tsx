@@ -188,6 +188,7 @@ export function ProxmoxPage() {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search nodes, VMs, containers, storage…"
               aria-label="Search Proxmox"
+              autoFocus
               className="w-full bg-surface-container-high border border-outline-variant/50 pl-9 pr-9 py-2 text-sm text-on-surface transition-colors focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none rounded-[var(--radius-button)]"
             />
             {query && (

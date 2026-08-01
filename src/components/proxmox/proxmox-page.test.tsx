@@ -347,6 +347,16 @@ test("does not show not-configured empty state alongside error", async () => {
 
 // ── Live search ───────────────────────────────────────────────────────────
 
+test("focuses the live search input automatically when data is present", async () => {
+  mockFetch(MOCK_SEARCH_SNAPSHOT, 200, SEARCH_ENDPOINTS);
+  const { ProxmoxPage } = await import("./proxmox-page?bust=" + Math.random());
+
+  render(<ProxmoxPage />);
+
+  const input = await screen.findByRole("searchbox", { name: "Search Proxmox" }) as HTMLInputElement;
+  await waitFor(() => expect(document.activeElement).toBe(input));
+});
+
 test("filters node cards and endpoint sections by the query, auto-expanding matches", async () => {
   mockFetch(MOCK_SEARCH_SNAPSHOT, 200, SEARCH_ENDPOINTS);
   const { ProxmoxPage } = await import("./proxmox-page?bust=" + Math.random());
