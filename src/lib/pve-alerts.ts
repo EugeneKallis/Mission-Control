@@ -63,7 +63,7 @@ export function thresholdColorFor(pct: number, thresholds: PveThresholds, metric
   return { color: "ok", className: "" };
 }
 
-export function guestAlerts(guest: {
+export type PveGuestAlertInput = {
   vmid: number;
   name: string;
   cpu: number;
@@ -72,8 +72,11 @@ export function guestAlerts(guest: {
   maxmem: number;
   disk: number;
   maxdisk: number;
+  status: string;
   type?: "vm" | "lxc";
-}, thresholds: PveThresholds): PveResourceAlert[] {
+};
+
+export function guestAlerts(guest: PveGuestAlertInput, thresholds: PveThresholds): PveResourceAlert[] {
   const alerts: PveResourceAlert[] = [];
   const cpuMax = guest.cpus * 100;
   if (breaches(guest.cpu * cpuMax, cpuMax, thresholds.cpu)) {
@@ -88,15 +91,54 @@ export function guestAlerts(guest: {
   return alerts;
 }
 
-export function storageAlerts(pool: {
+export type PveStorageAlertInput = {
   storage: string;
   used: number;
   total: number;
-}, thresholds: PveThresholds): PveResourceAlert[] {
+  avail?: number;
+};
+
+export function storageAlerts(pool: PveStorageAlertInput, thresholds: PveThresholds): PveResourceAlert[] {
   if (breaches(pool.used, pool.total, thresholds.storage)) {
     return [{ metric: "storage", value: pool.used, max: pool.total, pct: pct(pool.used, pool.total) }];
   }
   return [];
+}
+
+export function isGuestBreaching(
+  guest: PveGuestAlertInput,
+  thresholds: PveThresholds,
+): boolean {
+  return guest.status === "running" && guestAlerts(guest, thresholds).length > 0;
+}
+
+export function isStorageBreaching(
+  pool: PveStorageAlertInput,
+  thresholds: PveThresholds,
+): boolean {
+  return storageAlerts(pool, thresholds).length > 0;
+}
+
+export function nodeHasBreach<
+  G extends PveGuestAlertInput,
+  S extends PveStorageAlertInput,
+>(node: { vms: G[]; containers: G[]; storage: S[] }, thresholds: PveThresholds): boolean {
+  return (
+    node.vms.some((g) => isGuestBreaching(g, thresholds)) ||
+    node.containers.some((g) => isGuestBreaching(g, thresholds)) ||
+    node.storage.some((s) => isStorageBreaching(s, thresholds))
+  );
+}
+
+export function filterNodeToBreaches<
+  G extends PveGuestAlertInput,
+  S extends PveStorageAlertInput,
+>(node: { vms: G[]; containers: G[]; storage: S[] }, thresholds: PveThresholds): { vms: G[]; containers: G[]; storage: S[] } {
+  return {
+    vms: node.vms.filter((g) => isGuestBreaching(g, thresholds)),
+    containers: node.containers.filter((g) => isGuestBreaching(g, thresholds)),
+    storage: node.storage.filter((s) => isStorageBreaching(s, thresholds)),
+  };
 }
 
 export function countPveAlerts(
@@ -109,8 +151,9 @@ export function countPveAlerts(
       storage: { storage: string; used: number; total: number; avail: number }[];
     }[];
   }[],
-  thresholds: PveThresholds,
+  thresholds: PveThresholds | undefined,
 ): PveAlertSummary {
+  const normalized = buildThresholds(thresholds);
   const resources: PveAlertSummary["resources"] = {};
   let count = 0;
 
@@ -118,7 +161,7 @@ export function countPveAlerts(
     for (const node of ep.nodes) {
       for (const guest of node.vms) {
         if (guest.status !== "running") continue;
-        const alerts = guestAlerts(guest, thresholds);
+        const alerts = guestAlerts(guest, normalized);
         if (alerts.length > 0) {
           const key = `${ep.name}|${node.node}|vm|${guest.vmid}`;
           resources[key] = {
@@ -133,7 +176,7 @@ export function countPveAlerts(
       }
       for (const guest of node.containers) {
         if (guest.status !== "running") continue;
-        const alerts = guestAlerts(guest, thresholds);
+        const alerts = guestAlerts(guest, normalized);
         if (alerts.length > 0) {
           const key = `${ep.name}|${node.node}|lxc|${guest.vmid}`;
           resources[key] = {
@@ -147,7 +190,7 @@ export function countPveAlerts(
         }
       }
       for (const pool of node.storage) {
-        const alerts = storageAlerts(pool, thresholds);
+        const alerts = storageAlerts(pool, normalized);
         if (alerts.length > 0) {
           const key = `${ep.name}|${node.node}|storage|${pool.storage}`;
           resources[key] = {

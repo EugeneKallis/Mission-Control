@@ -603,5 +603,106 @@ describe("NodeCard threshold highlighting", () => {
     const row = screen.getByRole("row", { name: /alpha/ });
     expect(row.className).not.toMatch(/bg-error/);
     expect(row.className).not.toMatch(/bg-warning/);
+    expect(screen.queryByText(/^cpu 85%$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^storage 80%$/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("NodeCard breach-only mode", () => {
+  const mixedGuests: PveGuest[] = [
+    {
+      vmid: 101,
+      name: "alpha",
+      status: "running",
+      cpu: 0.85,
+      cpus: 4,
+      mem: 2,
+      maxmem: 10,
+      disk: 10,
+      maxdisk: 100,
+      uptime: 3_600,
+      type: "lxc",
+    },
+    {
+      vmid: 202,
+      name: "Zulu",
+      status: "running",
+      cpu: 0.1,
+      cpus: 2,
+      mem: 2,
+      maxmem: 10,
+      disk: 10,
+      maxdisk: 100,
+      uptime: 3_600,
+      type: "lxc",
+    },
+  ];
+
+  const mixedStorage: PveStoragePool[] = [
+    { storage: "zfs-data", type: "zfspool", total: 100, used: 81, avail: 19 },
+    { storage: "local", type: "dir", total: 100, used: 20, avail: 80 },
+  ];
+
+  const mixedNode: PveNodeDetail = {
+    node: { ...node.node, cpu: 0.1 },
+    containers: mixedGuests,
+    vms: mixedGuests.map((g) => ({ ...g, type: "vm" as const })),
+    storage: mixedStorage,
+  };
+
+  test("hides non-breaching guests and storage in breach-only mode", async () => {
+    const user = userEvent.setup();
+    render(<NodeCard node={mixedNode} endpointName="Main Cluster" thresholds={DEFAULT_PVE_THRESHOLDS} breachOnly />);
+    expect(screen.getByRole("row", { name: /alpha/ })).toBeTruthy();
+    expect(screen.queryByRole("row", { name: /Zulu/ })).toBeNull();
+
+    await user.click(screen.getByRole("tab", { name: /^Storage/ }));
+    expect(screen.getByRole("row", { name: /zfs-data/ })).toBeTruthy();
+    expect(screen.queryByRole("row", { name: /local/ })).toBeNull();
+  });
+
+  test("auto-expands a node card in breach-only mode", () => {
+    render(<NodeCard node={mixedNode} endpointName="Main Cluster" thresholds={DEFAULT_PVE_THRESHOLDS} breachOnly />);
+    const disclosure = screen.getByRole("button", { name: /^pve-1 online/ });
+    expect(disclosure).toHaveAttribute("aria-expanded", "true");
+  });
+
+  test("surfaces breach reason chips with the breached metric and percentage", async () => {
+    const user = userEvent.setup();
+    render(<NodeCard node={mixedNode} endpointName="Main Cluster" thresholds={DEFAULT_PVE_THRESHOLDS} breachOnly />);
+    const alphaRow = screen.getByRole("row", { name: /alpha/ });
+    expect(within(alphaRow).getByText("cpu 85%")).toBeTruthy();
+
+    await user.click(screen.getByRole("tab", { name: /^Storage/ }));
+    const zfsRow = screen.getByRole("row", { name: /zfs-data/ });
+    expect(within(zfsRow).getByText("storage 81%")).toBeTruthy();
+  });
+
+  test("shows breach-only empty state when the selected tab has no breaches", () => {
+    const noBreachNode: PveNodeDetail = {
+      node: { ...node.node, cpu: 0.1 },
+      containers: guests,
+      vms: guests.map((g) => ({ ...g, type: "vm" as const })),
+      storage,
+    };
+    render(<NodeCard node={noBreachNode} endpointName="Main Cluster" thresholds={DEFAULT_PVE_THRESHOLDS} breachOnly />);
+    expect(screen.getByText("No LXC containers are breaching thresholds")).toBeTruthy();
+  });
+
+  test("allows collapse override while in breach-only mode", async () => {
+    const user = userEvent.setup();
+    render(<NodeCard node={mixedNode} endpointName="Main Cluster" thresholds={DEFAULT_PVE_THRESHOLDS} breachOnly />);
+
+    const disclosure = screen.getByRole("button", { name: /^pve-1 online/ });
+    expect(disclosure).toHaveAttribute("aria-expanded", "true");
+    await user.click(disclosure);
+    expect(disclosure).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("row")).toBeNull();
+  });
+
+  test("stays in breach-only mode when auto-selecting a tab with breaches", () => {
+    render(<NodeCard node={mixedNode} endpointName="Main Cluster" thresholds={DEFAULT_PVE_THRESHOLDS} breachOnly />);
+    // LXC tab is the first available; alpha breaches CPU, so it should be shown.
+    expect(screen.getByRole("row", { name: /alpha/ })).toBeTruthy();
   });
 });

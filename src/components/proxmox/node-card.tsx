@@ -3,8 +3,8 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { PveNodeDetail, PveGuest, PveStoragePool } from "./proxmox-types";
-import type { PveThresholds } from "@/lib/pve-alerts";
-import { guestAlerts, storageAlerts, thresholdColorFor } from "@/lib/pve-alerts";
+import type { PveThresholds, PveResourceAlert } from "@/lib/pve-alerts";
+import { DEFAULT_PVE_THRESHOLDS, guestAlerts, storageAlerts, thresholdColorFor, isGuestBreaching, isStorageBreaching } from "@/lib/pve-alerts";
 
 export interface GuestRestartRequest {
   node: string;
@@ -18,6 +18,7 @@ interface NodeCardProps {
   endpointName: string;
   query?: string;
   thresholds?: PveThresholds;
+  breachOnly?: boolean;
   onRestartGuest?: (request: GuestRestartRequest) => void;
 }
 
@@ -281,7 +282,9 @@ function GuestRow({
   thresholds?: PveThresholds;
   onRestartGuest?: (request: GuestRestartRequest) => void;
 }) {
-  const alertClass = thresholds ? rowClassForGuest(guest, thresholds) : "";
+  const effectiveThresholds = thresholds ?? DEFAULT_PVE_THRESHOLDS;
+  const alerts = guest.status === "running" ? guestAlerts(guest, effectiveThresholds) : [];
+  const alertClass = alerts.length > 0 ? rowClassForGuest(guest, effectiveThresholds) : "";
   return (
     <div role="row" className={`flex items-center gap-3 px-4 py-2.5 hover:bg-surface-container/50 rounded-[var(--radius-button)] transition-colors ${alertClass}`}>
       <span role="cell" className="text-on-surface-variant text-xs font-mono w-12 shrink-0">{guest.vmid}</span>
@@ -310,6 +313,11 @@ function GuestRow({
       <span role="cell" className="text-xs text-on-surface-variant/60 w-14 text-right shrink-0 hidden xl:block">
         {guest.status === "running" ? humanUptime(guest.uptime) : "\u2014"}
       </span>
+      {alerts.length > 0 && (
+        <span role="cell" className="shrink-0">
+          <BreachReasonChips alerts={alerts} thresholds={effectiveThresholds} />
+        </span>
+      )}
       {onRestartGuest && (
         <span role="cell" className="w-20 shrink-0 text-right">
           {guest.status === "running" && (
@@ -328,8 +336,33 @@ function GuestRow({
   );
 }
 
+function BreachReasonChips({ alerts, thresholds }: { alerts: PveResourceAlert[]; thresholds: PveThresholds }) {
+  if (alerts.length === 0) return null;
+  return (
+    <div className="flex items-center gap-1" aria-label="Breach reasons">
+      {alerts.map((alert) => {
+        const { color } = thresholdColorFor(alert.pct, thresholds, alert.metric);
+        const classes =
+          color === "error"
+            ? "bg-error/20 text-error border-error/30"
+            : "bg-warning/20 text-warning border-warning/30";
+        return (
+          <span
+            key={alert.metric}
+            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${classes}`}
+          >
+            {alert.metric} {alert.pct.toFixed(0)}%
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 function StorageRow({ pool, thresholds }: { pool: PveStoragePool; thresholds?: PveThresholds }) {
-  const alertClass = thresholds ? rowClassForStorage(pool, thresholds) : "";
+  const effectiveThresholds = thresholds ?? DEFAULT_PVE_THRESHOLDS;
+  const alerts = storageAlerts(pool, effectiveThresholds);
+  const alertClass = alerts.length > 0 ? rowClassForStorage(pool, effectiveThresholds) : "";
   return (
     <div role="row" className={`flex items-center gap-3 px-4 py-2 hover:bg-surface-container/50 rounded-[var(--radius-button)] transition-colors ${alertClass}`}>
       <span role="cell" className="flex-1 text-sm font-medium text-on-surface truncate">{pool.storage}</span>
@@ -341,6 +374,11 @@ function StorageRow({ pool, thresholds }: { pool: PveStoragePool; thresholds?: P
         </div>
       </div>
       <span role="cell" className="text-xs text-on-surface-variant/60 w-16 text-right shrink-0">{humanBytes(pool.avail)} free</span>
+      {alerts.length > 0 && (
+        <span role="cell" className="shrink-0">
+          <BreachReasonChips alerts={alerts} thresholds={effectiveThresholds} />
+        </span>
+      )}
     </div>
   );
 }
@@ -385,14 +423,16 @@ function GuestTable({
   );
 }
 
-export function NodeCard({ node, endpointName, query = "", thresholds, onRestartGuest }: NodeCardProps) {
+export function NodeCard({ node, endpointName, query = "", thresholds, breachOnly = false, onRestartGuest }: NodeCardProps) {
   const id = useId();
+  const effectiveThresholds = thresholds ?? DEFAULT_PVE_THRESHOLDS;
   const [expanded, setExpanded] = useState(true);
   const [previousQuery, setPreviousQuery] = useState(query);
+  const [previousBreachOnly, setPreviousBreachOnly] = useState(breachOnly);
   // A user's explicit disclosure choice for the current query string, so
   // auto-expansion can be overridden by a manual collapse/expand while a
   // search is active.
-  const [expandedOverride, setExpandedOverride] = useState<{ query: string; expanded: boolean } | null>(null);
+  const [expandedOverride, setExpandedOverride] = useState<{ query: string; breachOnly: boolean; expanded: boolean } | null>(null);
   const [tab, setTab] = useState<"vms" | "lxc" | "storage">("lxc");
   // A tab the user explicitly selected for the current query string.
   // Auto-selection takes over again as soon as the query changes.
@@ -408,18 +448,19 @@ export function NodeCard({ node, endpointName, query = "", thresholds, onRestart
   // Reset to the expanded baseline whenever the query changes. Setting state
   // during render is deliberate here: it synchronizes this local display
   // state to the prop before children render, avoiding a collapse flicker.
-  if (previousQuery !== query) {
+  if (previousQuery !== query || previousBreachOnly !== breachOnly) {
     setPreviousQuery(query);
+    setPreviousBreachOnly(breachOnly);
     setExpanded(true);
-    // A query-scoped override is only valid for the exact query that created it.
-    // Reset it whenever the query changes so re-entering the same search starts
-    // fresh with the default expanded state.
+    // A query-scoped override is only valid for the exact view that created it.
+    // Reset it whenever the query or breach-only filter changes so re-entering
+    // the same view starts fresh with the default expanded state.
     setExpandedOverride(null);
   }
 
-  const effectiveExpanded = expandedOverride?.query === query
+  const effectiveExpanded = expandedOverride?.query === query && expandedOverride?.breachOnly === breachOnly
     ? expandedOverride.expanded
-    : queryActive
+    : queryActive || breachOnly
       ? true
       : expanded;
 
@@ -471,8 +512,8 @@ export function NodeCard({ node, endpointName, query = "", thresholds, onRestart
   const tabpanelId = (name: "vms" | "lxc" | "storage") => `${id}-panel-${name}`;
 
   const handleToggle = () => {
-    if (queryActive) {
-      setExpandedOverride({ query, expanded: !effectiveExpanded });
+    if (queryActive || breachOnly) {
+      setExpandedOverride({ query, breachOnly, expanded: !effectiveExpanded });
     } else {
       setExpanded((prev) => !prev);
     }
@@ -515,20 +556,49 @@ export function NodeCard({ node, endpointName, query = "", thresholds, onRestart
   const n = node.node;
 
   // Leaf rows are filtered strictly by their own fields while a query is
-  // active; an empty query keeps every row.
-  const filteredVms = useMemo(() => filterGuests(node.vms, query), [node.vms, query]);
-  const filteredContainers = useMemo(() => filterGuests(node.containers, query), [node.containers, query]);
-  const filteredStorage = useMemo(() => filterStorage(node.storage, query), [node.storage, query]);
+  // active; an empty query keeps every row. In breach-only mode only resources
+  // that exceed a configured threshold survive.
+  const filteredVms = useMemo(() => {
+    const source = breachOnly ? node.vms.filter((g) => isGuestBreaching(g, effectiveThresholds)) : node.vms;
+    return filterGuests(source, query);
+  }, [node.vms, query, breachOnly, effectiveThresholds]);
+  const filteredContainers = useMemo(() => {
+    const source = breachOnly ? node.containers.filter((g) => isGuestBreaching(g, effectiveThresholds)) : node.containers;
+    return filterGuests(source, query);
+  }, [node.containers, query, breachOnly, effectiveThresholds]);
+  const filteredStorage = useMemo(() => {
+    const source = breachOnly ? node.storage.filter((s) => isStorageBreaching(s, effectiveThresholds)) : node.storage;
+    return filterStorage(source, query);
+  }, [node.storage, query, breachOnly, effectiveThresholds]);
 
   const sortedVms = useMemo(() => sortGuests(filteredVms, vmSort), [filteredVms, vmSort]);
   const sortedContainers = useMemo(() => sortGuests(filteredContainers, lxcSort), [filteredContainers, lxcSort]);
   const sortedStorage = useMemo(() => sortStorage(filteredStorage, storageSort), [filteredStorage, storageSort]);
+
+  // When breach-only mode is active, make sure the user lands on a tab that
+  // actually has breaches. Use the same priority as search-based auto-selection.
+  useEffect(() => {
+    if (!breachOnly) return;
+    const has = {
+      lxc: filteredContainers.length > 0,
+      vms: filteredVms.length > 0,
+      storage: filteredStorage.length > 0,
+    };
+    const order: Array<"vms" | "lxc" | "storage"> = ["storage", "vms", "lxc"];
+    const first = order.find((name) => has[name]);
+    if (first && activeTab && !has[activeTab]) {
+      setTab(first);
+      setTabPinnedAt(query);
+    }
+  }, [breachOnly, filteredContainers.length, filteredVms.length, filteredStorage.length, activeTab, query]);
+
   const scopeFor = (name: "vms" | "lxc" | "storage"): string =>
     `${endpointName} ${n.node} ${name === "lxc" ? "LXC containers" : name === "vms" ? "VMs" : "storage"}`;
 
-  // Tab counts: plain total by default, matched/total while a query is active.
+  // Tab counts: plain total by default, matched/total while a query or
+  // breach-only filter is active so the user can see which tabs have issues.
   const countLabel = (total: number, matched: number): string =>
-    queryActive ? `(${matched}/${total})` : total > 0 ? `(${total})` : "";
+    queryActive || breachOnly ? `(${matched}/${total})` : total > 0 ? `(${total})` : "";
 
   return (
     <div className="bg-surface-container border border-outline-variant/20 rounded-[var(--radius-card)] overflow-hidden">
@@ -623,7 +693,7 @@ export function NodeCard({ node, endpointName, query = "", thresholds, onRestart
                     scope={scopeFor("lxc")}
                     sort={lxcSort}
                     onSort={(key) => setLxcSort((current) => nextSort(current, key))}
-                    emptyText={queryActive ? "No LXC containers match the search" : "No LXC containers on this node"}
+                    emptyText={breachOnly ? "No LXC containers are breaching thresholds" : queryActive ? "No LXC containers match the search" : "No LXC containers on this node"}
                     nodeName={n.node}
                     thresholds={thresholds}
                     onRestartGuest={onRestartGuest}
@@ -637,7 +707,7 @@ export function NodeCard({ node, endpointName, query = "", thresholds, onRestart
                     scope={scopeFor("vms")}
                     sort={vmSort}
                     onSort={(key) => setVmSort((current) => nextSort(current, key))}
-                    emptyText={queryActive ? "No VMs match the search" : "No VMs on this node"}
+                    emptyText={breachOnly ? "No VMs are breaching thresholds" : queryActive ? "No VMs match the search" : "No VMs on this node"}
                     nodeName={n.node}
                     thresholds={thresholds}
                     onRestartGuest={onRestartGuest}
@@ -656,7 +726,7 @@ export function NodeCard({ node, endpointName, query = "", thresholds, onRestart
                           <SortHeader label="Free" scope={scopeFor("storage")} sortKey="avail" sort={storageSort} onSort={(key) => setStorageSort((current) => nextSort(current, key))} className="w-16 shrink-0" align="right" />
                         </div>
                         {sortedStorage.length === 0 ? (
-                          <p className="text-on-surface-variant text-sm py-4 text-center">{queryActive ? "No storage pools match the search" : "No storage pools on this node"}</p>
+                          <p className="text-on-surface-variant text-sm py-4 text-center">{breachOnly ? "No storage pools are breaching thresholds" : queryActive ? "No storage pools match the search" : "No storage pools on this node"}</p>
                         ) : (
                           sortedStorage.map((s) => <StorageRow key={s.storage} pool={s} thresholds={thresholds} />)
                         )}

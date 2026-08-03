@@ -6,6 +6,12 @@ import {
   guestAlerts,
   storageAlerts,
   thresholdColorFor,
+  isGuestBreaching,
+  isStorageBreaching,
+  nodeHasBreach,
+  filterNodeToBreaches,
+  type PveGuestAlertInput,
+  type PveStorageAlertInput,
 } from "./pve-alerts";
 
 const baseGuest = {
@@ -172,5 +178,95 @@ describe("countPveAlerts", () => {
     expect(summary.count).toBe(1);
     const resource = Object.values(summary.resources)[0];
     expect(resource.metric).toBe("cpu");
+  });
+
+  test("tolerates undefined thresholds by falling back to defaults", () => {
+    const ep = mkEndpoint("Main", "pve-1");
+    ep.nodes[0].vms.push({ ...baseGuest, cpu: 0.85 });
+    expect(countPveAlerts([ep], undefined as unknown as typeof DEFAULT_PVE_THRESHOLDS).count).toBe(1);
+  });
+});
+
+describe("isGuestBreaching", () => {
+  test("returns true for a running guest above a threshold", () => {
+    expect(isGuestBreaching({ ...baseGuest, cpu: 0.85 }, DEFAULT_PVE_THRESHOLDS)).toBe(true);
+  });
+
+  test("returns false for a stopped guest even if retained values breach", () => {
+    expect(isGuestBreaching({ ...baseGuest, status: "stopped", cpu: 0.95 }, DEFAULT_PVE_THRESHOLDS)).toBe(false);
+  });
+
+  test("returns false when all metrics are within thresholds", () => {
+    expect(isGuestBreaching(baseGuest, DEFAULT_PVE_THRESHOLDS)).toBe(false);
+  });
+});
+
+describe("isStorageBreaching", () => {
+  test("returns true when usage exceeds the threshold", () => {
+    expect(isStorageBreaching({ storage: "local", used: 81, total: 100 }, DEFAULT_PVE_THRESHOLDS)).toBe(true);
+  });
+
+  test("returns false when usage is within the threshold", () => {
+    expect(isStorageBreaching({ storage: "local", used: 50, total: 100 }, DEFAULT_PVE_THRESHOLDS)).toBe(false);
+  });
+});
+
+describe("nodeHasBreach", () => {
+  function mkNode() {
+    return {
+      node: "pve-1",
+      vms: [] as PveGuestAlertInput[],
+      containers: [] as PveGuestAlertInput[],
+      storage: [] as PveStorageAlertInput[],
+    };
+  }
+
+  test("returns true when any VM, container, or storage pool breaches", () => {
+    const node = mkNode();
+    node.vms.push({ ...baseGuest, cpu: 0.85 });
+    expect(nodeHasBreach(node, DEFAULT_PVE_THRESHOLDS)).toBe(true);
+  });
+
+  test("returns false when all resources are within thresholds", () => {
+    const node = mkNode();
+    node.vms.push(baseGuest);
+    node.containers.push(baseContainer);
+    node.storage.push({ storage: "local", used: 50, total: 100, avail: 50 });
+    expect(nodeHasBreach(node, DEFAULT_PVE_THRESHOLDS)).toBe(false);
+  });
+});
+
+describe("filterNodeToBreaches", () => {
+  function mkNode() {
+    return {
+      node: "pve-1",
+      vms: [
+        { ...baseGuest, vmid: 100, cpu: 0.85 },
+        { ...baseGuest, vmid: 101 },
+      ] as PveGuestAlertInput[],
+      containers: [
+        { ...baseContainer, vmid: 200, mem: 7_000_000_000 },
+        { ...baseContainer, vmid: 201 },
+      ] as PveGuestAlertInput[],
+      storage: [
+        { storage: "hot", used: 81, total: 100, avail: 19 },
+        { storage: "cold", used: 20, total: 100, avail: 80 },
+      ] as PveStorageAlertInput[],
+    };
+  }
+
+  test("keeps only breaching resources and drops safe ones", () => {
+    const node = mkNode();
+    const filtered = filterNodeToBreaches(node, DEFAULT_PVE_THRESHOLDS);
+    expect(filtered.vms.map((g) => g.vmid)).toEqual([100]);
+    expect(filtered.containers.map((g) => g.vmid)).toEqual([200]);
+    expect(filtered.storage.map((s) => s.storage)).toEqual(["hot"]);
+  });
+
+  test("drops stopped guests even if retained values breach", () => {
+    const node = mkNode();
+    node.vms[0] = { ...node.vms[0], status: "stopped" as const };
+    const filtered = filterNodeToBreaches(node, DEFAULT_PVE_THRESHOLDS);
+    expect(filtered.vms).toHaveLength(0);
   });
 });

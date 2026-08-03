@@ -3,7 +3,7 @@
  */
 
 import { test, expect, mock, afterEach } from "bun:test";
-import { fireEvent, render, screen, waitFor, within } from "@/test-utils/render";
+import { fireEvent, render, screen, userEvent, waitFor, within } from "@/test-utils/render";
 
 mock.module("next/navigation", () => ({
   useRouter: () => ({ push: mock() }),
@@ -142,6 +142,57 @@ const SEARCH_ENDPOINTS = [
   { id: 1, name: "Main Cluster", apiUrl: "https://192.168.1.10:8006", apiToken: "", verifyTls: false, enabled: true, order: 0 },
   { id: 2, name: "Backup Cluster", apiUrl: "https://192.168.1.20:8006", apiToken: "", verifyTls: false, enabled: true, order: 1 },
 ];
+
+/** One endpoint with two nodes: one node has breaches, the other is safe. */
+const MOCK_BREACH_SNAPSHOT = {
+  endpoints: [
+    {
+      id: 1,
+      name: "Main Cluster",
+      apiUrl: "https://192.168.1.10:8006",
+      online: true,
+      nodes: [
+        {
+          node: "pve-hot",
+          status: "online",
+          cpu: 0.15,
+          maxcpu: 8,
+          mem: 8_589_934_592,
+          maxmem: 34_359_738_368,
+          disk: 200_000_000_000,
+          maxdisk: 500_000_000_000,
+          uptime: 604800,
+          vms: [
+            { vmid: 100, name: "ubuntu-server", status: "running", cpu: 0.85, cpus: 4, mem: 4_294_967_296, maxmem: 8_589_934_592, disk: 0, maxdisk: 100_000_000_000, uptime: 86400 },
+          ],
+          containers: [
+            { vmid: 200, name: "nginx-ct", status: "running", cpu: 0.01, cpus: 2, mem: 536_870_912, maxmem: 1_073_741_824, disk: 10_000_000_000, maxdisk: 30_000_000_000, uptime: 172800 },
+          ],
+          storage: [
+            { storage: "local", type: "dir", total: 500_000_000_000, used: 300_000_000_000, avail: 200_000_000_000, active: 1, enabled: 1 },
+          ],
+        },
+        {
+          node: "pve-cold",
+          status: "online",
+          cpu: 0.05,
+          maxcpu: 4,
+          mem: 4_294_967_296,
+          maxmem: 17_179_869_184,
+          disk: 100_000_000_000,
+          maxdisk: 250_000_000_000,
+          uptime: 432000,
+          vms: [],
+          containers: [],
+          storage: [
+            { storage: "cold", type: "dir", total: 1_000_000_000_000, used: 100_000_000_000, avail: 900_000_000_000, active: 1, enabled: 1 },
+          ],
+        },
+      ],
+    },
+  ],
+  fetchedAt: new Date().toISOString(),
+};
 
 const originalFetch = globalThis.fetch;
 const originalConfirm = window.confirm;
@@ -708,4 +759,60 @@ test("ignores modifier keys for global type-to-search", async () => {
 
   expect(document.activeElement).not.toBe(input);
   expect(input.value).toBe("");
+});
+
+// ── Breach-only filter ─────────────────────────────────────────────────────
+
+test("shows a breach-only button with the count when resources are breaching", async () => {
+  mockFetch(MOCK_BREACH_SNAPSHOT);
+  const { ProxmoxPage } = await import("./proxmox-page?bust=" + Math.random());
+
+  render(<ProxmoxPage />);
+  await waitFor(() => expect(screen.getByRole("button", { name: /1 breach/i })).toBeTruthy());
+  expect(screen.getByRole("button", { name: "Show only 1 breaching resource" })).toBeTruthy();
+});
+
+test("toggles breach-only mode and hides non-breaching resources", async () => {
+  const user = userEvent.setup();
+  mockFetch(MOCK_BREACH_SNAPSHOT);
+  const { ProxmoxPage } = await import("./proxmox-page?bust=" + Math.random());
+
+  render(<ProxmoxPage />);
+  const button = await screen.findByRole("button", { name: "Show only 1 breaching resource" });
+  await user.click(button);
+
+  expect(button).toHaveAttribute("aria-pressed", "true");
+  expect(button).toHaveTextContent("Show all");
+
+  // The safe node is hidden; the hot node is shown and expanded.
+  expect(screen.queryByText("pve-cold")).toBeNull();
+  expect(screen.getByText("pve-hot")).toBeTruthy();
+
+  // Only the breaching VM is rendered; the safe container is filtered out.
+  expect(screen.getByRole("row", { name: /ubuntu-server/ })).toBeTruthy();
+  expect(screen.queryByRole("row", { name: /nginx-ct/ })).toBeNull();
+});
+
+test("clears breach-only mode when the Show all button is clicked", async () => {
+  const user = userEvent.setup();
+  mockFetch(MOCK_BREACH_SNAPSHOT);
+  const { ProxmoxPage } = await import("./proxmox-page?bust=" + Math.random());
+
+  render(<ProxmoxPage />);
+  const button = await screen.findByRole("button", { name: "Show only 1 breaching resource" });
+  await user.click(button);
+  expect(screen.queryByText("pve-cold")).toBeNull();
+
+  await user.click(button);
+  expect(screen.getByText("pve-cold")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Show only 1 breaching resource" })).toBeTruthy();
+});
+
+test("does not show the breach-only button when nothing is breaching", async () => {
+  mockFetch(MOCK_SNAPSHOT);
+  const { ProxmoxPage } = await import("./proxmox-page?bust=" + Math.random());
+
+  render(<ProxmoxPage />);
+  await waitFor(() => expect(screen.getByText("pve-1")).toBeTruthy());
+  expect(screen.queryByRole("button", { name: /breach/i })).toBeNull();
 });

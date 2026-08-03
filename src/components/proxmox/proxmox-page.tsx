@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { NodeCard, matchNodeQuery, type GuestRestartRequest } from "./node-card";
 import { EndpointSettings } from "./endpoint-settings";
 import { PveThresholdsModal } from "./pve-thresholds-modal";
-import { DEFAULT_PVE_THRESHOLDS, type PveThresholds } from "@/lib/pve-alerts";
+import { DEFAULT_PVE_THRESHOLDS, buildThresholds, countPveAlerts, nodeHasBreach, type PveThresholds } from "@/lib/pve-alerts";
 import { useToast } from "@/components/toast-provider";
 import type { PveClusterStatus, PveNodeDetail, PveEndpointConfig, PveRawNodeSnapshot } from "./proxmox-types";
 
@@ -58,6 +58,7 @@ export function ProxmoxPage() {
   const [thresholds, setThresholds] = useState<PveThresholds>(DEFAULT_PVE_THRESHOLDS);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [breachOnly, setBreachOnly] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const fetchStatus = useCallback(async () => {
@@ -94,8 +95,8 @@ export function ProxmoxPage() {
     try {
       const res = await fetch("/api/pve/thresholds");
       if (res.ok) {
-        const data = (await res.json()) as { config: PveThresholds };
-        setThresholds(data.config);
+        const data = (await res.json()) as { config?: PveThresholds };
+        setThresholds(buildThresholds(data.config));
       }
     } catch {
       // non-critical
@@ -129,6 +130,8 @@ export function ProxmoxPage() {
       )
     : 0;
   const totalEndpoints = hasEndpoints ? status.endpoints.length : endpoints.length;
+  const breachCount = hasEndpoints ? countPveAlerts(status.endpoints, thresholds).count : 0;
+  const showBreachFilter = hasEndpoints && breachCount > 0;
 
   // Global type-to-search: when focus is outside an editable field, printable
   // keystrokes are redirected to the live search input so the user can start
@@ -212,9 +215,11 @@ export function ProxmoxPage() {
   const queryActive = query.trim().length > 0;
 
   /**
-   * Sections visible under the current query. Empty query → everything.
-   * Otherwise: a node is kept if it (or its guests/storage) matches, and an
-   * endpoint section is kept if its header matches or ≥1 node survives.
+   * Sections visible under the current query and breach-only filter. Empty
+   * query → everything. Otherwise a node is kept if it (or its guests/storage)
+   * matches. In breach-only mode only nodes with at least one breaching resource
+   * are shown. Endpoint sections are kept if their header matches or ≥1 node
+   * survives.
    */
   const sections = useMemo(() => {
     if (!status) return [];
@@ -224,18 +229,21 @@ export function ProxmoxPage() {
       .map((ep, ei) => {
         const endpointName = endpoints.find((e) => e.apiUrl === ep.apiUrl)?.name ?? ep.apiUrl;
         const nodeDetails = ep.nodes.map(detailFromApi);
+        const filtered = breachOnly
+          ? nodeDetails.filter((nd) => nodeHasBreach(nd, thresholds))
+          : nodeDetails;
         if (!q) {
-          return { ep, ei, endpointName, nodeDetails, endpointMatches: true };
+          return { ep, ei, endpointName, nodeDetails: filtered, endpointMatches: true };
         }
         const endpointMatches = includes(ep.name) || includes(ep.apiUrl) || includes(endpointName);
-        const matching = nodeDetails.filter((nd) => {
+        const matching = filtered.filter((nd) => {
           const m = matchNodeQuery(q, nd);
           return endpointMatches || m.node || m.vms || m.containers || m.storage;
         });
         return { ep, ei, endpointName, nodeDetails: matching, endpointMatches };
       })
       .filter((s) => s.endpointMatches || s.nodeDetails.length > 0);
-  }, [status, endpoints, query]);
+  }, [status, endpoints, query, breachOnly, thresholds]);
 
   return (
     <div className="h-full flex flex-col">
@@ -275,32 +283,50 @@ export function ProxmoxPage() {
         </div>
       </div>
 
-      {/* Top-level live search */}
+      {/* Top-level live search + breach-only filter */}
       {hasEndpoints && (
         <div className="px-6 py-3 border-b border-outline-variant/30 shrink-0">
-          <div className="relative max-w-md">
-            <span aria-hidden="true" className="material-symbols-outlined text-sm absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none">
-              search
-            </span>
-            <input
-              ref={searchInputRef}
-              id="pve-search"
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search nodes, VMs, containers, storage…"
-              aria-label="Search Proxmox"
-              autoFocus
-              className="w-full bg-surface-container-high border border-outline-variant/50 pl-9 pr-9 py-2 text-sm text-on-surface transition-colors focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none rounded-[var(--radius-button)]"
-            />
-            {query && (
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 max-w-md">
+              <span aria-hidden="true" className="material-symbols-outlined text-sm absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none">
+                search
+              </span>
+              <input
+                ref={searchInputRef}
+                id="pve-search"
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search nodes, VMs, containers, storage…"
+                aria-label="Search Proxmox"
+                autoFocus
+                className="w-full bg-surface-container-high border border-outline-variant/50 pl-9 pr-9 py-2 text-sm text-on-surface transition-colors focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none rounded-[var(--radius-button)]"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  aria-label="Clear search"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors"
+                >
+                  <span aria-hidden="true" className="material-symbols-outlined text-sm">close</span>
+                </button>
+              )}
+            </div>
+            {showBreachFilter && (
               <button
                 type="button"
-                onClick={() => setQuery("")}
-                aria-label="Clear search"
-                className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors"
+                onClick={() => setBreachOnly((prev) => !prev)}
+                aria-pressed={breachOnly}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 active:scale-[0.98] ${
+                  breachOnly
+                    ? "bg-error/20 text-error border border-error/30 hover:bg-error/30"
+                    : "bg-warning/15 text-warning border border-warning/30 hover:bg-warning/25"
+                }`}
+                aria-label={breachOnly ? "Show all Proxmox resources" : `Show only ${breachCount} breaching resource${breachCount !== 1 ? "s" : ""}`}
               >
-                <span aria-hidden="true" className="material-symbols-outlined text-sm">close</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-sm">warning</span>
+                {breachOnly ? "Show all" : `${breachCount} breach${breachCount !== 1 ? "es" : ""}`}
               </button>
             )}
           </div>
@@ -382,6 +408,18 @@ export function ProxmoxPage() {
               Clear search
             </button>
           </div>
+        ) : breachOnly && sections.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 text-on-surface-variant gap-3">
+            <span className="material-symbols-outlined text-5xl text-warning/40">warning</span>
+            <p className="text-sm">No resources are currently breaching the configured thresholds.</p>
+            <button
+              onClick={() => setBreachOnly(false)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 bg-surface-container text-on-surface hover:bg-surface-container-high active:scale-[0.98]"
+            >
+              <span className="material-symbols-outlined text-sm">close</span>
+              Show all resources
+            </button>
+          </div>
         ) : (
           sections.map(({ ep, ei, endpointName, nodeDetails }) => {
             return (
@@ -405,6 +443,7 @@ export function ProxmoxPage() {
                       endpointName={endpointName}
                       query={query}
                       thresholds={thresholds}
+                      breachOnly={breachOnly}
                       onRestartGuest={(guest) => handleRestartGuest(ep.id, endpointName, guest)}
                     />
                   ))
