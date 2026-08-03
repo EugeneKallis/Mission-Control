@@ -27,10 +27,18 @@ export function MobileHeader({
       </button>
       <Link
         href="/"
-        className="ml-2 text-lg font-bold text-primary tracking-tight font-display hover:opacity-80 transition-opacity flex items-center h-11 min-w-0 truncate"
+        className="ml-2 text-lg font-bold text-primary tracking-tight font-display hover:opacity-80 transition-opacity flex items-center gap-2 h-11 min-w-0 truncate"
         aria-label="Go to home"
       >
-        {brand}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/mission-control-icon.png"
+          alt=""
+          width={32}
+          height={32}
+          className="size-8 shrink-0 rounded-lg"
+        />
+        <span className="truncate">{brand}</span>
       </Link>
       <div className="ml-auto flex items-center gap-1 shrink-0">
         <ThemeSwitcher variant="compact" />

@@ -191,7 +191,14 @@ export function SidebarContent({
           className="flex items-center gap-2.5 text-lg font-bold text-primary font-display tracking-tight hover:opacity-80 transition-opacity"
           aria-label="Go to home"
         >
-          <span className="material-symbols-outlined text-primary text-2xl">dashboard_customize</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/mission-control-icon.png"
+            alt=""
+            width={32}
+            height={32}
+            className="size-8 rounded-lg"
+          />
           {brand}
         </Link>
         <div className="text-[11px] text-on-surface-variant text-right leading-tight">
