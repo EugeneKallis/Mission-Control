@@ -10,14 +10,29 @@
  *  - Clear-lines transition when a macro starts running
  *  - Export button: noop when no lines, downloads a Blob when lines are present
  *  - Close button calls onClose
+ *  - Mixed history rows (macro / worker timer / agent task) render safe names
  */
 import { describe, test, expect, afterEach, mock, beforeAll } from "bun:test";
 import React from "react";
 import { render, within, fireEvent, waitFor } from "@/test-utils/render";
 import { MacroLogPanel } from "./macro-log-panel";
-import type { FileTreeItem } from "@/types";
 
 const originalFetch = globalThis.fetch;
+
+type MockHistoryItem = {
+  id: number;
+  macroId: number | null;
+  workerTimerId: number | null;
+  agentTaskId: number | null;
+  startTime: string;
+  endTime: string | null;
+  status: string;
+  output: string | null;
+  triggeredBy: string;
+  macro: { name: string } | null;
+  workerTimer: { name: string } | null;
+  agentTask: { name: string } | null;
+};
 
 // Mock useLiveStream to a controllable value per test. The mock is set
 // inside each test before the component imports.
@@ -44,32 +59,40 @@ afterEach(() => {
   mockLiveConnected = false;
 });
 
-function makeHistoryItems() {
+function makeHistoryItems(): MockHistoryItem[] {
   return [
     {
       id: 1,
       macroId: 10,
+      workerTimerId: null,
+      agentTaskId: null,
       startTime: "2025-01-15T10:00:00Z",
       endTime: "2025-01-15T10:00:42Z",
       status: "success",
       output: "ok",
       triggeredBy: "manual",
       macro: { name: "Backup" },
+      workerTimer: null,
+      agentTask: null,
     },
     {
       id: 2,
       macroId: 11,
+      workerTimerId: null,
+      agentTaskId: null,
       startTime: "2025-01-15T11:00:00Z",
       endTime: null,
       status: "running",
       output: "...",
       triggeredBy: "schedule",
       macro: { name: "Sync" },
+      workerTimer: null,
+      agentTask: null,
     },
   ];
 }
 
-function mockHistoryFetch(items: ReturnType<typeof makeHistoryItems> | "error" = makeHistoryItems()) {
+function mockHistoryFetch(items: MockHistoryItem[] | "error" = makeHistoryItems()) {
   globalThis.fetch = (async (url: any) => {
     if (String(url).startsWith("/api/history")) {
       if (items === "error") return new Response("nope", { status: 500 });
@@ -152,6 +175,54 @@ describe("MacroLogPanel", () => {
     expect(view.getByText("Sync")).toBeInTheDocument();
     expect(view.getByText("42s")).toBeInTheDocument();
     expect(view.getByText("running…")).toBeInTheDocument();
+  });
+
+  test("renders mixed history rows from /api/history without crashing", async () => {
+    const items = [
+      ...makeHistoryItems(),
+      {
+        id: 3,
+        macroId: null,
+        workerTimerId: 7,
+        agentTaskId: null,
+        startTime: "2025-01-15T12:00:00Z",
+        endTime: "2025-01-15T12:05:00Z",
+        status: "success",
+        output: "ok",
+        triggeredBy: "schedule",
+        macro: null,
+        workerTimer: { name: "Hourly Scraper" },
+        agentTask: null,
+      },
+      {
+        id: 4,
+        macroId: null,
+        workerTimerId: null,
+        agentTaskId: 8,
+        startTime: "2025-01-15T13:00:00Z",
+        endTime: null,
+        status: "running",
+        output: "...",
+        triggeredBy: "schedule",
+        macro: null,
+        workerTimer: null,
+        agentTask: { name: "Nightly Agent" },
+      },
+    ];
+    mockHistoryFetch(items);
+    const { container } = render(
+      <MacroLogPanel
+        runningMacroId={null}
+        runningMacroName=""
+        onClose={() => {}}
+      />,
+    );
+    const view = within(container);
+    expect(await view.findByText("Backup")).toBeInTheDocument();
+    expect(view.getByText("Hourly Scraper")).toBeInTheDocument();
+    expect(view.getByText("Nightly Agent")).toBeInTheDocument();
+    expect(view.getByText("5m")).toBeInTheDocument();
+    expect(view.getAllByText("running…").length).toBe(2);
   });
 
   test("renders empty-state when history is empty", async () => {

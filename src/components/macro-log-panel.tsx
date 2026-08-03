@@ -13,13 +13,21 @@ import { useToast } from "@/components/toast-provider";
 
 interface HistoryItem {
   id: number;
-  macroId: number;
+  macroId: number | null;
+  workerTimerId: number | null;
+  agentTaskId: number | null;
   startTime: string;
   endTime: string | null;
   status: string;
   output: string | null;
   triggeredBy: string;
-  macro: { name: string };
+  macro: { name: string } | null;
+  workerTimer: { name: string } | null;
+  agentTask: { name: string } | null;
+}
+
+function historyTitle(item: HistoryItem): string {
+  return item.workerTimer?.name ?? item.macro?.name ?? item.agentTask?.name ?? "Unknown";
 }
 
 function statusPill(status: string) {
@@ -229,7 +237,7 @@ export function MacroLogPanel({
                 >
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <span className="text-[11px] text-on-surface truncate flex-1">
-                      {item.macro.name}
+                      {historyTitle(item)}
                     </span>
                     {statusPill(item.status)}
                   </div>

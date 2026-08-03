@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   DndContext,
   DragEndEvent,
@@ -724,8 +725,7 @@ export default function AdminPage() {
   const [newMacroCmd, setNewMacroCmd] = useState("");
 
   const [logPanelOpen, setLogPanelOpen] = useState(false);
-  const [runningMacroId, setRunningMacroId] = useState<number | null>(null);
-  const [runningMacroName, setRunningMacroName] = useState("");
+  const router = useRouter();
 
   const fetchMacros = useCallback(async () => {
     try {
@@ -857,22 +857,9 @@ export default function AdminPage() {
 
   const handleRunMacro = useCallback(
     (macro: Macro) => {
-      fetch(`/api/run/${macro.id}`, { method: "POST" })
-        .then((r) => {
-          if (r.ok) {
-            showToast(`Running: ${macro.name}`, "info");
-            setRunningMacroId(macro.id);
-            setRunningMacroName(macro.name);
-            setLogPanelOpen(true);
-          } else {
-            showToast("Failed to start macro", "error");
-          }
-        })
-        .catch(() => {
-          showToast("Failed to start macro", "error");
-        });
+      router.push(`/?run_macro=${macro.id}`);
     },
-    [showToast],
+    [router],
   );
 
   const handleReorderMacros = useCallback(async (macroIds: number[]) => {
@@ -969,12 +956,9 @@ export default function AdminPage() {
             {logPanelOpen && (
               <div className="mt-4">
                 <MacroLogPanel
-                  runningMacroId={runningMacroId}
-                  runningMacroName={runningMacroName}
-                  onClose={() => {
-                    setLogPanelOpen(false);
-                    setRunningMacroId(null);
-                  }}
+                  runningMacroId={null}
+                  runningMacroName=""
+                  onClose={() => setLogPanelOpen(false)}
                 />
               </div>
             )}
