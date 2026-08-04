@@ -225,7 +225,7 @@ env-only `getConfig()` and are unaffected.
 
 ## Runtime Theme System
 
-Mission Control has a persisted runtime theme system with four dark themes.
+Mission Control has a persisted runtime theme system with eight dark themes.
 Themes are applied via the `data-theme` attribute on `<html>` and persisted
 in localStorage (versioned key `mission-control:theme:v1`). A synchronous head
 bootstrap applies the stored palette before first paint; React keeps the server
@@ -238,7 +238,7 @@ Pure data module — safe to import from server components. Defines:
 
 | Export | Purpose |
 |--------|---------|
-| `ThemeId` | `"midnight-cyan" | "graphite-violet" | "deep-ocean" | "ember-copper"` |
+| `ThemeId` | `"midnight-cyan" | "graphite-violet" | "deep-ocean" | "ember-copper" | "forest-emerald" | "rose-noir" | "crimson-night" | "solar-gold"` |
 | `THEMES` | Array of `ThemeEntry` with label, description, swatches, themeColor |
 | `DEFAULT_THEME` | `"midnight-cyan"` |
 | `STORAGE_KEY` | `"mission-control:theme:v1"` (versioned) |
@@ -260,7 +260,7 @@ Pure data module — safe to import from server components. Defines:
 ### ThemeSwitcher (`src/components/theme/theme-switcher.tsx`)
 
 - Two variants: `"default"` (sidebar, full-width with swatches) and `"compact"` (44×44 icon button for mobile header)
-- Opens a viewport-safe 228px 2×2 panel with palette swatches, labels, descriptions, and a checkmark for the selected theme
+- Opens a viewport-safe 228px two-column panel (max-height bounded, internally scrollable on short viewports) with palette swatches, labels, descriptions, and a checkmark for the selected theme
 - Accessible: `aria-expanded`/`aria-controls`, labelled `radiogroup`, roving `role="radio"` options, Arrow/Home/End navigation, selected-state announcement, `Escape`, outside-click, and focus restoration
 
 ### CSS Architecture

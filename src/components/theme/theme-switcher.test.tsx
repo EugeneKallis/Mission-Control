@@ -3,7 +3,7 @@
  *
  * Covers:
  *  - Renders trigger with current theme label
- *  - Opening panel shows all 4 themes as radio options
+ *  - Opening panel shows all 8 themes as radio options
  *  - Selected theme has aria-checked=true and checkmark
  *  - Clicking a theme updates the theme + closes the panel
  *  - Escape closes the panel
@@ -93,7 +93,7 @@ describe("ThemeSwitcher — default variant", () => {
     expect(trigger.getAttribute("aria-controls")).toBe(group.id);
   });
 
-  test("clicking trigger opens the radiogroup panel showing all 4 themes", () => {
+  test("clicking trigger opens the radiogroup panel showing all 8 themes", () => {
     render(
       <WithProvider>
         <ThemeSwitcher />
@@ -105,11 +105,15 @@ describe("ThemeSwitcher — default variant", () => {
     // The panel should use role="radiogroup"
     expect(screen.getByRole("radiogroup")).toBeInTheDocument();
 
-    // All four theme labels should be present (panel shows them, trigger also shows current)
+    // All eight theme labels should be present (panel shows them, trigger also shows current)
     expect(screen.getAllByText("Midnight Cyan").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("Graphite Violet").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("Deep Ocean").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("Ember Copper").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Forest Emerald").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Rose Noir").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Crimson Night").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Solar Gold").length).toBeGreaterThanOrEqual(1);
   });
 
   test("selected theme shows a checkmark and aria-checked=true", () => {
@@ -161,6 +165,19 @@ describe("ThemeSwitcher — default variant", () => {
 
     // Theme should be applied
     expect(document.documentElement.getAttribute("data-theme")).toBe("ember-copper");
+  });
+
+  test("clicking a newly added theme updates the theme", () => {
+    localStorage.clear();
+    render(
+      <WithProvider>
+        <ThemeSwitcher />
+      </WithProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /theme/i }));
+
+    fireEvent.click(screen.getByRole("radio", { name: /Rose Noir/ }));
+    expect(document.documentElement.getAttribute("data-theme")).toBe("rose-noir");
   });
 
   test("Escape closes the panel", () => {
@@ -261,7 +278,7 @@ describe("ThemeSwitcher — default variant", () => {
     expect(screen.getByRole("radio", { name: /Midnight Cyan/ }).getAttribute("aria-checked")).toBe("true");
 
     fireEvent.keyDown(radiogroup, { key: "End" });
-    expect(screen.getByRole("radio", { name: /Ember Copper/ }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("radio", { name: /Solar Gold/ }).getAttribute("aria-checked")).toBe("true");
   });
 
   test("first option is focused when panel opens", () => {
@@ -351,6 +368,20 @@ describe("ThemeSwitcher — compact variant", () => {
     const panel = screen.getByRole("radiogroup");
     // Panel should have right-0 class for right alignment
     expect(panel.className).toContain("right-0");
+  });
+
+  test("panel is height-bounded and scrollable for 8 themes", () => {
+    render(
+      <WithProvider>
+        <ThemeSwitcher />
+      </WithProvider>,
+    );
+    const trigger = screen.getByRole("button", { name: /theme/i });
+    fireEvent.click(trigger);
+    const panel = screen.getByRole("radiogroup");
+    // Panel caps its height to fit short viewports and scrolls internally
+    expect(panel.className).toContain("max-h-[");
+    expect(panel.className).toContain("overflow-y-auto");
   });
 
   test("panel uses w-[228px] width", () => {

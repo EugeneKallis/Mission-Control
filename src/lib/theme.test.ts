@@ -2,7 +2,7 @@
  * Tests for src/lib/theme.ts — theme registry, type guard, bootstrap script.
  *
  * Covers:
- *  - THEMES includes exactly 4 entries with required fields
+ *  - THEMES includes exactly 8 entries with required fields
  *  - DEFAULT_THEME is "midnight-cyan"
  *  - STORAGE_KEY is versioned
  *  - isValidThemeId rejects unknown/corrupt values
@@ -24,8 +24,8 @@ import {
 } from "./theme";
 
 describe("THEMES registry", () => {
-  test("contains exactly 4 themes", () => {
-    expect(THEMES.length).toBe(4);
+  test("contains exactly 8 themes", () => {
+    expect(THEMES.length).toBe(8);
   });
 
   test("each theme has required fields", () => {
@@ -94,6 +94,10 @@ describe("getTheme", () => {
 describe("getThemeColor", () => {
   test("returns the themeColor for a valid id", () => {
     expect(getThemeColor("ember-copper")).toBe("#1c1410");
+    expect(getThemeColor("forest-emerald")).toBe("#0e1713");
+    expect(getThemeColor("rose-noir")).toBe("#140f12");
+    expect(getThemeColor("crimson-night")).toBe("#170b0d");
+    expect(getThemeColor("solar-gold")).toBe("#171207");
   });
 
   test("returns the default theme color for unknown id", () => {
@@ -188,6 +192,17 @@ describe("BOOTSTRAP_SCRIPT", () => {
     expect(executeBootstrap(() => "deep-ocean")).toEqual({
       theme: "deep-ocean",
       themeColor: "#0a1628",
+    });
+  });
+
+  test("executes a newly added persisted theme", () => {
+    expect(executeBootstrap(() => "forest-emerald")).toEqual({
+      theme: "forest-emerald",
+      themeColor: "#0e1713",
+    });
+    expect(executeBootstrap(() => "solar-gold")).toEqual({
+      theme: "solar-gold",
+      themeColor: "#171207",
     });
   });
 

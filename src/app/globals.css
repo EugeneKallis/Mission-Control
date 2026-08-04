@@ -303,6 +303,234 @@ html[data-theme="ember-copper"] {
   --toggle-disabled-bg: #4D3D32;
 }
 
+html[data-theme="forest-emerald"] {
+  color-scheme: dark;
+
+  --color-primary: #34D399;
+  --color-primary-dim: #10B981;
+  --color-primary-fixed: #6EE7B7;
+  --color-secondary: #2DD4BF;
+  --color-tertiary: #A3E635;
+
+  --color-success: #4ADE80;
+  --color-warning: #FBBF24;
+  --color-info: #34D399;
+  --color-error: #F87171;
+  --color-on-success: #052E22;
+  --color-on-warning: #422006;
+  --color-on-error: #450A0A;
+
+  --color-bg: #0E1713;
+  --color-surface: #16231C;
+  --color-surface-low: #0E1713;
+  --color-surface-container: #22352A;
+  --color-surface-container-high: #2F4739;
+  --color-surface-container-lowest: #090F0C;
+
+  --color-on-primary: #032A1E;
+  --color-on-surface: #E6EDE8;
+  --color-on-surface-variant: #9FB3A6;
+  --color-outline-variant: #2F4739;
+
+  --color-border: rgba(47, 71, 57, 0.35);
+  --color-border-strong: rgba(47, 71, 57, 0.5);
+  --glass-bg: rgba(22, 35, 28, 0.90);
+  --glass-border: rgba(47, 71, 57, 0.5);
+
+  --terminal-bg: #090F0C;
+  --terminal-fg: #CBD5D0;
+  --terminal-fg-alt: #E6EDE8;
+  --terminal-border: rgba(47, 71, 57, 0.35);
+
+  --status-running-fg: #34D399;
+  --status-running-bg: rgba(52, 211, 153, 0.12);
+  --status-running-border: rgba(52, 211, 153, 0.35);
+  --status-success-fg: #4ADE80;
+  --status-success-bg: rgba(74, 222, 128, 0.12);
+  --status-success-border: rgba(74, 222, 128, 0.35);
+  --status-failed-fg: #FFB4AB;
+  --status-failed-bg: rgba(255, 180, 171, 0.12);
+  --status-failed-border: rgba(255, 180, 171, 0.35);
+
+  --color-badge-error-bg: rgba(248, 113, 113, 0.12);
+  --color-badge-error-fg: #F87171;
+  --color-badge-error-border: rgba(248, 113, 113, 0.35);
+
+  --toggle-enabled-bg: #34D399;
+  --toggle-disabled-bg: #2F4739;
+}
+
+html[data-theme="rose-noir"] {
+  color-scheme: dark;
+
+  --color-primary: #FB7185;
+  --color-primary-dim: #F43F5E;
+  --color-primary-fixed: #FDA4AF;
+  --color-secondary: #E879F9;
+  --color-tertiary: #F472B6;
+
+  --color-success: #4ADE80;
+  --color-warning: #FBBF24;
+  --color-info: #FB7185;
+  --color-error: #F87171;
+  --color-on-success: #052E22;
+  --color-on-warning: #422006;
+  --color-on-error: #450A0A;
+
+  --color-bg: #140F12;
+  --color-surface: #1F1619;
+  --color-surface-low: #140F12;
+  --color-surface-container: #33222B;
+  --color-surface-container-high: #45303B;
+  --color-surface-container-lowest: #0E0A0C;
+
+  --color-on-primary: #3A0D1A;
+  --color-on-surface: #F5EAEE;
+  --color-on-surface-variant: #C2A6B2;
+  --color-outline-variant: #45303B;
+
+  --color-border: rgba(69, 48, 59, 0.35);
+  --color-border-strong: rgba(69, 48, 59, 0.5);
+  --glass-bg: rgba(31, 22, 25, 0.90);
+  --glass-border: rgba(69, 48, 59, 0.5);
+
+  --terminal-bg: #0E0A0C;
+  --terminal-fg: #E0D2D8;
+  --terminal-fg-alt: #F5EAEE;
+  --terminal-border: rgba(69, 48, 59, 0.35);
+
+  --status-running-fg: #FB7185;
+  --status-running-bg: rgba(251, 113, 133, 0.12);
+  --status-running-border: rgba(251, 113, 133, 0.35);
+  --status-success-fg: #4ADE80;
+  --status-success-bg: rgba(74, 222, 128, 0.12);
+  --status-success-border: rgba(74, 222, 128, 0.35);
+  --status-failed-fg: #FFB4AB;
+  --status-failed-bg: rgba(255, 180, 171, 0.12);
+  --status-failed-border: rgba(255, 180, 171, 0.35);
+
+  --color-badge-error-bg: rgba(248, 113, 113, 0.12);
+  --color-badge-error-fg: #F87171;
+  --color-badge-error-border: rgba(248, 113, 113, 0.35);
+
+  --toggle-enabled-bg: #FB7185;
+  --toggle-disabled-bg: #45303B;
+}
+
+html[data-theme="crimson-night"] {
+  color-scheme: dark;
+
+  --color-primary: #F0565B;
+  --color-primary-dim: #DC2626;
+  --color-primary-fixed: #FCA5A5;
+  --color-secondary: #FB923C;
+  --color-tertiary: #F472B6;
+
+  --color-success: #4ADE80;
+  --color-warning: #FBBF24;
+  --color-info: #F0565B;
+  --color-error: #F87171;
+  --color-on-success: #052E22;
+  --color-on-warning: #422006;
+  --color-on-error: #450A0A;
+
+  --color-bg: #170B0D;
+  --color-surface: #221316;
+  --color-surface-low: #170B0D;
+  --color-surface-container: #3A2226;
+  --color-surface-container-high: #4C2E33;
+  --color-surface-container-lowest: #100809;
+
+  --color-on-primary: #42070A;
+  --color-on-surface: #F5ECEC;
+  --color-on-surface-variant: #C2A8AA;
+  --color-outline-variant: #4C2E33;
+
+  --color-border: rgba(76, 46, 51, 0.35);
+  --color-border-strong: rgba(76, 46, 51, 0.5);
+  --glass-bg: rgba(34, 19, 22, 0.90);
+  --glass-border: rgba(76, 46, 51, 0.5);
+
+  --terminal-bg: #100809;
+  --terminal-fg: #E0D2D3;
+  --terminal-fg-alt: #F5ECEC;
+  --terminal-border: rgba(76, 46, 51, 0.35);
+
+  --status-running-fg: #F0565B;
+  --status-running-bg: rgba(240, 86, 91, 0.12);
+  --status-running-border: rgba(240, 86, 91, 0.35);
+  --status-success-fg: #4ADE80;
+  --status-success-bg: rgba(74, 222, 128, 0.12);
+  --status-success-border: rgba(74, 222, 128, 0.35);
+  --status-failed-fg: #FFB4AB;
+  --status-failed-bg: rgba(255, 180, 171, 0.12);
+  --status-failed-border: rgba(255, 180, 171, 0.35);
+
+  --color-badge-error-bg: rgba(248, 113, 113, 0.12);
+  --color-badge-error-fg: #F87171;
+  --color-badge-error-border: rgba(248, 113, 113, 0.35);
+
+  --toggle-enabled-bg: #F0565B;
+  --toggle-disabled-bg: #4C2E33;
+}
+
+html[data-theme="solar-gold"] {
+  color-scheme: dark;
+
+  --color-primary: #FACC15;
+  --color-primary-dim: #EAB308;
+  --color-primary-fixed: #FDE047;
+  --color-secondary: #F59E0B;
+  --color-tertiary: #F97316;
+
+  --color-success: #4ADE80;
+  --color-warning: #FBBF24;
+  --color-info: #FACC15;
+  --color-error: #F87171;
+  --color-on-success: #052E22;
+  --color-on-warning: #422006;
+  --color-on-error: #450A0A;
+
+  --color-bg: #171207;
+  --color-surface: #241C0D;
+  --color-surface-low: #171207;
+  --color-surface-container: #3A2F16;
+  --color-surface-container-high: #4C3F1F;
+  --color-surface-container-lowest: #0F0C05;
+
+  --color-on-primary: #3B2F00;
+  --color-on-surface: #F4EFE3;
+  --color-on-surface-variant: #C0B597;
+  --color-outline-variant: #4C3F1F;
+
+  --color-border: rgba(76, 63, 31, 0.35);
+  --color-border-strong: rgba(76, 63, 31, 0.5);
+  --glass-bg: rgba(36, 28, 13, 0.90);
+  --glass-border: rgba(76, 63, 31, 0.5);
+
+  --terminal-bg: #0F0C05;
+  --terminal-fg: #E2DAC2;
+  --terminal-fg-alt: #F4EFE3;
+  --terminal-border: rgba(76, 63, 31, 0.35);
+
+  --status-running-fg: #FACC15;
+  --status-running-bg: rgba(250, 204, 21, 0.12);
+  --status-running-border: rgba(250, 204, 21, 0.35);
+  --status-success-fg: #4ADE80;
+  --status-success-bg: rgba(74, 222, 128, 0.12);
+  --status-success-border: rgba(74, 222, 128, 0.35);
+  --status-failed-fg: #FFB4AB;
+  --status-failed-bg: rgba(255, 180, 171, 0.12);
+  --status-failed-border: rgba(255, 180, 171, 0.35);
+
+  --color-badge-error-bg: rgba(248, 113, 113, 0.12);
+  --color-badge-error-fg: #F87171;
+  --color-badge-error-border: rgba(248, 113, 113, 0.35);
+
+  --toggle-enabled-bg: #FACC15;
+  --toggle-disabled-bg: #4C3F1F;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    Fallback (no data-theme attribute — FOUC protection or environments
    where the bootstrap script hasn't run)

@@ -2,7 +2,7 @@
  * Theme Registry — Mission Control runtime theme system.
  *
  * This module is pure data/logic and safe to import from server root layout.
- * It defines the four dark themes, their metadata, the bootstrap FOUC script,
+ * It defines the eight dark themes, their metadata, the bootstrap FOUC script,
  * and type-safe helpers.
  */
 
@@ -11,7 +11,11 @@ export type ThemeId =
   | "midnight-cyan"
   | "graphite-violet"
   | "deep-ocean"
-  | "ember-copper";
+  | "ember-copper"
+  | "forest-emerald"
+  | "rose-noir"
+  | "crimson-night"
+  | "solar-gold";
 
 export interface ThemeEntry {
   id: ThemeId;
@@ -51,6 +55,34 @@ export const THEMES: ThemeEntry[] = [
     description: "Warm espresso with copper primary",
     swatches: ["#1C1410", "#FB923C", "#2A1F18"],
     themeColor: "#1c1410",
+  },
+  {
+    id: "forest-emerald",
+    label: "Forest Emerald",
+    description: "Dark forest green with emerald primary",
+    swatches: ["#0E1713", "#34D399", "#22352A"],
+    themeColor: "#0e1713",
+  },
+  {
+    id: "rose-noir",
+    label: "Rose Noir",
+    description: "Near-black rose with pink primary",
+    swatches: ["#140F12", "#FB7185", "#33222B"],
+    themeColor: "#140f12",
+  },
+  {
+    id: "crimson-night",
+    label: "Crimson Night",
+    description: "Dark maroon with crimson primary",
+    swatches: ["#170B0D", "#F0565B", "#3A2226"],
+    themeColor: "#170b0d",
+  },
+  {
+    id: "solar-gold",
+    label: "Solar Gold",
+    description: "Warm obsidian with golden primary",
+    swatches: ["#171207", "#FACC15", "#3A2F16"],
+    themeColor: "#171207",
   },
 ] as const;
 

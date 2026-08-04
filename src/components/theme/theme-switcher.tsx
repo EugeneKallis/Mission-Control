@@ -10,8 +10,8 @@ interface ThemeSwitcherProps {
 }
 
 /**
- * Accessible theme-switcher with a trigger button and a 2×2 panel.
- * Uses radiogroup + roving-focus navigation for full keyboard support.
+ * Accessible theme-switcher with a trigger button and a two-column palette
+ * grid. Uses radiogroup + roving-focus navigation for full keyboard support.
  * Closes on Escape, outside click, or selection.
  */
 export function ThemeSwitcher({ variant = "default" }: ThemeSwitcherProps) {
@@ -231,7 +231,7 @@ function ThemePanel({
       role="radiogroup"
       aria-label="Select a theme"
       onKeyDown={onKeyDown}
-      className={`absolute ${posClass} ${alignClass} z-50 w-[228px] p-2 rounded-[var(--radius-modal)] shadow-2xl`}
+      className={`absolute ${posClass} ${alignClass} z-50 w-[228px] p-2 rounded-[var(--radius-modal)] shadow-2xl max-h-[min(320px,calc(100vh-8rem))] overflow-y-auto overscroll-contain`}
       style={{
         background: "var(--color-surface)",
         border: "1px solid var(--color-border)",
