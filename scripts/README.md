@@ -32,3 +32,29 @@ These scripts use `tsconfig.scripts.json` for type-checking, separate from the N
 
 - **Shared helpers.** Place shared CLI, log, collection, and format utilities
   in `scripts/_lib/`.
+
+## Plex marker refresh
+
+`scripts/plex/refresh-missing-markers.ts` finds episodes/movies missing intro
+or credits markers and queues detection **only** for those items. Existing
+markers are never re-run, nothing is force-redetected (no `force=1`), and the
+Plex database is never touched.
+
+```bash
+# Report only (dry-run is the default)
+just script scripts/plex/refresh-missing-markers.ts
+
+# Restrict to one library
+just script scripts/plex/refresh-missing-markers.ts -- --library "TV Shows"
+
+# Queue missing detection after reviewing the report
+just script scripts/plex/refresh-missing-markers.ts -- --run
+
+# Re-queue items previously submitted but still missing markers
+just script scripts/plex/refresh-missing-markers.ts -- --run --retry-attempted
+```
+
+Successful detection requests are recorded in
+`~/.local/state/mission-control/plex-marker-refresh.json` so items Plex can't
+detect aren't re-requested every run. Requires `PLEX_URL` and `PLEX_TOKEN`
+(env or admin config page). Intro/credits detection needs Plex Pass.
