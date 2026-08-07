@@ -74,6 +74,7 @@ describe("AppShell — layout structure", () => {
     const scrollContainer = container.querySelector("#main-scroll-container");
     expect(scrollContainer).not.toBeNull();
     expect(scrollContainer?.className).toContain("overflow-y-auto");
+    expect(scrollContainer?.className).toContain("min-h-0");
   });
 
   test("noScroll=true adds overflow-hidden and removes overflow-y-auto", () => {
@@ -86,6 +87,7 @@ describe("AppShell — layout structure", () => {
     expect(scrollContainer).not.toBeNull();
     expect(scrollContainer?.className).toContain("overflow-hidden");
     expect(scrollContainer?.className).not.toContain("overflow-y-auto");
+    expect(scrollContainer?.className).toContain("min-h-0");
   });
 });
 

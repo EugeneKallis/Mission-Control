@@ -106,7 +106,7 @@ export function AppShell({ children, noScroll = false, showRightRail = false, ri
           {/* Scrollable content */}
           <div
             id="main-scroll-container"
-            className={`flex-1 flex flex-col ${noScroll ? "overflow-hidden" : "overflow-y-auto overflow-x-hidden"}`}
+            className={`flex-1 flex flex-col min-h-0 ${noScroll ? "overflow-hidden" : "overflow-y-auto overflow-x-hidden"}`}
           >
             {children}
           </div>
