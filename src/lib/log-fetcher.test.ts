@@ -82,6 +82,14 @@ describe("fetchJournalctlLogs", () => {
     expect(call!.args).not.toContain("-n");
   });
 
+  test("uses the later acknowledgement timestamp as the journal window", async () => {
+    const { fetchJournalctlLogs } = await loadModule();
+    fetchJournalctlLogs("web", "all", Date.parse("2024-01-02T00:00:00.000Z"));
+    const call = execCalls.find((c) => c.cmd === "journalctl");
+    expect(call!.args).toContain("--since");
+    expect(call!.args).toContain("2024-01-02T00:00:00.000Z");
+  });
+
   test("uses --since and -n for numeric lines", async () => {
     const { fetchJournalctlLogs } = await loadModule();
     fetchJournalctlLogs("web", 250);
@@ -196,6 +204,44 @@ describe("fetchAgentTaskLogs", () => {
     expect(result.error).toBeNull();
     expect(result.text).toContain("=== Daily Check \u2014");
     expect(result.text).toContain("Error: task failed");
+  });
+
+  test("filters agent-task runs at or after the acknowledgement timestamp", async () => {
+    const task = await testDB.db.agentTask.create({
+      data: {
+        name: "Windowed",
+        prompt: "check",
+        cronExpression: "* * * * *",
+        enabled: true,
+      },
+    });
+    await testDB.db.history.create({
+      data: {
+        agentTaskId: task.id,
+        startTime: new Date("2024-01-01T00:00:00.000Z"),
+        status: "error",
+        output: "Error: old run",
+        triggeredBy: "schedule",
+      },
+    });
+    await testDB.db.history.create({
+      data: {
+        agentTaskId: task.id,
+        startTime: new Date("2024-01-02T00:00:00.000Z"),
+        status: "error",
+        output: "Error: new run",
+        triggeredBy: "schedule",
+      },
+    });
+
+    const { fetchAgentTaskLogs } = await loadModule();
+    const result = await fetchAgentTaskLogs(
+      "all",
+      undefined,
+      Date.parse("2024-01-02T00:00:00.000Z"),
+    );
+    expect(result.text).not.toContain("old run");
+    expect(result.text).toContain("new run");
   });
 
   test("limits runs when lines is numeric", async () => {

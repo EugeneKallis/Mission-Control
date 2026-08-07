@@ -9,7 +9,8 @@
  *
  * `?window=visible`: counts errors in the same log content shown by
  * `/api/logs?service=<key>&lines=all` (service start → now for systemd services,
- * latest 50 runs for agent tasks). This powers the per-service tab badges.
+ * latest 50 runs for agent tasks), applying the acknowledgement watermark when
+ * one exists. This powers the per-service tab badges.
  *
  * Response shape for both modes:
  *   {
@@ -19,8 +20,8 @@
  *   }
  *
  * "Mark Resolved" (POST to .../acknowledge) sets the acknowledgedAt watermark
- * to now, so future default-mode polls return 0 until new errors arrive.
- * The visible window is unaffected by acknowledgement.
+ * to now, so future default-mode polls and visible tab badges return 0 until
+ * new errors arrive.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getAllLogAlertCounts, getVisibleLogAlertCounts } from "@/lib/log-alerts-server";

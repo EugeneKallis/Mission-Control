@@ -110,6 +110,18 @@ describe("GET /api/logs", () => {
     expect(journalCall!.args).not.toContain("-n");
   });
 
+  test("uses the acknowledgement timestamp when it is later than service start", async () => {
+    const { GET } = await loadRoute();
+    const res = await GET(
+      buildRequest(
+        "http://localhost/api/logs?lines=all&since=1704153600000",
+      ),
+    );
+    expect(status(res)).toBe(200);
+    const journalCall = execCalls.find((c) => c.cmd === "journalctl");
+    expect(journalCall!.args).toContain("2024-01-02T00:00:00.000Z");
+  });
+
   test("uses InactiveExitTimestamp for an inactive one-shot service when ActiveEnterTimestamp is n/a", async () => {
     // A one-shot service that has finished is inactive, so systemd may not
     // expose ActiveEnterTimestamp. The route should fall back to the unit's
@@ -178,6 +190,16 @@ describe("GET /api/logs", () => {
     expect(status(res)).toBe(400);
     const text = await res.text();
     expect(text).toContain("Invalid lines parameter");
+  });
+
+  test("returns 400 on invalid since parameter", async () => {
+    const { GET } = await loadRoute();
+    const res = await GET(
+      buildRequest("http://localhost/api/logs?since=not-a-timestamp"),
+    );
+    expect(status(res)).toBe(400);
+    const text = await res.text();
+    expect(text).toContain("Invalid since parameter");
   });
 
   test("uses the broken-link-checker service when service=broken-link-checker", async () => {
