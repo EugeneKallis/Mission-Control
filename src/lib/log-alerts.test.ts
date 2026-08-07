@@ -293,7 +293,7 @@ describe("getVisibleLogAlertCounts", () => {
     );
   });
 
-  test("uses the service-start timestamp instead of the acknowledgement watermark", async () => {
+  test("applies the acknowledgement watermark to visible counts", async () => {
     const futureWatermark = Date.now() + 86_400_000;
     let defaultSince: string | null = null;
     let visibleSince: string | null = null;
@@ -305,7 +305,8 @@ describe("getVisibleLogAlertCounts", () => {
           if (sinceIdx > -1) {
             const since = args[sinceIdx + 1];
             if (new Date(since).getTime() >= futureWatermark) {
-              defaultSince = since;
+              if (defaultSince === null) defaultSince = since;
+              else visibleSince = since;
               return "";
             }
             visibleSince = since;
@@ -328,10 +329,10 @@ describe("getVisibleLogAlertCounts", () => {
     const visible = await getVisibleLogAlertCounts();
 
     expect(alert.total).toBe(0);
-    expect(visible.total).toBeGreaterThan(0);
+    expect(visible.total).toBe(0);
     expect(defaultSince).toBeTruthy();
-    expect(visibleSince!).toBe("2024-01-01 12:00:00 UTC");
-    expect(visible.perService.web).toBe(2);
+    expect(visibleSince).toBeTruthy();
+    expect(visible.perService.web).toBe(0);
   });
 
   test("does not count fetch failure text as errors", async () => {

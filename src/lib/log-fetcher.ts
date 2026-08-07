@@ -82,6 +82,7 @@ function getLastStartTimestamp(unit: string): string | null {
 export function fetchJournalctlLogs(
   service: string,
   lines: "all" | number,
+  sinceMs?: number,
 ): LogFetchResult {
   const unit = SERVICE_MAP[service];
   if (!unit) {
@@ -108,11 +109,18 @@ export function fetchJournalctlLogs(
   // No recorded start means there are no "since last start" logs to show.
   if (!since) return { text: "", error: null };
 
-  const args: string[] = ["-u", serviceName, "--no-pager", "-o", "cat"];
-
-  if (since) {
-    args.push("--since", since);
+  // Acknowledging alerts supplies a second lower bound. Keep the service
+  // start as the default so the normal log view is unchanged, but after an
+  // acknowledgement only return entries from the acknowledgement onward.
+  if (sinceMs !== undefined) {
+    const serviceStartMs = new Date(since).getTime();
+    if (!Number.isFinite(serviceStartMs) || sinceMs > serviceStartMs) {
+      since = new Date(sinceMs).toISOString();
+    }
   }
+
+  const args: string[] = ["-u", serviceName, "--no-pager", "-o", "cat"];
+  args.push("--since", since);
 
   if (lines !== "all") args.push("-n", String(lines));
 
@@ -142,13 +150,21 @@ export function fetchJournalctlLogs(
 export async function fetchAgentTaskLogs(
   lines: "all" | number,
   taskId?: number,
+  sinceMs?: number,
 ): Promise<LogFetchResult> {
   try {
     const limit = lines === "all" ? 50 : lines;
-    const runs = await getRecentAgentTaskHistory(taskId, limit);
+    // Fetch the full visible window before applying the acknowledgement
+    // watermark, otherwise old runs could occupy the numeric limit and hide
+    // newer runs that should remain visible.
+    const fetchLimit = sinceMs === undefined ? limit : Math.max(limit, 50);
+    const runs = await getRecentAgentTaskHistory(taskId, fetchLimit);
+    const visibleRuns = sinceMs === undefined
+      ? runs
+      : runs.filter((run) => run.startTime.getTime() >= sinceMs).slice(0, limit);
 
     const parts: string[] = [];
-    for (const run of runs) {
+    for (const run of visibleRuns) {
       const taskName = run.agentTask?.name ?? `Task #${run.agentTaskId ?? "?"}`;
       const startTime = run.startTime.toISOString();
       const status = run.status;
@@ -179,9 +195,10 @@ export async function fetchLogText(
   service: string,
   lines: "all" | number = "all",
   taskId?: number,
+  sinceMs?: number,
 ): Promise<LogFetchResult> {
   if (service === "agent-tasks") {
-    return fetchAgentTaskLogs(lines, taskId);
+    return fetchAgentTaskLogs(lines, taskId, sinceMs);
   }
-  return fetchJournalctlLogs(service, lines);
+  return fetchJournalctlLogs(service, lines, sinceMs);
 }

@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
   const service = request.nextUrl.searchParams.get("service") || "web";
   const linesRaw = request.nextUrl.searchParams.get("lines") || "100";
   const taskIdRaw = request.nextUrl.searchParams.get("task");
+  const sinceRaw = request.nextUrl.searchParams.get("since");
 
   // Validate lines is a safe integer or "all"
   if (linesRaw !== "all" && !/^\d+$/.test(linesRaw)) {
@@ -22,6 +23,27 @@ export async function GET(request: NextRequest) {
   }
   const lines: "all" | number =
     linesRaw === "all" ? "all" : parseInt(linesRaw, 10);
+
+  let sinceMs: number | undefined;
+  if (sinceRaw !== null) {
+    if (!/^\d+$/.test(sinceRaw)) {
+      return new NextResponse(
+        "Invalid since parameter: must be an epoch-millisecond timestamp",
+        { status: 400 },
+      );
+    }
+    sinceMs = Number(sinceRaw);
+    if (
+      !Number.isSafeInteger(sinceMs) ||
+      sinceMs < 0 ||
+      !Number.isFinite(new Date(sinceMs).getTime())
+    ) {
+      return new NextResponse(
+        "Invalid since parameter: must be an epoch-millisecond timestamp",
+        { status: 400 },
+      );
+    }
+  }
 
   // Optional task id filter (agent-tasks only)
   let taskId: number | undefined;
@@ -44,7 +66,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const result = await fetchLogText(service, lines, taskId);
+  const result = await fetchLogText(service, lines, taskId, sinceMs);
 
   if (result.error) {
     return new NextResponse(result.error, {

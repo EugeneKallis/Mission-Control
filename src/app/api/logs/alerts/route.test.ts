@@ -165,7 +165,7 @@ describe("GET /api/logs/alerts", () => {
     }
   });
 
-  test("?window=visible returns the same per-service counts as the default mode", async () => {
+  test("?window=visible returns the visible-window counts when no watermark exists", async () => {
     const { GET } = await loadRoute();
     const res = await GET(buildRequest("http://localhost/api/logs/alerts?window=visible"));
     expect(status(res)).toBe(200);
@@ -184,12 +184,10 @@ describe("GET /api/logs/alerts", () => {
         body.perService.scraper +
         body.perService["broken-link-checker"],
     );
-    // The visible endpoint still echoes the stored watermark even though it
-    // does not use it for counting.
-    expect(body.acknowledgedAt === null || typeof body.acknowledgedAt === "number").toBe(true);
+    expect(body.acknowledgedAt).toBeNull();
   });
 
-  test("?window=visible uses the service-start timestamp, not the acknowledgement watermark", async () => {
+  test("?window=visible applies the acknowledgement watermark", async () => {
     const futureWatermark = Date.now() + 86_400_000;
     const { setAcknowledgedAt, clearCountsCache } = await import(
       "@/lib/log-alerts-server"
@@ -213,7 +211,14 @@ describe("GET /api/logs/alerts", () => {
     }
 
     const prevCalls2 = execCalls.length;
-    await GET(buildRequest("http://localhost/api/logs/alerts?window=visible"));
+    const visibleResponse = await GET(
+      buildRequest("http://localhost/api/logs/alerts?window=visible"),
+    );
+    const visibleBody = (await jsonBody(visibleResponse)) as {
+      perService: Record<string, number>;
+      total: number;
+      acknowledgedAt: number | null;
+    };
     const visibleCalls = execCalls
       .slice(prevCalls2)
       .filter((c) => c.cmd === "journalctl");
@@ -221,8 +226,19 @@ describe("GET /api/logs/alerts", () => {
     for (const call of visibleCalls) {
       const sinceIdx = call.args.indexOf("--since");
       expect(sinceIdx).toBeGreaterThan(-1);
-      // Visible mode uses the mocked ActiveEnterTimestamp, not the watermark.
-      expect(call.args[sinceIdx + 1]).toBe("2024-01-01 12:00:00 UTC");
+      // Visible mode now uses the acknowledgement watermark too.
+      expect(new Date(call.args[sinceIdx + 1]).getTime()).toBeGreaterThanOrEqual(
+        futureWatermark,
+      );
     }
+    expect(visibleBody.acknowledgedAt).toBe(futureWatermark);
+    // The mock journal returns the same text regardless of --since; the
+    // assertions above verify that the watermark is passed to journalctl.
+    expect(visibleBody.total).toBe(
+      visibleBody.perService.web +
+        visibleBody.perService["magnet-bridge"] +
+        visibleBody.perService.scraper +
+        visibleBody.perService["broken-link-checker"],
+    );
   });
 });

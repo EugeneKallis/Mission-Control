@@ -35,6 +35,7 @@ export default function LogsPage() {
   const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({});
   const [headerAcknowledgedAt, setHeaderAcknowledgedAt] = useState<number | null>(null);
   const [acknowledging, setAcknowledging] = useState(false);
+  const acknowledgedAtRef = useRef<number | null>(null);
   const terminalRef = useRef<HTMLPreElement>(null);
   const toast = useToast();
   const userScrolledRef = useRef(false);
@@ -51,6 +52,9 @@ export default function LogsPage() {
         params.set("lines", "100");
       } else {
         params.set("lines", "all");
+      }
+      if (acknowledgedAtRef.current !== null) {
+        params.set("since", String(acknowledgedAtRef.current));
       }
       const res = await fetch(`/api/logs?${params}`);
       const text = await res.text();
@@ -84,10 +88,12 @@ export default function LogsPage() {
     }
   }, []);
 
-  // Initial load
+  // Initial load, and reload the pane when an existing acknowledgement is
+  // discovered or a new one is recorded. The API applies the watermark so
+  // resolved error lines cannot come back on refresh or tab switches.
   useEffect(() => {
     fetchLogs(service, false);
-  }, [service, fetchLogs]);
+  }, [service, headerAcknowledgedAt, fetchLogs]);
 
   // Auto-refresh
   useEffect(() => {
@@ -112,8 +118,10 @@ export default function LogsPage() {
       const data = await res.json();
       // Drop stale responses that started before a successful Mark Resolved.
       if (gen !== alertGenRef.current) return;
+      const acknowledgedAt = data.acknowledgedAt ?? null;
+      acknowledgedAtRef.current = acknowledgedAt;
       setErrorCount(data.total ?? 0);
-      setHeaderAcknowledgedAt(data.acknowledgedAt ?? null);
+      setHeaderAcknowledgedAt(acknowledgedAt);
     } catch { /* leave previous values */ }
   }, []);
 
@@ -356,8 +364,25 @@ export default function LogsPage() {
                     });
                     if (!res.ok) throw new Error(`HTTP ${res.status}`);
                     alertGenRef.current += 1;
+                    logsGenRef.current += 1;
+                    visibleGenRef.current += 1;
+                    acknowledgedAtRef.current = ackTs;
                     setErrorCount(0);
                     setHeaderAcknowledgedAt(ackTs);
+                    setVisibleCounts(
+                      Object.fromEntries(SERVICES.map((name) => [name, 0])),
+                    );
+                    // Remove resolved error lines immediately. The follow-up
+                    // fetch is scoped to ackTs, so they stay gone while new
+                    // errors remain visible and highlighted.
+                    setLogs((current) =>
+                      isPlaceholder(current)
+                        ? current
+                        : current
+                            .split("\n")
+                            .filter((line) => !isErrorLine(line))
+                            .join("\n"),
+                    );
                     window.dispatchEvent(
                       new CustomEvent("log-alerts:acknowledged", { detail: { at: ackTs } }),
                     );
