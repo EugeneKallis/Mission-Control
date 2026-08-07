@@ -268,8 +268,23 @@ export function SidebarContent({
         {/* Nav items — exact matches from original */}
         <NavItem label="History" icon="history" href="/history" color="amber" />
         <NavItem label="Schedules" icon="schedule" href="/schedules" color="cyan" />
-        <NavItem label="NZB Viewer" icon="folder_open" href="/nzb" color="teal" />
-        <NavItem label="Debrid Viewer" icon="cloud" href="/debrid" color="teal" />
+
+        {/* Archive section (collapsible, collapsed by default) */}
+        <details className="group">
+          <summary className="list-none cursor-pointer outline-none">
+            <div className="flex items-center gap-3 px-5 py-2 text-on-surface hover:bg-surface-container/60 transition-colors mx-2 rounded-[var(--radius-button)]">
+              <span className="material-symbols-outlined text-teal-400 text-xl">archive</span>
+              <span className="flex-1 text-sm font-semibold">Archive</span>
+              <span className="material-symbols-outlined text-on-surface-variant text-base transition-transform duration-200 expand-icon">
+                expand_more
+              </span>
+            </div>
+          </summary>
+          <div className="pl-1">
+            <NavItem label="NZB Viewer" icon="folder_open" href="/nzb" color="teal" />
+            <NavItem label="Debrid Viewer" icon="cloud" href="/debrid" color="teal" />
+          </div>
+        </details>
 
         {/* Divider */}
         <div className="my-3 mx-5 h-px bg-outline-variant/30" />
