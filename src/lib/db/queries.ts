@@ -852,7 +852,13 @@ export async function setFileCheckResult(
 export async function resetStaleChecking(graceMs: number) {
   const cutoff = new Date(Date.now() - graceMs);
   return db.fileCheck.updateMany({
-    where: { status: "checking", lastChecked: { lt: cutoff } },
+    where: {
+      status: "checking",
+      OR: [
+        { lastChecked: null },
+        { lastChecked: { lt: cutoff } },
+      ],
+    },
     data: { status: "pending" },
   });
 }

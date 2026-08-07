@@ -151,7 +151,7 @@ export async function main() {
 
     const live = await getBlFinderConfig().catch(() => null);
     const intervalSec = live?.intervalSec ?? effective.intervalSec;
-    await sleep(Math.max(1, intervalSec) * 1000);
+    await waitForNextTick(intervalSec);
   }
 }
 
@@ -287,6 +287,24 @@ export async function pollOnce(opts: PollOnceOptions): Promise<BlFinderPassResul
   }
 
   return result;
+}
+
+/**
+ * Sleep until the next scheduled pass, but notice a queued wake request
+ * within one second. This keeps the normal interval cheap while allowing
+ * API actions such as Recheck and Discover to start promptly.
+ */
+async function waitForNextTick(intervalSec: number): Promise<void> {
+  const deadline = Date.now() + Math.max(1, intervalSec) * 1000;
+  while (true) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) return;
+    await sleep(Math.min(1_000, remaining));
+    if (Date.now() >= deadline) return;
+
+    const status = await getBlFinderStatus().catch(() => null);
+    if (status?.forceWakeAt && Date.now() < status.forceWakeAt) return;
+  }
 }
 
 function sleep(ms: number): Promise<void> {

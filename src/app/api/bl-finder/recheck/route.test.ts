@@ -58,6 +58,8 @@ describe("POST /api/bl-finder/recheck (bulk)", () => {
     expect(body.updated).toBe(2);
     const rows = await testDB.db.fileCheck.findMany();
     for (const r of rows) expect(r.status).toBe("pending");
+    const wake = await testDB.db.setting.findUniqueOrThrow({ where: { key: "blfinder_status" } });
+    expect(JSON.parse(wake.value!).forceWakeAt).toBeGreaterThan(Date.now());
   });
 
   test("filters by mediaDir when provided", async () => {

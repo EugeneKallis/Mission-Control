@@ -184,7 +184,11 @@ describe("pollOnce", () => {
   });
 
   test("does not pick rows currently in 'checking' state", async () => {
-    await seedRow({ filePath: "/m/c.mkv", status: "checking" });
+    await seedRow({
+      filePath: "/m/c.mkv",
+      status: "checking",
+      lastChecked: new Date(),
+    });
     const { pollOnce } = await loadWorker();
     const result = await pollOnce(defaultOpts);
     expect(result.checked).toBe(0);
@@ -213,6 +217,13 @@ describe("pollOnce", () => {
     // The final state is therefore `checking` (in-flight) or `ok` (if the
     // probe ran). Either way it's not stuck on `checking` from the past.
     expect(["checking", "ok", "broken"]).toContain(row.status);
+    expect(probeFileReadableMock.mock.calls).toHaveLength(1);
+  });
+
+  test("resetStaleChecking also resets a new row with no previous check", async () => {
+    await seedRow({ filePath: "/m/new-stuck.mkv", status: "checking", lastChecked: null });
+    const { pollOnce } = await loadWorker();
+    await pollOnce({ ...defaultOpts, timeoutSec: 5 });
     expect(probeFileReadableMock.mock.calls).toHaveLength(1);
   });
 

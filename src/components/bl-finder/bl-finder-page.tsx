@@ -41,6 +41,8 @@ export function BlFinderPage() {
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [loading, setLoading] = useState(true);
+  const [recheckQueued, setRecheckQueued] = useState(false);
+  const recheckRequestedAtRef = useRef<number | null>(null);
 
   const [deleteCandidate, setDeleteCandidate] = useState<BlFinderRowType | null>(null);
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
@@ -84,6 +86,13 @@ export function BlFinderPage() {
       const res = await fetch("/api/bl-finder/status");
       if (!res.ok) return;
       const data = (await res.json()) as BlFinderStatus;
+      const requestedAt = recheckRequestedAtRef.current;
+      const recheckFinished = requestedAt !== null && !data.running && data.lastPassAt !== null && data.setAt >= requestedAt;
+      const recheckTimedOut = requestedAt !== null && Date.now() - requestedAt > 120_000;
+      if (recheckFinished || recheckTimedOut) {
+        recheckRequestedAtRef.current = null;
+        setRecheckQueued(false);
+      }
       setStatus(data);
     } catch { /* ignore */ }
   }, []);
@@ -151,7 +160,7 @@ export function BlFinderPage() {
 
   // ── Polling (2s while worker is running, 5s idle) ───────────────────
   useEffect(() => {
-    const interval = status?.running ? 2000 : 5000;
+    const interval = status?.running ? 2000 : recheckQueued ? 1000 : 5000;
     let cancelled = false;
     const tick = async () => {
       if (document.hidden) return;
@@ -166,7 +175,7 @@ export function BlFinderPage() {
       document.removeEventListener("visibilitychange", onVis);
       void cancelled;
     };
-  }, [fetchStatus, status?.running]);
+  }, [fetchStatus, recheckQueued, status?.running]);
 
   // Poll log every 3s when panel is open.
   useEffect(() => {
@@ -177,6 +186,7 @@ export function BlFinderPage() {
 
   // ── Actions ─────────────────────────────────────────────────────────
   const recheckAll = useCallback(async () => {
+    recheckRequestedAtRef.current = Date.now();
     try {
       const res = await fetch("/api/bl-finder/recheck", {
         method: "POST",
@@ -189,9 +199,19 @@ export function BlFinderPage() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as { updated: number };
+      if (data.updated > 0) {
+        setRecheckQueued(true);
+        // The worker is woken by the API, but this makes the UI poll at
+        // 1s immediately instead of waiting for the idle 5s interval.
+        setStatus((current) => current ? { ...current, running: true } : current);
+      } else {
+        recheckRequestedAtRef.current = null;
+      }
       toast.showToast(`Recheck queued for ${data.updated} file(s)`, "success");
       await fetchRows();
     } catch (err) {
+      recheckRequestedAtRef.current = null;
+      setRecheckQueued(false);
       toast.showToast("Failed to queue recheck", "error");
     }
   }, [statusFilter, mediaDirFilter, search, toast, fetchRows]);
@@ -249,6 +269,15 @@ export function BlFinderPage() {
   }, [mediaDirFilter, toast, fetchRows]);
 
   const recheckOne = useCallback(async (id: number) => {
+    const existing = rows.find((row) => row.id === id);
+    if (existing && existing.status !== "checking") {
+      setRows((current) => current.map((row) => row.id === id ? { ...row, status: "checking" } : row));
+      setCounts((current) => ({
+        ...current,
+        [existing.status]: Math.max(0, (current[existing.status] ?? 0) - 1),
+        checking: (current.checking ?? 0) + 1,
+      }));
+    }
     try {
       const res = await fetch(`/api/bl-finder/recheck/${id}`, { method: "POST" });
       if (!res.ok) {
@@ -263,7 +292,7 @@ export function BlFinderPage() {
         "error",
       );
     }
-  }, [toast, fetchRows]);
+  }, [rows, toast, fetchRows]);
 
   const ignoreOne = useCallback(async (id: number) => {
     try {
