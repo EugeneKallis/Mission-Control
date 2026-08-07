@@ -653,7 +653,6 @@ html[data-theme] {
 
 .terminal-scanline {
   position: relative;
-  overflow: hidden;
 }
 
 .terminal-scanline::after {
