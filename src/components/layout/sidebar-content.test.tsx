@@ -150,6 +150,17 @@ describe("SidebarContent — static nav items", () => {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
   });
+
+  test("keeps Archive collapsed by default and toggles its viewers", () => {
+    mockFetch(() => ({}));
+    render(<SidebarContent />);
+
+    const archive = screen.getByText("Archive").closest("details") as HTMLDetailsElement;
+    expect(archive.open).toBe(false);
+
+    fireEvent.click(screen.getByText("Archive"));
+    expect(archive.open).toBe(true);
+  });
 });
 
 describe("SidebarContent — macro click", () => {
