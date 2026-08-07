@@ -19,6 +19,7 @@
  *   fail the probe.
  */
 
+import { spawn as nodeSpawn } from "node:child_process";
 import { lstat, readdir, readlink, stat } from "fs/promises";
 import { join, sep } from "path";
 import { getConfig } from "@/lib/config";
@@ -89,21 +90,18 @@ export async function probeFileReadable(
   timeoutSec: number = DEFAULT_PROBE_TIMEOUT_S,
 ): Promise<ProbeResult> {
   const started = Date.now();
-  let proc: ReturnType<typeof Bun.spawn> | null = null;
+  const cmd = [
+    "ffprobe",
+    "-v", "error",
+    "-read_intervals", "%+5",
+    "-show_packets",
+    "-select_streams", "v:0",
+    "-of", "csv=p=0",
+    targetPath,
+  ];
+  let proc: ProbeProcess;
   try {
-    proc = Bun.spawn({
-      cmd: [
-        "ffprobe",
-        "-v", "error",
-        "-read_intervals", "%+5",
-        "-show_packets",
-        "-select_streams", "v:0",
-        "-of", "csv=p=0",
-        targetPath,
-      ],
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+    proc = spawnProbe(cmd);
   } catch (err) {
     return { ok: false, packets: 0, error: `spawn failed: ${(err as Error).message}`, elapsedMs: Date.now() - started };
   }
@@ -131,6 +129,48 @@ export async function probeFileReadable(
     return { ok: false, packets, error: "no packets emitted in first 5s", elapsedMs };
   }
   return { ok: true, packets, elapsedMs };
+}
+
+/**
+ * Use Bun's native process API when available, but keep the probe usable from
+ * Next's production server bundle where the Bun global may not be exposed.
+ */
+type ProbeProcess = {
+  stdout: ReadableStream<Uint8Array>;
+  stderr: ReadableStream<Uint8Array>;
+  exited: Promise<number>;
+  kill: () => void;
+};
+
+function spawnProbe(cmd: string[]): ProbeProcess {
+  if (typeof Bun !== "undefined") {
+    return Bun.spawn({ cmd, stdout: "pipe", stderr: "pipe" });
+  }
+
+  const child = nodeSpawn(cmd[0]!, cmd.slice(1), {
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  return {
+    stdout: nodeStreamToWebStream(child.stdout),
+    stderr: nodeStreamToWebStream(child.stderr),
+    exited: new Promise<number>((resolve) => {
+      child.once("error", () => resolve(1));
+      child.once("close", (code) => resolve(code ?? 1));
+    }),
+    kill: () => child.kill(),
+  };
+}
+
+function nodeStreamToWebStream(stream: NodeJS.ReadableStream): ReadableStream<Uint8Array> {
+  return new ReadableStream({
+    start(controller) {
+      stream.on("data", (chunk: Buffer | string) => {
+        controller.enqueue(typeof chunk === "string" ? Buffer.from(chunk) : new Uint8Array(chunk));
+      });
+      stream.on("end", () => controller.close());
+      stream.on("error", (err) => controller.error(err));
+    },
+  });
 }
 
 // ── Discovery ─────────────────────────────────────────────────────────────
