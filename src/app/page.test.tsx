@@ -2,11 +2,15 @@ import { afterEach, beforeEach, expect, mock, test } from "bun:test";
 import { render, waitFor } from "@/test-utils/render";
 
 let connected = false;
+let homeShellNoScroll = false;
 const originalFetch = globalThis.fetch;
 const fetchMock = mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>();
 
 mock.module("@/components/layout/app-shell", () => ({
-  AppShell: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  AppShell: ({ children, noScroll }: { children: React.ReactNode; noScroll?: boolean }) => {
+    homeShellNoScroll = noScroll === true;
+    return <>{children}</>;
+  },
 }));
 mock.module("@/components/toast-provider", () => ({
   useToast: () => ({ showToast: mock() }),
@@ -25,6 +29,7 @@ const { default: Home } = await import("./page");
 
 beforeEach(() => {
   connected = false;
+  homeShellNoScroll = false;
   fetchMock.mockClear();
   globalThis.fetch = fetchMock as unknown as typeof fetch;
   (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL("http://localhost/");
@@ -38,6 +43,12 @@ beforeEach(() => {
 afterEach(() => {
   globalThis.fetch = originalFetch;
   window.history.replaceState({}, "", "/");
+});
+
+test("uses the terminal as the home page scroll container", () => {
+  render(<Home />);
+
+  expect(homeShellNoScroll).toBe(true);
 });
 
 test("waits for the live stream before running and clearing a macro deep link", async () => {
