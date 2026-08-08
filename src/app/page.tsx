@@ -53,7 +53,7 @@ function MacroRightRail({ macros }: { macros: GroupWithMacros[] }) {
   );
 }
 
-// ── Home Page / Command Center ───────────────────────────────────────────
+// ── Home Page ─────────────────────────────────────────────────────────────
 
 export default function Home() {
 
@@ -135,25 +135,6 @@ export default function Home() {
     <>
       <AppShell noScroll showRightRail rightRailSlot={<MacroRightRail macros={groupedMacros} />}>
         <div className="flex-1 flex flex-col min-h-0 stagger-1">
-          {/* ── Command Center Bar ───────────────────────────────── */}
-          <div className="flex items-center gap-3 px-4 py-2 shrink-0 bg-surface border-b border-outline-variant/30">
-            <div className="flex items-center gap-2.5 shrink-0">
-              <div className="flex items-center justify-center w-8 h-8 rounded-[var(--radius-button)] bg-primary/15 text-primary">
-                <span className="material-symbols-outlined text-lg">terminal</span>
-              </div>
-              <div>
-                <span className="text-sm font-bold text-on-surface font-display tracking-tight">Command Center</span>
-                <span className="text-[10px] text-on-surface-variant ml-2 font-mono hidden sm:inline">mctl-local</span>
-              </div>
-            </div>
-            <div className="ml-auto flex items-center gap-2">
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-[var(--radius-button)] bg-surface-container/60">
-                <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? "bg-primary" : "bg-error"}`} />
-                <span className="text-[10px] text-on-surface-variant font-mono">{isConnected ? "LIVE" : "OFFLINE"}</span>
-              </div>
-            </div>
-          </div>
-
           {/* ── Terminal Output ────────────────────────────────────── */}
           <div
             ref={containerRef}
