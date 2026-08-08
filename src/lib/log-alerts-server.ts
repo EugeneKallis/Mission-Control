@@ -153,6 +153,8 @@ export async function getAllLogAlertCounts(): Promise<CountsResult> {
 /**
  * Count error lines across all services using the **visible** log window
  * (the same content returned by `/api/logs?service=<key>&lines=all`).
+ * When alerts have been acknowledged, apply the same watermark to the
+ * visible window so tab badges only show new errors.
  *
  * In-memory cache with a 20s TTL. This is intentionally separate from the
  * alert-aggregation cache because the windows are independent.
@@ -162,11 +164,12 @@ export async function getVisibleLogAlertCounts(): Promise<CountsResult> {
     return visibleCountsCache.result;
   }
 
+  const ack = await getAcknowledgedAt();
   const perService: Record<string, number> = {};
   let total = 0;
 
   for (const key of Object.keys(SERVICE_MAP)) {
-    const result = await fetchLogText(key, "all");
+    const result = await fetchLogText(key, "all", undefined, ack ?? undefined);
     // Don't count our own failure message as an error.
     const text = result.error ? "" : result.text;
     const count = countErrorsInText(text);
@@ -174,7 +177,6 @@ export async function getVisibleLogAlertCounts(): Promise<CountsResult> {
     total += count;
   }
 
-  const ack = await getAcknowledgedAt();
   const result: CountsResult = { perService, total, acknowledgedAt: ack };
   visibleCountsCache = { result, expiresAt: Date.now() + CACHE_TTL_MS };
   return result;

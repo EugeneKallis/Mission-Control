@@ -34,11 +34,12 @@ const baseResult: ScrapeResultView = {
 };
 
 describe("ScraperCard", () => {
-  test("renders title and tags", () => {
+  test("renders title, scraped date/time, and tags", () => {
     render(
       <ScraperCard result={baseResult} onDownload={() => {}} onHide={() => {}} />,
     );
     expect(screen.getByText("Sample Title")).toBeInTheDocument();
+    expect(screen.getByText(/scraped:/i)).toBeInTheDocument();
     expect(screen.getByText("big tits")).toBeInTheDocument();
     expect(screen.getByText("censored")).toBeInTheDocument();
   });

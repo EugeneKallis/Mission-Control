@@ -9,7 +9,7 @@
  *  - Active tab badge is derived from the raw log pane text
  *  - Inactive tab badges are derived from the visible-window API
  *  - Tabs without errors do not show a badge
- *  - "Mark Resolved" clears the aggregate header alert but leaves tab badges
+ *  - "Mark Resolved" clears the aggregate alert, tab badges, and old error lines
  *  - Error log lines are highlighted
  */
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
@@ -112,6 +112,9 @@ const defaultResponder = (url: string, init?: RequestInit): MockResponse => {
   if (url.includes("/api/logs/alerts")) {
     return { body: defaultAlertCounts };
   }
+  if (url.includes("/api/logs?") && url.includes("since=")) {
+    return { text: "info: started\n" };
+  }
   if (url.includes("/api/logs?")) return { text: "info: started\nERROR: database error\n" };
   if (url.includes("/api/macros")) return { body: [] };
   if (url.includes("/api/real-debrid/status")) return { body: { ok: true, label: "Premium" } };
@@ -188,7 +191,7 @@ describe("LogsPage", () => {
     });
   });
 
-  test("'Mark Resolved' clears the header alert but leaves tab badges", async () => {
+  test("'Mark Resolved' clears the header alert, tab badges, and old error lines", async () => {
     const ackCalls: { url: string; init?: RequestInit }[] = [];
     mockFetch((url, init) => {
       if (url.includes("/api/logs/alerts/acknowledge")) {
@@ -215,10 +218,14 @@ describe("LogsPage", () => {
       expect(screen.queryByRole("button", { name: /Mark Resolved/i })).not.toBeInTheDocument();
     });
 
-    // Tab badges are visible-window counts and must remain after acknowledgement.
-    expect(screen.getByRole("button", { name: /Web 1/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Magnet Bridge 2/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Scraper 1/i })).toBeInTheDocument();
+    // Acknowledgement clears existing errors from both the active pane and
+    // the inactive tab counts. New errors will be returned by the next poll.
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Web$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Magnet Bridge$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Scraper$/i })).toBeInTheDocument();
+      expect(screen.queryByText("ERROR: database error")).not.toBeInTheDocument();
+    });
   });
 
   test("stale alert response after Mark Resolved does not restore the header", async () => {
@@ -242,6 +249,9 @@ describe("LogsPage", () => {
         if (alertCallCount === 1) return firstAlert.promise;
         if (alertCallCount === 2) return staleAlert.promise;
         return { body: { perService: defaultAlertCounts.perService, total: 0, acknowledgedAt: Date.now() } };
+      }
+      if (url.includes("/api/logs?") && url.includes("since=")) {
+        return { text: "info: started\n" };
       }
       if (url.includes("/api/logs?")) return { text: "info: started\nERROR: database error\n" };
       if (url.includes("/api/macros")) return { body: [] };
@@ -289,9 +299,9 @@ describe("LogsPage", () => {
       expect(screen.queryByRole("button", { name: /Mark Resolved/i })).not.toBeInTheDocument();
     });
 
-    // Tab badges are visible-window counts and should remain.
-    expect(screen.getByRole("button", { name: /Web 1/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Magnet Bridge 2/i })).toBeInTheDocument();
+    // Tab badges are cleared after acknowledgement.
+    expect(screen.getByRole("button", { name: /Web$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Magnet Bridge$/i })).toBeInTheDocument();
   });
 
   test("ignores stale log response from previous tab after switching tabs", async () => {
