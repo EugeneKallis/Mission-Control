@@ -25,6 +25,16 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Mission Control",
   description: "Server management dashboard & macro automation platform",
+  // iOS does not use the regular favicon when saving a page to the Home
+  // Screen. Keep an explicit Apple touch icon in the document metadata.
+  icons: {
+    apple: "/apple-touch-icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    title: "Mission Control",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export const viewport = {
