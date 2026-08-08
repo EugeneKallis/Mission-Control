@@ -76,6 +76,14 @@ export function ScraperCard({ result, onDownload, onHide }: ScraperCardProps) {
         >
           {result.title}
         </h3>
+        {result.created_at && (
+          <time
+            dateTime={result.created_at}
+            className="block mt-1 text-xs text-on-surface-variant"
+          >
+            Scraped: {new Date(result.created_at).toLocaleString()}
+          </time>
+        )}
         {result.tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-2">
             {result.tags.map((tag) => (
