@@ -618,6 +618,10 @@ export async function getNzbChildren(parentPath: string, limit = 1000, offset = 
   });
 }
 
+export async function getNzbFilesByPaths(paths: string[]) {
+  return db.nzbFile.findMany({ where: { path: { in: paths } } });
+}
+
 export async function countNzbChildren(parentPath: string) {
   return db.nzbFile.count({ where: { parentPath } });
 }
@@ -683,6 +687,10 @@ export async function getDebridChildren(parentPath: string, limit = 1000, offset
     take: limit,
     skip: offset,
   });
+}
+
+export async function getDebridFilesByPaths(paths: string[]) {
+  return db.debridFile.findMany({ where: { path: { in: paths } } });
 }
 
 export async function countDebridChildren(parentPath: string) {
