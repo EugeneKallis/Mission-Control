@@ -41,7 +41,7 @@ async function loadScript() {
 }
 
 describe("arr-searcher", () => {
-  test("queries Radarr instances in priority order: Radarr → RadarrKids → Radarr4K", async () => {
+  test("queries Radarr instances in priority order: Radarr → RadarrKids → Radarr4K → RadarrAnime", async () => {
     const calls = captureFetch({
       "GET /api/v3/movie": () => [
         { id: 1, title: "Real Missing", status: "released", hasFile: false, monitored: true, titleSlug: "a" },
@@ -52,15 +52,15 @@ describe("arr-searcher", () => {
     const script = await loadScript();
     await script.main(["--radarr-only", "--limit", "50", "--run"]);
 
-    // The fixture uses ports 7878 (Radarr), 7880 (RadarrKids), 7879 (Radarr4K).
+    // The fixture uses ports 7878 (Radarr), 7880 (RadarrKids), 7879 (Radarr4K), 7881 (RadarrAnime).
     // We assert the order in which the script visited each instance.
     const ports = calls
       .filter((c) => c.method === "GET" && c.url.endsWith("/api/v3/movie"))
       .map((c) => Number(new URL(c.url).port));
-    expect(ports).toEqual([7878, 7880, 7879]);
+    expect(ports).toEqual([7878, 7880, 7879, 7881]);
   });
 
-  test("does not query Anime instances", async () => {
+  test("queries Anime instances", async () => {
     const calls = captureFetch({
       "GET /api/v3/movie": () => [],
       "GET /api/v3/wanted/missing": () => ({ records: [], totalRecords: 0 }),
@@ -70,8 +70,8 @@ describe("arr-searcher", () => {
     await script.main(["--limit", "50", "--run"]);
 
     const ports = calls.map((call) => Number(new URL(call.url).port));
-    expect(ports).not.toContain(7881);
-    expect(ports).not.toContain(8992);
+    expect(ports).toContain(7881);
+    expect(ports).toContain(8992);
   });
 
   test("missing-movie filter excludes announced / hasFile / unmonitored", async () => {
@@ -92,8 +92,8 @@ describe("arr-searcher", () => {
       .filter((c) => c.url.endsWith("/api/v3/command"))
       .map((c) => (c.body as { movieIds: number[] }).movieIds)
       .flat();
-    // Each of the 3 Radarr instances should narrow down to id=4 only.
-    expect(triggeredIds).toEqual([4, 4, 4]);
+    // Each of the 4 configured Radarr instances should narrow down to id=4 only.
+    expect(triggeredIds).toEqual([4, 4, 4, 4]);
   });
 
   test("--limit caps the number of trigger calls per instance", async () => {
@@ -113,9 +113,9 @@ describe("arr-searcher", () => {
     const script = await loadScript();
     await script.main(["--radarr-only", "--limit", "3", "--run"]);
 
-    // 3 instances × 3 triggers = 9.
+    // 4 instances × 3 triggers = 12.
     const triggers = calls.filter((c) => c.url.endsWith("/api/v3/command"));
-    expect(triggers.length).toBe(9);
+    expect(triggers.length).toBe(12);
   });
 
   test("dry-run (no --run) logs without issuing command POSTs", async () => {
