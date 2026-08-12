@@ -110,9 +110,9 @@ let visibleCountsCache: { result: CountsResult; expiresAt: number } | null = nul
 const CACHE_TTL_MS = 20_000;
 
 /**
- * Count error lines across all services since the acknowledgement
- * watermark (or the last 7 days if no watermark set, whichever is
- * the tighter bound).
+ * Count inspectable error lines across all services since the acknowledgement
+ * watermark (or the last 7 days, whichever is tighter). Systemd logs are also
+ * bounded by each unit's latest start, matching the Log Viewer.
  *
  * In-memory cache with a 20s TTL so overlapping sidebar + logs-page
  * polls share the same journalctl work. The cache is invalidated
@@ -130,17 +130,10 @@ export async function getAllLogAlertCounts(): Promise<CountsResult> {
   const perService: Record<string, number> = {};
   let total = 0;
 
-  for (const [key, unit] of Object.entries(SERVICE_MAP)) {
-    // Agent tasks are DB-backed, not journalctl-backed
-    if (key === "agent-tasks") {
-      const agentTaskErrors = await countErrorsInAgentTaskHistory(sinceMs);
-      perService[key] = agentTaskErrors;
-      total += agentTaskErrors;
-      continue;
-    }
-
-    const text = runJournalctl(unit, sinceMs);
-    const count = countErrorsInText(text);
+  for (const key of Object.keys(SERVICE_MAP)) {
+    const result = await fetchLogText(key, "all", undefined, sinceMs);
+    // Don't count our own failure message as an error.
+    const count = result.error ? 0 : countErrorsInText(result.text);
     perService[key] = count;
     total += count;
   }
