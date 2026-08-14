@@ -320,14 +320,14 @@ export function SidebarContent({
         <NavItem label="Admin" icon="admin_panel_settings" href="/admin" color="violet" />
         <NavItem label="Config" icon="settings" href="/admin/config" color="violet" />
 
-        {/* Media section (collapsible, collapsed by default) */}
+        {/* Archive section (collapsible, collapsed by default) */}
         <details className="group">
           <summary className="list-none cursor-pointer outline-none">
             <div className="flex items-center gap-3 px-5 py-2 text-on-surface hover:bg-surface-container/60 transition-colors mx-2 rounded-[var(--radius-button)]">
               <span className="material-symbols-outlined text-teal-500 text-xl">
                 perm_media
               </span>
-              <span className="flex-1 text-sm font-semibold">Media</span>
+              <span className="flex-1 text-sm font-semibold">Archive</span>
               <span className="material-symbols-outlined text-on-surface-variant text-base transition-transform duration-200 expand-icon">
                 expand_more
               </span>
