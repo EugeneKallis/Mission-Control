@@ -35,6 +35,7 @@ const envSchema = z.object({
   // External service keys
   DECYPHARR_URL: z.string().default("http://192.168.1.99:8282"),
   REAL_DEBRID_API_KEY: z.string().default(""),
+  PULSE_API_KEY: z.string().default(""),
 
   // Plex
   PLEX_TOKEN: z.string().default(""),
@@ -99,6 +100,7 @@ export class AppConfig {
   readonly mediaDirectories: string[];
   readonly decypharrUrl: string;
   readonly realDebridApiKey: string;
+  readonly pulseApiKey: string;
   readonly plexToken: string;
   readonly plexUrl: string;
   readonly plexWatchlistRss: string;
@@ -118,6 +120,7 @@ export class AppConfig {
     this.mediaDirectories = env.MEDIA_DIRECTORIES.split(",").map((s) => s.trim()).filter(Boolean);
     this.decypharrUrl = env.DECYPHARR_URL;
     this.realDebridApiKey = env.REAL_DEBRID_API_KEY;
+    this.pulseApiKey = env.PULSE_API_KEY;
     this.plexToken = env.PLEX_TOKEN;
     this.plexUrl = env.PLEX_URL;
     this.plexWatchlistRss = env.PLEX_WATCHLIST_RSS;
@@ -146,6 +149,7 @@ const DB_ENV_KEY_MAP: Record<string, keyof EnvConfig> = {
   plex_token: "PLEX_TOKEN",
   plex_url: "PLEX_URL",
   real_debrid_api_key: "REAL_DEBRID_API_KEY",
+  pulse_api_key: "PULSE_API_KEY",
 };
 
 // ── Singleton (env-only) ─────────────────────────────────────────────────
@@ -163,7 +167,7 @@ export function getConfig(): AppConfig {
  * Resolve config with DB fallback.
  *
  * First reads env vars (like getConfig()). If any of the configurable
- * keys (plexToken, plexUrl, realDebridApiKey) are empty, queries the
+ * keys (plexToken, plexUrl, realDebridApiKey, pulseApiKey) are empty, queries the
  * DB configs table — where the admin config page stores values — and
  * fills in missing fields.
  *

@@ -249,7 +249,7 @@ describe("getConfig / upsertConfig", () => {
     const q = await loadQueries("cfg1");
     const cfg = await q.getConfig();
     expect(cfg.id).toBe(1);
-    expect(JSON.parse(cfg.configJson)).toEqual({ real_debrid_api_key: "" });
+    expect(JSON.parse(cfg.configJson)).toEqual({ real_debrid_api_key: "", pulse_api_key: "" });
   });
 
   test("upsertConfig updates the singleton row", async () => {

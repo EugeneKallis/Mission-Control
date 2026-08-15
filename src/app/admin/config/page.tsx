@@ -23,6 +23,7 @@ const labelClass = "block text-sm font-medium text-on-surface mb-2";
 
 export default function ConfigPage() {
   const [apiKey, setApiKey] = useState("");
+  const [pulseApiKey, setPulseApiKey] = useState("");
   const [plexToken, setPlexToken] = useState("");
   const [plexUrl, setPlexUrl] = useState("");
   const [arrValues, setArrValues] = useState<Record<string, { url: string; apiKey: string }>>({});
@@ -39,6 +40,7 @@ export default function ConfigPage() {
       })
       .then((data) => {
         setApiKey(data.real_debrid_api_key || "");
+        setPulseApiKey(data.pulse_api_key || "");
         setPlexToken(data.plex_token || "");
         setPlexUrl(data.plex_url || "");
 
@@ -82,6 +84,7 @@ export default function ConfigPage() {
     try {
       const payload: Record<string, string> = {
         real_debrid_api_key: apiKey,
+        pulse_api_key: pulseApiKey,
         plex_token: plexToken,
         plex_url: plexUrl,
       };
@@ -110,7 +113,7 @@ export default function ConfigPage() {
     } finally {
       setSaving(false);
     }
-  }, [apiKey, plexToken, plexUrl, arrValues, showToast]);
+  }, [apiKey, pulseApiKey, plexToken, plexUrl, arrValues, showToast]);
 
   // ── Render ────────────────────────────────────────────────────────────
 
@@ -129,6 +132,23 @@ export default function ConfigPage() {
           <div className="text-center py-16 text-[var(--color-on-surface-variant)]">Loading...</div>
         ) : (
           <div className="space-y-6">
+            {/* ── Pulse ─────────────────────────────────────────────────── */}
+            <div className="p-4 md:p-6 rounded-lg" style={cardStyle}>
+              <h2 className="text-sm font-semibold text-[var(--color-on-surface)] mb-4">Pulse</h2>
+              <label htmlFor="pulse-api-key" className={labelClass}>Pulse API Key</label>
+              <input
+                id="pulse-api-key"
+                type="password"
+                className={inputClass}
+                placeholder="Enter your Pulse API key"
+                value={pulseApiKey}
+                onChange={(e) => setPulseApiKey(e.target.value)}
+              />
+              <p className="text-xs text-[var(--color-on-surface-variant)] mt-2">
+                Generate a read-only token in Pulse&apos;s API Access settings. Mission Control sends it through Pulse&apos;s <code className="text-primary">X-API-Token</code> header.
+              </p>
+            </div>
+
             {/* ── Plex ──────────────────────────────────────────────────── */}
             <div className="p-4 md:p-6 rounded-lg" style={cardStyle}>
               <h2 className="text-sm font-semibold text-[var(--color-on-surface)] mb-4">Plex</h2>

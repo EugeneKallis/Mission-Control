@@ -46,6 +46,15 @@ describe("AppConfig defaults", () => {
     expect(cfg.rclonePath).toBe("/mnt/addons/debrid/__all__");
     expect(cfg.mediaBasePath).toBe("/mnt/debrid/media/");
     expect(cfg.mediaDirectories.length).toBeGreaterThan(0);
+    expect(cfg.pulseApiKey).toBe("");
+  });
+
+  test("reads PULSE_API_KEY from the environment", async () => {
+    for (const k of Object.keys(process.env)) delete process.env[k];
+    process.env.PULSE_API_KEY = "env-pulse";
+
+    const mod = await loadFreshConfig("pulse-key");
+    expect(mod.getConfig().pulseApiKey).toBe("env-pulse");
   });
 
   test("coerces WEB_PORT from string to number", async () => {
