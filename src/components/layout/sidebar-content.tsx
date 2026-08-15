@@ -302,8 +302,6 @@ export function SidebarContent({
           color="amber"
           badge={brokenCount ?? undefined}
         />
-        <NavItem label="Database" icon="table_chart" href="/database" color="violet" />
-
         {/* Settings section */}
         <div className="my-2 mx-5 mt-3">
           <span className="text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant/50">
@@ -337,6 +335,7 @@ export function SidebarContent({
           <div className="pl-1">
             <NavItem label="NZB Viewer" icon="folder_open" href="/nzb" color="teal" />
             <NavItem label="Debrid Viewer" icon="cloud" href="/debrid" color="teal" />
+            <NavItem label="Database" icon="table_chart" href="/database" color="violet" />
           </div>
         </details>
 
