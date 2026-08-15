@@ -56,12 +56,20 @@ describe("GET /api/pulse/status", () => {
   test("sends the configured API key to the authenticated resources endpoint", async () => {
     process.env.PULSE_API_KEY = "pulse-secret";
     const headersByPath = new Map<string, Headers>();
+    let resourceRequests = 0;
     globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-      const path = new URL(String(input)).pathname;
+      const url = new URL(String(input));
+      const path = url.pathname;
       headersByPath.set(path, new Headers(init?.headers));
-      return new Response(JSON.stringify(
-        path === "/api/resources" ? { data: [{ id: "host-1" }], total: 7 } : {},
-      ), { status: 200 });
+      if (path === "/api/resources") {
+        resourceRequests += 1;
+        const page = Number(url.searchParams.get("page"));
+        const data = page === 1
+          ? Array.from({ length: 100 }, (_, index) => ({ id: `host-${index}` }))
+          : [{ id: "host-100" }];
+        return new Response(JSON.stringify({ data, total: 101 }), { status: 200 });
+      }
+      return new Response(JSON.stringify({}), { status: 200 });
     }) as typeof fetch;
 
     const response = await GET();
@@ -70,7 +78,10 @@ describe("GET /api/pulse/status", () => {
     for (const path of ["/api/health", "/api/version", "/api/security/status"]) {
       expect(headersByPath.get(path)?.has("X-API-Token")).toBe(false);
     }
-    expect((await response.json()).resourceCount).toBe(7);
+    const body = await response.json();
+    expect(body.resourceCount).toBe(101);
+    expect(body.resources).toHaveLength(101);
+    expect(resourceRequests).toBe(2);
   });
 
   test("returns unavailable when every public endpoint fails", async () => {
