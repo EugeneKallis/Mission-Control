@@ -65,6 +65,17 @@ describe("AppShell — layout structure", () => {
     expect(within(container).getByLabelText("Open menu")).toBeInTheDocument();
   });
 
+  test("exposes Pulse in the mobile drawer navigation", () => {
+    const { container } = render(
+      <AppShell>
+        <div>child</div>
+      </AppShell>,
+    );
+    fireEvent.click(within(container).getByLabelText("Open menu"));
+    const drawer = within(container).getByRole("dialog", { name: "Navigation menu" });
+    expect(within(drawer).getByRole("link", { name: "Pulse" })).toBeInTheDocument();
+  });
+
   test("default noScroll=false gives the scroll container overflow-y-auto", () => {
     const { container } = render(
       <AppShell>
@@ -100,7 +111,7 @@ describe("AppShell — mobile drawer", () => {
     );
     // Backdrop is not rendered while drawer is closed.
     expect(container.querySelector(".backdrop-blur-sm")).toBeNull();
-    fireEvent.click(screen.getByLabelText("Open menu"));
+    fireEvent.click(within(container).getByLabelText("Open menu"));
     expect(container.querySelector(".backdrop-blur-sm")).not.toBeNull();
   });
 
@@ -110,7 +121,7 @@ describe("AppShell — mobile drawer", () => {
         <div>child</div>
       </AppShell>,
     );
-    fireEvent.click(screen.getByLabelText("Open menu"));
+    fireEvent.click(within(container).getByLabelText("Open menu"));
     const backdrop = container.querySelector(".backdrop-blur-sm");
     expect(backdrop).not.toBeNull();
     fireEvent.click(backdrop as Element);

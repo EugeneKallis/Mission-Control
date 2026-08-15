@@ -146,20 +146,20 @@ describe("SidebarContent — static nav items", () => {
     mockFetch(() => ({}));
     mockUsePathname.mockReturnValue("/other");
     render(<SidebarContent />);
-    for (const label of ["History", "Schedules", "NZB Viewer", "Debrid Viewer", "Log Viewer", "Database", "Admin", "Config", "Scraper"]) {
+    for (const label of ["History", "Schedules", "Pulse", "NZB Viewer", "Debrid Viewer", "Log Viewer", "Database", "Admin", "Config", "Scraper"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
   });
 
-  test("keeps Media collapsed by default and toggles its viewers", () => {
+  test("keeps Archive collapsed by default and toggles its viewers", () => {
     mockFetch(() => ({}));
     render(<SidebarContent />);
 
-    const media = screen.getByText("Media").closest("details") as HTMLDetailsElement;
-    expect(media.open).toBe(false);
+    const archive = screen.getByText("Archive").closest("details") as HTMLDetailsElement;
+    expect(archive.open).toBe(false);
 
-    fireEvent.click(screen.getByText("Media"));
-    expect(media.open).toBe(true);
+    fireEvent.click(screen.getByText("Archive"));
+    expect(archive.open).toBe(true);
   });
 });
 

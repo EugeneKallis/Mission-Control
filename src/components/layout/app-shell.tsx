@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { ToastProvider } from "@/components/toast-provider";
 import { SidebarContent } from "@/components/layout/sidebar-content";
@@ -58,6 +58,8 @@ export function AppShell({ children, noScroll = false, showRightRail = false, ri
 
   // Close drawer on route change
   useEffect(() => {
+    // The drawer is UI state that must reset when navigation changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDrawerOpen(false);
   }, [pathname]);
 
@@ -79,7 +81,7 @@ export function AppShell({ children, noScroll = false, showRightRail = false, ri
               aria-hidden="true"
             />
           )}
-          {/* Drawer (conditionally mounted to prevent keyboard access when closed) */}
+          {/* Drawer stays mounted so mobile navigation links are available to the browser before opening. */}
           <div
             ref={drawerRef}
             className={`
@@ -88,13 +90,11 @@ export function AppShell({ children, noScroll = false, showRightRail = false, ri
               lg:hidden flex flex-col shrink-0
               ${drawerOpen ? "translate-x-0" : "-translate-x-full"}
             `}
-            aria-hidden={!drawerOpen}
             role={drawerOpen ? "dialog" : undefined}
             aria-modal={drawerOpen ? "true" : undefined}
             aria-label="Navigation menu"
           >
-            {/* Prevent Tab key from reaching the drawer when closed */}
-            {drawerOpen && <SidebarContent uptime={uptime} />}
+            <SidebarContent uptime={uptime} />
           </div>
         </>
 
