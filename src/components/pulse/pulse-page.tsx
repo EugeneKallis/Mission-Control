@@ -56,30 +56,183 @@ function resourceValue(resource: PulseResource, ...keys: string[]): string {
   return "—";
 }
 
+function valueAtPath(resource: PulseResource, path: string): unknown {
+  return path.split(".").reduce<unknown>((value, key) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+    return (value as Record<string, unknown>)[key];
+  }, resource);
+}
+
+function numberValue(resource: PulseResource, ...keys: string[]): number | undefined {
+  const paths = keys.flatMap((key) => key.includes(".") ? [key] : [key, `metrics.${key}`, `stats.${key}`]);
+  for (const path of paths) {
+    const value = valueAtPath(resource, path);
+    const number = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : NaN;
+    if (Number.isFinite(number)) return number;
+  }
+  return undefined;
+}
+
 function resourceType(resource: PulseResource): string {
   return resourceValue(resource, "type", "kind", "resourceType", "category");
+}
+
+function resourceTypeLabel(resource: PulseResource): string {
+  const type = resourceType(resource).toLowerCase().replace(/[_-]/g, " ");
+  if (["qemu", "vm", "virtual machine"].includes(type)) return "VM";
+  if (type === "lxc") return "LXC";
+  if (["container", "system container", "oci container", "app container", "docker container", "docker service"].includes(type)) return "Container";
+  if (["agent", "host", "docker host"].includes(type)) return "Host";
+  if (["storage", "physical disk", "ceph", "pbs", "pmg"].includes(type)) return "Storage";
+  return resourceType(resource) === "—" ? "Other" : resourceType(resource);
 }
 
 function resourceName(resource: PulseResource, index: number): string {
   const name = resourceValue(resource, "name", "displayName", "hostname", "host");
   if (name !== "—") return name;
-  const id = resourceValue(resource, "id", "resourceId");
+  const id = resourceValue(resource, "vmid", "id", "resourceId");
   return id === "—" ? `Resource ${index + 1}` : id;
+}
+
+function resourceId(resource: PulseResource): string {
+  return resourceValue(resource, "vmid", "id", "resourceId");
 }
 
 function resourceGroup(resource: PulseResource): "Proxmox" | "Docker" | "Other" {
   const source = resourceValue(resource, "source", "platform", "provider").toLowerCase();
   const type = resourceType(resource).toLowerCase();
   const dockerTypes = ["docker-host", "app-container", "docker-service", "docker-image", "docker-volume", "docker-network", "docker-task", "docker-swarm-node", "docker-secret", "docker-config"];
-  const proxmoxTypes = ["agent", "vm", "system-container", "oci-container", "storage", "physical_disk", "ceph", "pbs", "pmg"];
+  const proxmoxTypes = ["agent", "vm", "qemu", "lxc", "system-container", "oci-container", "storage", "physical_disk", "ceph", "pbs", "pmg"];
   if (source === "docker" || dockerTypes.includes(type)) return "Docker";
   if (["proxmox", "pve"].includes(source) || proxmoxTypes.includes(type)) return "Proxmox";
   return "Other";
 }
 
+type ResourceMetricKind = "cpu" | "memory" | "disk";
+
+interface ResourceMetricValues {
+  used?: number;
+  max?: number;
+  percent?: number;
+}
+
+interface ResourceMetricKeys {
+  explicit: string[];
+  used: string[];
+  max: string[];
+}
+
+const RESOURCE_METRIC_KEYS: Record<ResourceMetricKind, ResourceMetricKeys> = {
+  cpu: {
+    explicit: ["cpuPercent", "cpu_percent", "cpuUsagePercent", "cpu_usage_percent", "metrics.cpu.percent"],
+    used: [],
+    max: [],
+  },
+  memory: {
+    explicit: ["memoryPercent", "memory_percent", "memoryUsagePercent", "memory_usage_percent", "metrics.memory.percent"],
+    used: ["mem", "memoryUsed", "memory_used", "usedMemory", "memory", "metrics.memory.used", "metrics.memory.current", "metrics.mem.used"],
+    max: ["maxmem", "maxMemory", "memoryTotal", "memory_total", "totalMemory", "metrics.memory.max", "metrics.memory.total", "metrics.mem.max"],
+  },
+  disk: {
+    explicit: ["diskPercent", "disk_percent", "diskUsagePercent", "disk_usage_percent", "disk.current", "metrics.disk.percent"],
+    used: ["disk", "disk.used", "diskUsed", "disk_used", "usedDisk", "metrics.disk.used", "metrics.disk.current"],
+    max: ["maxdisk", "maxDisk", "disk.total", "diskTotal", "disk_total", "totalDisk", "metrics.disk.max", "metrics.disk.total"],
+  },
+};
+
+function clampPercent(value: number): number {
+  return Math.max(0, Math.min(value, 100));
+}
+
+function resourceMetricValues(resource: PulseResource, kind: ResourceMetricKind): ResourceMetricValues {
+  const keys = RESOURCE_METRIC_KEYS[kind];
+  const explicit = numberValue(resource, ...keys.explicit);
+  if (explicit !== undefined) return explicit < 0 ? {} : { percent: clampPercent(explicit) };
+
+  if (kind === "cpu") {
+    // Proxmox's raw cpu value is a fraction of one core and may exceed 1 for
+    // multi-core guests. Percent-named fields above are already percentages.
+    const cpu = numberValue(resource, "cpu");
+    if (cpu !== undefined) return { percent: clampPercent(cpu * 100) };
+    const usage = numberValue(resource, "cpuUsage", "cpu_usage");
+    return usage === undefined ? {} : { percent: clampPercent(usage <= 1 ? usage * 100 : usage) };
+  }
+
+  const used = numberValue(resource, ...keys.used);
+  const max = numberValue(resource, ...keys.max);
+  return {
+    used,
+    max,
+    percent: used !== undefined && max !== undefined && max > 0 ? clampPercent((used / max) * 100) : undefined,
+  };
+}
+
+function formatBytes(bytes: number | undefined): string {
+  if (bytes === undefined || !Number.isFinite(bytes) || bytes < 0) return "—";
+  if (bytes === 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB", "PB"];
+  const unit = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  return `${(bytes / 1024 ** unit).toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
+}
+
+function resourceMetricDetail(values: ResourceMetricValues, kind: ResourceMetricKind): string {
+  if (kind === "cpu") return values.percent === undefined ? "—" : `${values.percent.toFixed(0)}%`;
+  if (values.used === undefined) return "—";
+  return values.max === undefined
+    ? `${formatBytes(values.used)}${values.percent === undefined ? "" : ` · ${values.percent.toFixed(0)}%`}`
+    : `${formatBytes(values.used)} / ${formatBytes(values.max)}`;
+}
+
+function formatResourceUptime(resource: PulseResource): string {
+  const uptime = numberValue(resource, "uptime", "uptimeSeconds", "uptime_seconds");
+  return uptime === undefined ? "—" : formatUptime(uptime);
+}
+
+function formatIo(resource: PulseResource, direction: "network" | "disk"): string {
+  const keys = direction === "network"
+    ? [["netin", "netIn", "networkIn", "network_in", "rxBytes", "rx_bytes", "metrics.network.in", "metrics.network.rx", "metrics.network.received"], ["netout", "netOut", "networkOut", "network_out", "txBytes", "tx_bytes", "metrics.network.out", "metrics.network.tx", "metrics.network.sent"]]
+    : [["diskread", "diskRead", "disk_read", "readBytes", "read_bytes", "metrics.disk.read", "metrics.disk.readBytes"], ["diskwrite", "diskWrite", "disk_write", "writeBytes", "write_bytes", "metrics.disk.write", "metrics.disk.writeBytes"]];
+  const incoming = numberValue(resource, ...keys[0]);
+  const outgoing = numberValue(resource, ...keys[1]);
+  if (incoming === undefined && outgoing === undefined) return "—";
+  return `${direction === "network" ? "↓" : "R"} ${formatBytes(incoming)} ${direction === "network" ? "↑" : "W"} ${formatBytes(outgoing)}`;
+}
+
+function metricColors(percent: number, baseColor: string): { bar: string; text: string } {
+  if (percent > 90) return { bar: "bg-error", text: "text-error" };
+  if (percent > 75) return { bar: "bg-warning", text: "text-warning" };
+  return { bar: baseColor, text: "text-on-surface-variant" };
+}
+
+function ResourceMetric({ resource, kind }: { resource: PulseResource; kind: ResourceMetricKind }) {
+  const values = resourceMetricValues(resource, kind);
+  const percent = values.percent;
+  const baseColor = kind === "cpu" ? "bg-primary" : kind === "memory" ? "bg-secondary" : "bg-success";
+  if (percent === undefined) return <span className="text-on-surface-variant">—</span>;
+  const colors = metricColors(percent, baseColor);
+  return (
+    <div className="min-w-[140px]">
+      <div className="flex items-center gap-2">
+        <div
+          role="progressbar"
+          aria-label={`${kind} utilization`}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(percent)}
+          className="h-2 min-w-16 flex-1 overflow-hidden rounded-full bg-outline-variant/30"
+        >
+          <div className={`h-full rounded-full transition-all duration-500 ${colors.bar}`} style={{ width: `${percent}%` }} />
+        </div>
+        <span className={`w-10 text-right text-[11px] font-semibold ${colors.text}`}>{percent.toFixed(0)}%</span>
+      </div>
+      <span className="mt-1 block text-[10px] text-on-surface-variant">{resourceMetricDetail(values, kind)}</span>
+    </div>
+  );
+}
+
 function resourceSearchText(resource: PulseResource): string {
   const fields = [
-    "name", "displayName", "id", "resourceId", "type", "kind", "resourceType", "category",
+    "name", "displayName", "id", "resourceId", "vmid", "type", "kind", "resourceType", "category",
     "status", "state", "health", "node", "hostname", "host", "server", "platform", "source", "provider",
   ];
   return fields.map((field) => resource[field]).filter((value) => typeof value === "string" || typeof value === "number").join(" ").toLowerCase();
@@ -122,6 +275,7 @@ export function PulsePage() {
   const [error, setError] = useState<string | null>(null);
   const [resourceQuery, setResourceQuery] = useState("");
   const [resourceGroupFilter, setResourceGroupFilter] = useState("All");
+  const [groupByType, setGroupByType] = useState(false);
 
   const fetchStatus = useCallback(async (manual = false) => {
     if (manual) setRefreshing(true);
@@ -168,13 +322,26 @@ export function PulsePage() {
     ? "API key not configured"
     : snapshot.resourceCount != null
       ? "Authenticated API"
-      : "Key rejected or resources unavailable — check Config → Pulse API Key";
+      : snapshot.resourcesError
+        ? `Key rejected or resources unavailable — ${snapshot.resourcesError}`
+        : "Key rejected or resources unavailable — check Config → Pulse API Key";
   const filteredResources = (snapshot?.resources ?? []).filter((resource) => {
     const matchesGroup = resourceGroupFilter === "All" || resourceGroup(resource) === resourceGroupFilter;
     const query = resourceQuery.trim().toLowerCase();
     const matchesQuery = !query || resourceSearchText(resource).includes(query);
     return matchesGroup && matchesQuery;
   });
+  const resourceGroups = groupByType
+    ? Array.from(
+        filteredResources.reduce((groups, resource) => {
+          const type = resourceTypeLabel(resource);
+          const group = groups.get(type) ?? [];
+          group.push(resource);
+          groups.set(type, group);
+          return groups;
+        }, new Map<string, PulseResource[]>()).entries(),
+      ).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+    : [["", filteredResources] as const];
 
   return (
     <section className="flex h-full min-h-0 flex-col" aria-label="Pulse">
@@ -257,7 +424,7 @@ export function PulsePage() {
                       {filteredResources.length} of {snapshot.resourceCount ?? snapshot.resources.length} resources shown.
                     </p>
                   </div>
-                  <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <label className="sr-only" htmlFor="pulse-resource-search">Search resources</label>
                     <input
                       id="pulse-resource-search"
@@ -278,40 +445,79 @@ export function PulsePage() {
                       <option>Docker</option>
                       <option>Other</option>
                     </select>
+                    <label className="inline-flex cursor-pointer items-center gap-2 whitespace-nowrap text-xs text-on-surface-variant">
+                      <input
+                        type="checkbox"
+                        aria-label="Group by type"
+                        checked={groupByType}
+                        onChange={(event) => setGroupByType(event.target.checked)}
+                        className="size-4 accent-[var(--color-primary)]"
+                      />
+                      Group by type
+                    </label>
                   </div>
                 </div>
                 <div className="mt-4 overflow-x-auto">
-                  <table className="w-full min-w-[720px] text-left text-xs">
+                  <table className="w-full min-w-[1320px] text-left text-xs">
                     <thead className="border-b border-outline-variant/30 text-[10px] uppercase tracking-wider text-on-surface-variant/70">
                       <tr>
                         <th className="px-3 py-2 font-semibold">Name</th>
                         <th className="px-3 py-2 font-semibold">Type</th>
+                        <th className="px-3 py-2 font-semibold">ID</th>
                         <th className="px-3 py-2 font-semibold">Status</th>
+                        <th className="px-3 py-2 font-semibold">CPU</th>
+                        <th className="px-3 py-2 font-semibold">Memory</th>
+                        <th className="px-3 py-2 font-semibold">Disk</th>
+                        <th className="px-3 py-2 font-semibold">Uptime</th>
+                        <th className="px-3 py-2 font-semibold" title="Cumulative bytes received and sent">Net IO (total)</th>
+                        <th className="px-3 py-2 font-semibold" title="Cumulative bytes read and written">Disk IO (total)</th>
                         <th className="px-3 py-2 font-semibold">Location</th>
                         <th className="px-3 py-2 font-semibold">Details</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-outline-variant/20">
-                      {filteredResources.map((resource, index) => {
-                        const status = resourceValue(resource, "status", "state", "health");
-                        const statusLower = status.toLowerCase();
-                        const statusClass = /online|running|healthy|ready|active/.test(statusLower) ? "text-success" : /offline|stopped|error|failed|unhealthy/.test(statusLower) ? "text-error" : "text-on-surface-variant";
-                        return (
-                          <tr key={`${resourceName(resource, index)}-${index}`} className="hover:bg-surface-container/50">
-                            <td className="max-w-[220px] truncate px-3 py-3 font-medium text-on-surface">{resourceName(resource, index)}</td>
-                            <td className="px-3 py-3 text-on-surface-variant">{resourceType(resource)}</td>
-                            <td className={`px-3 py-3 font-semibold ${statusClass}`}>{status}</td>
-                            <td className="px-3 py-3 text-on-surface-variant">{resourceValue(resource, "node", "hostname", "host", "server")}</td>
-                            <td className="px-3 py-3">
-                              <details>
-                                <summary className="cursor-pointer text-primary hover:underline">View details</summary>
-                                <pre className="mt-2 max-w-[420px] overflow-auto whitespace-pre-wrap rounded bg-surface-container p-2 text-[10px] text-on-surface-variant">{JSON.stringify(resource, null, 2)}</pre>
-                              </details>
-                            </td>
+                    {filteredResources.length > 0 && resourceGroups.map(([type, resources]) => (
+                      <tbody key={type || "all"} className="divide-y divide-outline-variant/20">
+                        {groupByType && (
+                          <tr className="bg-surface-container/60">
+                            <th colSpan={12} className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-primary">
+                              {type} <span className="text-on-surface-variant">({resources.length})</span>
+                            </th>
                           </tr>
-                        );
-                      })}
-                    </tbody>
+                        )}
+                        {resources.map((resource, index) => {
+                          const status = resourceValue(resource, "status", "state", "health");
+                          const statusLower = status.toLowerCase();
+                          const statusClass = /online|running|healthy|ready|active/.test(statusLower)
+                            ? "bg-success/15 text-success"
+                            : /offline|stopped|error|failed|unhealthy/.test(statusLower)
+                              ? "bg-error/15 text-error"
+                              : "bg-surface-container-high/50 text-on-surface-variant";
+                          return (
+                            <tr key={`${resourceId(resource)}-${resourceName(resource, index)}-${index}`} className="hover:bg-surface-container/50">
+                              <td className="max-w-[200px] truncate px-3 py-3 font-medium text-on-surface">{resourceName(resource, index)}</td>
+                              <td className="px-3 py-3 font-semibold text-primary">{resourceTypeLabel(resource)}</td>
+                              <td className="px-3 py-3 font-mono text-on-surface-variant">{resourceId(resource)}</td>
+                              <td className="px-3 py-3">
+                                <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusClass}`}>{status}</span>
+                              </td>
+                              <td className="px-3 py-3"><ResourceMetric resource={resource} kind="cpu" /></td>
+                              <td className="px-3 py-3"><ResourceMetric resource={resource} kind="memory" /></td>
+                              <td className="px-3 py-3"><ResourceMetric resource={resource} kind="disk" /></td>
+                              <td className="whitespace-nowrap px-3 py-3 text-on-surface-variant">{formatResourceUptime(resource)}</td>
+                              <td className="whitespace-nowrap px-3 py-3 font-mono text-[10px] text-on-surface-variant">{formatIo(resource, "network")}</td>
+                              <td className="whitespace-nowrap px-3 py-3 font-mono text-[10px] text-on-surface-variant">{formatIo(resource, "disk")}</td>
+                              <td className="px-3 py-3 text-on-surface-variant">{resourceValue(resource, "node", "hostname", "host", "server")}</td>
+                              <td className="px-3 py-3">
+                                <details>
+                                  <summary className="cursor-pointer text-primary hover:underline">View details</summary>
+                                  <pre className="mt-2 max-w-[420px] overflow-auto whitespace-pre-wrap rounded bg-surface-container p-2 text-[10px] text-on-surface-variant">{JSON.stringify(resource, null, 2)}</pre>
+                                </details>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    ))}
                   </table>
                   {filteredResources.length === 0 && (
                     <p className="px-3 py-6 text-center text-sm text-on-surface-variant">

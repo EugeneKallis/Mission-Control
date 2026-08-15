@@ -11,12 +11,12 @@ afterEach(() => {
 });
 
 function mockStatus(body: unknown, status = 200) {
-  globalThis.fetch = (async () => new Response(JSON.stringify(body), { status })) as typeof fetch;
+  globalThis.fetch = (async () => new Response(JSON.stringify(body), { status })) as unknown as typeof fetch;
 }
 
 describe("PulsePage", () => {
   test("shows loading while the status request is pending", () => {
-    globalThis.fetch = (() => new Promise<Response>(() => {})) as typeof fetch;
+    globalThis.fetch = (() => new Promise<Response>(() => {})) as unknown as typeof fetch;
     render(<PulsePage />);
     expect(screen.getByRole("status")).toHaveTextContent("Loading Pulse status");
   });
@@ -70,6 +70,71 @@ describe("PulsePage", () => {
     expect(screen.getByText("No resources match the current filter.")).toBeInTheDocument();
   });
 
+  test("renders guest metrics with utilization bars and groups resources by type", async () => {
+    mockStatus({
+      health: { status: "healthy" },
+      resources: [
+        {
+          id: "qemu/100",
+          vmid: 100,
+          name: "media-vm",
+          type: "qemu",
+          status: "running",
+          cpu: 0.82,
+          mem: 7_000_000_000,
+          maxmem: 8_000_000_000,
+          disk: { current: 95, used: 95_000_000_000, total: 100_000_000_000 },
+          uptime: 90_000,
+          netin: 1_000_000,
+          netout: 2_000_000,
+          diskread: 3_000_000,
+          diskwrite: 4_000_000,
+        },
+        { id: "lxc/200", name: "download-ct", type: "lxc", status: "running" },
+      ],
+      resourceCount: 2,
+      authenticated: true,
+      errors: [],
+    });
+
+    render(<PulsePage />);
+    await waitFor(() => expect(screen.getByText("Monitored resources")).toBeInTheDocument());
+    expect(screen.getByText("VM")).toBeInTheDocument();
+    expect(screen.getByText("100")).toBeInTheDocument();
+    expect(screen.getByText("1d 1h 0m")).toBeInTheDocument();
+    expect(screen.getByText(/↓ 976\.6 KB ↑ 1\.9 MB/)).toBeInTheDocument();
+    expect(screen.getByText(/R 2\.9 MB W 3\.8 MB/)).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "cpu utilization" })).toHaveAttribute("aria-valuenow", "82");
+    expect(screen.getByRole("progressbar", { name: "memory utilization" })).toHaveAttribute("aria-valuenow", "88");
+    expect(screen.getByRole("progressbar", { name: "disk utilization" })).toHaveAttribute("aria-valuenow", "95");
+    expect(screen.getByRole("progressbar", { name: "disk utilization" }).firstElementChild?.className).toContain("bg-error");
+
+    fireEvent.click(screen.getByLabelText("Group by type"));
+    expect(screen.getByRole("columnheader", { name: "VM (1)" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "LXC (1)" })).toBeInTheDocument();
+  });
+
+  test("keeps multi-core CPU fractions high and preserves explicit percent values", async () => {
+    mockStatus({
+      health: { status: "healthy" },
+      resources: [
+        { name: "busy-vm", type: "qemu", cpu: 1.5 },
+        { name: "light-vm", type: "qemu", cpuPercent: 1 },
+      ],
+      resourceCount: 2,
+      authenticated: true,
+      errors: [],
+    });
+
+    render(<PulsePage />);
+    await waitFor(() => expect(screen.getByText("Monitored resources")).toBeInTheDocument());
+    const cpuBars = screen.getAllByRole("progressbar", { name: "cpu utilization" });
+    expect(cpuBars[0]).toHaveAttribute("aria-valuenow", "100");
+    expect(cpuBars[0].firstElementChild?.className).toContain("bg-error");
+    expect(cpuBars[1]).toHaveAttribute("aria-valuenow", "1");
+    expect(cpuBars[1].firstElementChild?.className).toContain("bg-primary");
+  });
+
   test("renders an empty state for an authenticated account with no resources", async () => {
     mockStatus({ health: { status: "healthy" }, resources: [], resourceCount: 0, authenticated: true, errors: [] });
     render(<PulsePage />);
@@ -95,7 +160,7 @@ describe("PulsePage", () => {
   test("renders an actionable direct link when Pulse is unavailable", async () => {
     globalThis.fetch = (async () => {
       throw new Error("Pulse public API is unavailable");
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     render(<PulsePage />);
     await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());

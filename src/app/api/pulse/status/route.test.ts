@@ -87,7 +87,7 @@ describe("GET /api/pulse/status", () => {
   test("returns unavailable when every public endpoint fails", async () => {
     globalThis.fetch = (async () => {
       throw new Error("connection refused");
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     const response = await GET();
     expect(response.status).toBe(502);
