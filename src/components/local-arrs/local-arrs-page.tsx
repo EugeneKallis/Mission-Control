@@ -383,8 +383,8 @@ export function LocalArrsPage() {
         {confirm && (
           <p className="text-sm text-on-surface-variant">
             Switch <span className="font-semibold text-on-surface">{confirm.item.title}</span> to monitoring future
-            episodes only? Episodes that have already aired with no file will be unmonitored; ones already aired with a
-            file are kept.
+            episodes only? All already-aired episodes become unmonitored, future episodes remain monitored, and existing
+            files are not deleted.
           </p>
         )}
       </ConfirmDialog>

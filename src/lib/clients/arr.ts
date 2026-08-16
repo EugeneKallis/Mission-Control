@@ -130,12 +130,12 @@ export class ArrClient {
   // ── Monitoring (Sonarr SeasonPass) ───────────────────────────────────────
 
   /** Recompute per-episode monitored flags for an existing series. */
-  async setSeriesMonitoring(seriesId: number, monitor: SonarrMonitorType, monitored = true): Promise<unknown> {
+  async setSeriesMonitoring(seriesId: number, monitor: SonarrMonitorType): Promise<unknown> {
     return this.fetch(`/seasonPass`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        series: [{ id: seriesId, monitored }],
+        series: [{ id: seriesId }],
         monitoringOptions: { monitor },
       }),
     });
