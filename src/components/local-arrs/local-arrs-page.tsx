@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { humanReadableSize } from "@/lib/format";
+import { useToast } from "@/components/toast-provider";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { LOCAL_ARRS, type LocalArrItem, type LocalArrLibrary, type LocalArrSlug } from "@/lib/local-arrs";
 
 const STORAGE_KEY = "mission-control:local-arrs:v1";
@@ -43,6 +45,10 @@ export function LocalArrsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
+  const toast = useToast();
+  const [pendingAction, setPendingAction] = useState<{ itemId: number; kind: "delete-files" | "delete-series" | "monitor-future" } | null>(null);
+  const [confirm, setConfirm] = useState<{ item: LocalArrItem; kind: "delete-files" | "delete-series" | "monitor-future" } | null>(null);
+  const selected = LOCAL_ARRS[instance];
 
   useEffect(() => {
     const preferences = readPreferences();
@@ -95,6 +101,53 @@ export function LocalArrsPage() {
     }
   };
 
+  /** Run one of the three Sonarr actions against a series, optimistically updating the row. */
+  const runAction = useCallback(
+    async (item: LocalArrItem, kind: "delete-files" | "delete-series" | "monitor-future") => {
+      if (pendingAction) return;
+      setPendingAction({ itemId: item.id, kind });
+      const base = `/api/local-arrs/series/${item.id}`;
+      const query = `?instance=${instance}`;
+      try {
+        if (kind === "delete-files") {
+          const res = await fetch(`${base}/delete-files${query}`, { method: "POST" });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+          const deleted = (body as { deleted?: number }).deleted ?? 0;
+          setLibrary((current) =>
+            current ? { ...current, items: current.items.map((row) => (row.id === item.id ? { ...row, sizeOnDisk: 0, fileCount: 0 } : row)) } : current
+          );
+          toast.showToast(`Deleted ${deleted} episode file${deleted === 1 ? "" : "s"} from \u201C${item.title}\u201D.`, "success");
+          if (deleted > 0) {
+            toast.showToast(`Tip: set \u201C${item.title}\u201D to Future to stop it re-grabbing the deleted episodes.`, "info");
+          }
+        } else if (kind === "delete-series") {
+          const res = await fetch(`${base}${query}`, { method: "DELETE" });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+          setLibrary((current) =>
+            current ? { ...current, items: current.items.filter((row) => row.id !== item.id), totalItems: current.totalItems - 1 } : current
+          );
+          toast.showToast(`Removed \u201C${item.title}\u201D and its files from ${selected.label}.`, "success");
+        } else {
+          const res = await fetch(`${base}/monitor${query}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ monitor: "future" }),
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+          toast.showToast(`\u201C${item.title}\u201D now tracks future episodes only.`, "success");
+        }
+      } catch (err) {
+        toast.showToast(err instanceof Error ? err.message : "Action failed", "error");
+      } finally {
+        setPendingAction(null);
+      }
+    },
+    [instance, pendingAction, selected.label, toast]
+  );
+
   const visibleItems = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase();
     const items = (library?.items ?? []).filter((item) => {
@@ -103,8 +156,6 @@ export function LocalArrsPage() {
     });
     return sortItems(items, sortKey, sortDirection);
   }, [library, query, showEmpty, sortKey, sortDirection]);
-
-  const selected = LOCAL_ARRS[instance];
 
   return (
     <div className="flex-1 min-h-0 p-4 sm:p-6 flex flex-col">
@@ -212,6 +263,9 @@ export function LocalArrsPage() {
                   </button>
                 </th>
                 <th className="px-4 py-3 font-semibold text-on-surface-variant whitespace-nowrap">Files on disk</th>
+                {instance === "sonarrlocal" && (
+                  <th className="px-4 py-3 text-right font-semibold text-on-surface-variant">Actions</th>
+                )}
                 <th className="px-4 py-3 text-right font-semibold text-on-surface-variant">Link</th>
               </tr>
             </thead>
@@ -221,6 +275,42 @@ export function LocalArrsPage() {
                   <td className="px-4 py-3 text-on-surface font-medium">{item.title}</td>
                   <td className="px-4 py-3 text-on-surface-variant font-mono whitespace-nowrap">{humanReadableSize(item.sizeOnDisk)}</td>
                   <td className="px-4 py-3 text-on-surface-variant">{item.fileCount.toLocaleString()}</td>
+                  {instance === "sonarrlocal" && (
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <div className="inline-flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setConfirm({ item, kind: "delete-files" })}
+                          disabled={pendingAction !== null}
+                          title="Delete all episode files on disk (keep the series)"
+                          aria-label={`Delete all files on disk for ${item.title}`}
+                          className="inline-flex items-center justify-center size-8 rounded-[var(--radius-button)] text-error/80 hover:bg-error/10 hover:text-error disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <span aria-hidden="true" className="material-symbols-outlined text-lg">{pendingAction?.itemId === item.id && pendingAction.kind === "delete-files" ? "progress_activity" : "delete"}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirm({ item, kind: "delete-series" })}
+                          disabled={pendingAction !== null}
+                          title="Delete the series AND all its files (removes the show from Sonarr)"
+                          aria-label={`Delete series and files for ${item.title}`}
+                          className="inline-flex items-center justify-center size-8 rounded-[var(--radius-button)] text-error/80 hover:bg-error/10 hover:text-error disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <span aria-hidden="true" className="material-symbols-outlined text-lg">{pendingAction?.itemId === item.id && pendingAction.kind === "delete-series" ? "progress_activity" : "delete_forever"}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirm({ item, kind: "monitor-future" })}
+                          disabled={pendingAction !== null}
+                          title="Set monitoring to future episodes only"
+                          aria-label={`Set ${item.title} monitoring to future episodes`}
+                          className="inline-flex items-center justify-center size-8 rounded-[var(--radius-button)] text-primary/80 hover:bg-primary/10 hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <span aria-hidden="true" className="material-symbols-outlined text-lg">{pendingAction?.itemId === item.id && pendingAction.kind === "monitor-future" ? "progress_activity" : "event_upcoming"}</span>
+                        </button>
+                      </div>
+                    </td>
+                  )}
                   <td className="px-4 py-3 text-right">
                     <a
                       href={item.href}
@@ -243,6 +333,61 @@ export function LocalArrsPage() {
           )}
         </div>
       )}
+
+      {/* ── Confirm dialogs (Sonarr actions) ─────────────────────────────────── */}
+      <ConfirmDialog
+        open={confirm?.kind === "delete-files"}
+        onClose={() => setConfirm(null)}
+        onConfirm={() => { if (confirm) void runAction(confirm.item, "delete-files"); }}
+        title="Delete episode files?"
+        confirmLabel="Delete files"
+        variant="danger"
+      >
+        {confirm && (
+          <p className="text-sm text-on-surface-variant">
+            Delete all {confirm.item.fileCount.toLocaleString()} episode file{confirm.item.fileCount === 1 ? "" : "s"}
+            ({humanReadableSize(confirm.item.sizeOnDisk)}) for <span className="font-semibold text-on-surface">{confirm.item.title}</span>?
+            The series stays in Sonarr and its monitoring is unchanged — still-monitored episodes may be re-grabbed.
+          </p>
+        )}
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={confirm?.kind === "delete-series"}
+        onClose={() => setConfirm(null)}
+        onConfirm={() => { if (confirm) void runAction(confirm.item, "delete-series"); }}
+        title="Delete series and files?"
+        icon="delete_forever"
+        confirmLabel="Delete series + files"
+        variant="danger"
+      >
+        {confirm && (
+          <p className="text-sm text-on-surface-variant">
+            This removes <span className="font-semibold text-on-surface">{confirm.item.title}</span> from Sonarr
+            <span className="font-semibold"> and </span> deletes its {confirm.item.fileCount.toLocaleString()} file
+            {confirm.item.fileCount === 1 ? "" : "s"} ({humanReadableSize(confirm.item.sizeOnDisk)}). The show must be
+            re-added to track again. This cannot be undone.
+          </p>
+        )}
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={confirm?.kind === "monitor-future"}
+        onClose={() => setConfirm(null)}
+        onConfirm={() => { if (confirm) void runAction(confirm.item, "monitor-future"); }}
+        title="Track future episodes?"
+        icon="event_upcoming"
+        confirmLabel="Set future"
+        variant="primary"
+      >
+        {confirm && (
+          <p className="text-sm text-on-surface-variant">
+            Switch <span className="font-semibold text-on-surface">{confirm.item.title}</span> to monitoring future
+            episodes only? Episodes that have already aired with no file will be unmonitored; ones already aired with a
+            file are kept.
+          </p>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }

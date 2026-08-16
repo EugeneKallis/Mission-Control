@@ -5,6 +5,9 @@
 
 import type { ArrInstance } from "@/types";
 
+/** SeasonPass `monitoringOptions.monitor` values Sonarr honours (subset of MonitorTypes). */
+export type SonarrMonitorType = "all" | "future" | "missing" | "existing" | "firstSeason" | "latestSeason" | "none";
+
 export class ArrClient {
   private instance: ArrInstance;
   private baseUrl: string;
@@ -109,6 +112,35 @@ export class ArrClient {
     });
   }
 
+  // ── Episode files (Sonarr) ─────────────────────────────────────────────
+
+  async listEpisodeFiles(seriesId: number): Promise<ArrEpisodeFileResponse[]> {
+    return this.fetch(`/episodefile?seriesId=${seriesId}`);
+  }
+
+  async bulkDeleteEpisodeFiles(episodeFileIds: number[]): Promise<unknown> {
+    return this.fetch(`/episodefile/bulk`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ episodeFileIds }),
+    });
+  }
+
+
+  // ── Monitoring (Sonarr SeasonPass) ───────────────────────────────────────
+
+  /** Recompute per-episode monitored flags for an existing series. */
+  async setSeriesMonitoring(seriesId: number, monitor: SonarrMonitorType, monitored = true): Promise<unknown> {
+    return this.fetch(`/seasonPass`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        series: [{ id: seriesId, monitored }],
+        monitoringOptions: { monitor },
+      }),
+    });
+  }
+
   // ── Delete ─────────────────────────────────────────────────────────────
 
   async deleteMovie(id: number, deleteFiles = false) {
@@ -119,7 +151,6 @@ export class ArrClient {
     return this.fetch(`/series/${id}?deleteFiles=${deleteFiles}`, { method: "DELETE" });
   }
 
-  // ── Add series (used by plex-to-arr) ─────────────────────────────────
 
   async addSeries(data: {
     tvdbId: number;
@@ -203,6 +234,15 @@ interface ArrEpisodeResponse {
   seasonNumber: number;
   airDateUtc?: string;
   hasFile?: boolean;
+}
+
+interface ArrEpisodeFileResponse {
+  id: number;
+  seriesId: number;
+  seasonNumber: number;
+  relativePath?: string;
+  path?: string;
+  size?: number;
 }
 
 export interface QualityProfileResponse {

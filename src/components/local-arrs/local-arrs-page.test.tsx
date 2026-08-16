@@ -137,4 +137,54 @@ describe("LocalArrsPage", () => {
     await waitFor(() => expect(screen.getByText("Large Show")).toBeInTheDocument());
     expect(attempts).toBe(2);
   });
+
+  test("Sonarr rows expose three action buttons; Radarr rows expose none", async () => {
+    globalThis.fetch = mock(async (input: string | URL | Request) => {
+      const url = String(input);
+      const body = url.includes("instance=radarrlocal") ? radarrLibrary : sonarrLibrary;
+      return new Response(JSON.stringify(body), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    render(<LocalArrsPage />);
+    await waitFor(() => expect(screen.getByText("Large Show")).toBeInTheDocument());
+
+    expect(screen.getByRole("button", { name: /Delete all files on disk for Large Show/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Delete series and files for Large Show/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Large Show monitoring to future episodes/ })).toBeInTheDocument();
+
+    // Switch to Radarr — action buttons vanish.
+    fireEvent.change(screen.getByRole("combobox", { name: "Local Arr instance" }), { target: { value: "radarrlocal" } });
+    await waitFor(() => expect(screen.getByText("Local Movie")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: /Delete all files/ })).not.toBeInTheDocument();
+  });
+
+  test("Delete Files flows through a confirm dialog then optimistically zeroes the row", async () => {
+    const calls: string[] = [];
+    globalThis.fetch = mock(async (input: string | URL | Request) => {
+      const url = String(input);
+      calls.push(url);
+      if (url.includes("/api/local-arrs/library")) {
+        return new Response(JSON.stringify(sonarrLibrary), { status: 200 });
+      }
+      return new Response(JSON.stringify({ seriesId: 1, deleted: 10 }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    render(<LocalArrsPage />);
+    await waitFor(() => expect(screen.getByText("Large Show")).toBeInTheDocument());
+
+    // Button opens a confirm dialog.
+    fireEvent.click(screen.getByRole("button", { name: /Delete all files on disk for Large Show/ }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Delete episode files?" })).toBeInTheDocument());
+
+    // Confirming fires the POST. Optimistic update zeroes the row, which — with
+    // Show Empty Shows off (default) — removes it from view. The network call
+    // still fired, proving the action took effect.
+    fireEvent.click(screen.getByRole("button", { name: "Delete files" }));
+    await waitFor(() => expect(calls.some((u) => u.includes("/series/1/delete-files"))).toBe(true));
+    await waitFor(() => expect(screen.queryByText("Large Show")).not.toBeInTheDocument());
+  });
+
+
+
+
 });
