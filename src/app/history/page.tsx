@@ -74,6 +74,7 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [clearOpen, setClearOpen] = useState(false);
   const [selectedTitles, setSelectedTitles] = useState<string[]>([]);
+  const [failedOnly, setFailedOnly] = useState(false);
   const { showToast } = useToast();
 
   const titleFilters = useMemo(() => {
@@ -88,10 +89,12 @@ export default function HistoryPage() {
   }, [items]);
 
   const filteredItems = useMemo(() => {
-    if (selectedTitles.length === 0) return items;
     const selected = new Set(selectedTitles);
-    return items.filter((item) => selected.has(historyTitle(item)));
-  }, [items, selectedTitles]);
+    return items.filter((item) =>
+      (!failedOnly || item.status === "failed") &&
+      (selectedTitles.length === 0 || selected.has(historyTitle(item))),
+    );
+  }, [items, selectedTitles, failedOnly]);
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -185,6 +188,17 @@ export default function HistoryPage() {
           </div>
         ) : (
           <>
+            <div className="shrink-0">
+              <label className="inline-flex items-center gap-2 text-xs text-on-surface-variant cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={failedOnly}
+                  onChange={(event) => setFailedOnly(event.target.checked)}
+                  className="accent-primary"
+                />
+                Show only failed jobs
+              </label>
+            </div>
             <HistoryTitleFilters
               filters={titleFilters}
               selectedTitles={selectedTitles}
