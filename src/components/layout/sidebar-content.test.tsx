@@ -146,7 +146,7 @@ describe("SidebarContent — static nav items", () => {
     mockFetch(() => ({}));
     mockUsePathname.mockReturnValue("/other");
     render(<SidebarContent />);
-    for (const label of ["History", "Schedules", "Pulse", "NZB Viewer", "Debrid Viewer", "Log Viewer", "Database", "Admin", "Config", "Scraper"]) {
+    for (const label of ["History", "Schedules", "Pulse", "Local Arrs", "NZB Viewer", "Debrid Viewer", "Log Viewer", "Database", "Admin", "Config", "Scraper"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
   });

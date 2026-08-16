@@ -167,6 +167,11 @@ interface ArrMovieResponse {
   titleSlug: string;
   path: string;
   hasFile: boolean;
+  sizeOnDisk?: number;
+  statistics?: {
+    movieFileCount?: number;
+    sizeOnDisk?: number;
+  };
   monitored: boolean;
   status: string;
   tmdbId?: number;
@@ -178,6 +183,10 @@ interface ArrSeriesResponse {
   title: string;
   titleSlug: string;
   path: string;
+  statistics?: {
+    episodeFileCount?: number;
+    sizeOnDisk?: number;
+  };
   tvdbId?: number;
   seriesType?: string;
   seasonFolder?: boolean;

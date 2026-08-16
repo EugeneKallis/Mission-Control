@@ -286,6 +286,7 @@ export function SidebarContent({
           </span>
         </div>
         <NavItem label="Proxmox" icon="dns" href="/pve" color="green" badge={pveAlertCount ?? undefined} badgeTitle="alerts" />
+        <NavItem label="Local Arrs" icon="video_library" href="/local-arrs" color="teal" />
         <NavItem label="Pulse" icon="monitor_heart" href="/pulse" color="cyan" />
         <NavItem
           label="Log Viewer"
