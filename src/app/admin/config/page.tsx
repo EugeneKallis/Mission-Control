@@ -29,6 +29,7 @@ export default function ConfigPage() {
   const [arrValues, setArrValues] = useState<Record<string, { url: string; apiKey: string }>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
   const [rdStatus, setRdStatus] = useState<{ label: string; ok: boolean } | null>(null);
   const { showToast } = useToast();
 
@@ -53,6 +54,7 @@ export default function ConfigPage() {
           };
         }
         setArrValues(arr);
+        setHasChanges(false);
 
         setLoading(false);
       })
@@ -75,6 +77,7 @@ export default function ConfigPage() {
         ...prev,
         [name]: { ...prev[name], [field]: value },
       }));
+      setHasChanges(true);
     },
     [],
   );
@@ -100,6 +103,7 @@ export default function ConfigPage() {
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error("Save failed");
+      setHasChanges(false);
       showToast("Config saved", "success");
 
       // Refresh status
@@ -142,7 +146,10 @@ export default function ConfigPage() {
                 className={inputClass}
                 placeholder="Enter your Pulse API key"
                 value={pulseApiKey}
-                onChange={(e) => setPulseApiKey(e.target.value)}
+                onChange={(e) => {
+                  setPulseApiKey(e.target.value);
+                  setHasChanges(true);
+                }}
               />
               <p className="text-xs text-[var(--color-on-surface-variant)] mt-2">
                 Generate a read-only token in Pulse&apos;s API Access settings. Mission Control sends it through Pulse&apos;s <code className="text-primary">X-API-Token</code> header.
@@ -159,7 +166,10 @@ export default function ConfigPage() {
                 className={inputClass}
                 placeholder="Enter your Plex authentication token"
                 value={plexToken}
-                onChange={(e) => setPlexToken(e.target.value)}
+                onChange={(e) => {
+                  setPlexToken(e.target.value);
+                  setHasChanges(true);
+                }}
               />
               <p className="text-xs text-[var(--color-on-surface-variant)] mt-3">
                 Can be obtained via the token extractor script:&nbsp;
@@ -172,7 +182,10 @@ export default function ConfigPage() {
                 className={inputClass}
                 placeholder="http://192.168.1.x:32400"
                 value={plexUrl}
-                onChange={(e) => setPlexUrl(e.target.value)}
+                onChange={(e) => {
+                  setPlexUrl(e.target.value);
+                  setHasChanges(true);
+                }}
               />
               <p className="text-xs text-[var(--color-on-surface-variant)] mt-2">
                 Local Plex server address including port (e.g. http://192.168.1.100:32400).
@@ -187,7 +200,10 @@ export default function ConfigPage() {
                 className={inputClass}
                 placeholder="Enter your Real-Debrid API key"
                 value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
+                onChange={(e) => {
+                  setApiKey(e.target.value);
+                  setHasChanges(true);
+                }}
               />
               <p className="text-xs text-[var(--color-on-surface-variant)] mt-2">
                 Found in your Real-Debrid account under &quot;API Token&quot;.
@@ -218,9 +234,18 @@ export default function ConfigPage() {
               onChange={handleArrFieldChange}
             />
 
-            {/* ── Save ──────────────────────────────────────────────────── */}
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? "Saving..." : "Save"}
+          </div>
+        )}
+
+        {hasChanges && !loading && (
+          <div className="fixed bottom-5 right-5 z-50">
+            <Button
+              variant="primary"
+              onClick={handleSave}
+              disabled={saving}
+              className="shadow-lg"
+            >
+              {saving ? "Saving..." : "Save changes"}
             </Button>
           </div>
         )}
