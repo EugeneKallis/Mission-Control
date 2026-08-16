@@ -42,9 +42,9 @@ describe("DELETE /api/local-arrs/series/:id", () => {
     expect(status(res)).toBe(400);
   });
 
-  test("rejects an unknown instance slug", async () => {
+  test("rejects Radarr instance actions", async () => {
     configure();
-    const res = await DELETE(deleteRequest("/api/local-arrs/series/42?instance=radarr"), {
+    const res = await DELETE(deleteRequest("/api/local-arrs/series/42?instance=radarrlocal"), {
       params: Promise.resolve({ id: "42" }),
     });
     expect(status(res)).toBe(400);

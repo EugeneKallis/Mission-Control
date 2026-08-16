@@ -62,9 +62,9 @@ describe("POST /api/local-arrs/series/:id/delete-files", () => {
     expect(status(res)).toBe(400);
   });
 
-  test("rejects an unknown instance slug", async () => {
+  test("rejects Radarr instance actions", async () => {
     configure();
-    const res = await POST(jsonRequest("/api/local-arrs/series/7/delete-files?instance=sonarr", {}), {
+    const res = await POST(jsonRequest("/api/local-arrs/series/7/delete-files?instance=radarrlocal", {}), {
       params: Promise.resolve({ id: "7" }),
     });
     expect(status(res)).toBe(400);

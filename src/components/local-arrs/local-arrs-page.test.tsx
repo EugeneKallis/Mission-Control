@@ -138,7 +138,7 @@ describe("LocalArrsPage", () => {
     expect(attempts).toBe(2);
   });
 
-  test("Sonarr rows expose three action buttons; Radarr rows expose none", async () => {
+  test("Sonarr rows expose four action buttons; Radarr rows expose none", async () => {
     globalThis.fetch = mock(async (input: string | URL | Request) => {
       const url = String(input);
       const body = url.includes("instance=radarrlocal") ? radarrLibrary : sonarrLibrary;
@@ -151,11 +151,34 @@ describe("LocalArrsPage", () => {
     expect(screen.getByRole("button", { name: /Delete all files on disk for Large Show/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Delete series and files for Large Show/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Large Show monitoring to future episodes/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Set Large Show to future and delete files/ })).toBeInTheDocument();
 
     // Switch to Radarr — action buttons vanish.
     fireEvent.change(screen.getByRole("combobox", { name: "Local Arr instance" }), { target: { value: "radarrlocal" } });
     await waitFor(() => expect(screen.getByText("Local Movie")).toBeInTheDocument());
     expect(screen.queryByRole("button", { name: /Delete all files/ })).not.toBeInTheDocument();
+  });
+
+  test("combined Future + Delete Files runs behind one confirmation", async () => {
+    const calls: string[] = [];
+    globalThis.fetch = mock(async (input: string | URL | Request) => {
+      const url = String(input);
+      calls.push(url);
+      if (url.includes("/api/local-arrs/library")) {
+        return new Response(JSON.stringify(sonarrLibrary), { status: 200 });
+      }
+      return new Response(JSON.stringify({ seriesId: 1, monitor: "future", deleted: 10 }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    render(<LocalArrsPage />);
+    await waitFor(() => expect(screen.getByText("Large Show")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: /Set Large Show to future and delete files/ }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Set Future and delete files?" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Set Future + Delete" }));
+
+    await waitFor(() => expect(calls.some((url) => url.includes("/series/1/future-and-delete-files"))).toBe(true));
+    await waitFor(() => expect(screen.queryByText("Large Show")).not.toBeInTheDocument());
   });
 
   test("Delete Files flows through a confirm dialog then optimistically zeroes the row", async () => {

@@ -56,10 +56,10 @@ describe("POST /api/local-arrs/series/:id/monitor", () => {
     expect(status(res)).toBe(400);
   });
 
-  test("rejects an unknown instance slug", async () => {
+  test("rejects Radarr instance actions", async () => {
     configure();
     const res = await POST(
-      jsonRequest("/api/local-arrs/series/12/monitor?instance=sonarr", { monitor: "future" }),
+      jsonRequest("/api/local-arrs/series/12/monitor?instance=radarrlocal", { monitor: "future" }),
       { params: Promise.resolve({ id: "12" }) },
     );
     expect(status(res)).toBe(400);

@@ -6,14 +6,18 @@ import { LOCAL_ARRS, type LocalArrSlug } from "@/lib/local-arrs";
 export const noStore = { "Cache-Control": "no-store" };
 
 export function parseSeriesId(raw: string | null): number | null {
-  if (!raw) return null;
-  const id = Number.parseInt(raw, 10);
-  return Number.isInteger(id) && id > 0 ? id : null;
+  if (!raw || !/^\d+$/.test(raw)) return null;
+  const id = Number(raw);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
 }
 
 export function validLocalSlug(raw: string | null | undefined): LocalArrSlug | null {
   const slug = raw ?? "sonarrlocal";
   return Object.hasOwn(LOCAL_ARRS, slug) ? (slug as LocalArrSlug) : null;
+}
+
+export function validSonarrSlug(raw: string | null | undefined): "sonarrlocal" | null {
+  return validLocalSlug(raw) === "sonarrlocal" ? "sonarrlocal" : null;
 }
 
 /**

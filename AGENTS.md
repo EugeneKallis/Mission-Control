@@ -1228,6 +1228,7 @@ the `ArrMovieResponse` and `ArrSeriesResponse` types used for normalization.
 | POST | `/api/local-arrs/series/{id}/delete-files?instance=sonarrlocal` | Enumerate episode files then bulk-delete them (keeps the series) |
 | DELETE | `/api/local-arrs/series/{id}?instance=sonarrlocal` | Delete the series AND its files |
 | POST | `/api/local-arrs/series/{id}/monitor?instance=sonarrlocal` | Set monitoring via SeasonPass; body `{ monitor: "all"\|"future"\|"missing"\|"existing"\|"firstSeason"\|"latestSeason"\|"none" }` |
+| POST | `/api/local-arrs/series/{id}/future-and-delete-files?instance=sonarrlocal` | Set Future, then delete all episode files while keeping the series |
 
 Returns `{ instance, label, itemLabel, items: [{ id, title, sizeOnDisk, fileCount, href }], totalItems, totalSize }`.
 
@@ -1263,7 +1264,7 @@ operator. The `in` operator walks the prototype chain, so `?instance=toString`
 
 ### Sonarr per-series actions (destructive)
 
-Sonarr rows expose an **Actions** column (Radarr rows do not) with three
+Sonarr rows expose an **Actions** column (Radarr rows do not) with four
 buttons, each behind a `ConfirmDialog`:
 
 | Button | Sonarr API | Effect |
@@ -1271,10 +1272,12 @@ buttons, each behind a `ConfirmDialog`:
 | Delete Files | `GET /episodefile?seriesId=` → `DELETE /episodefile/bulk` | Removes all episode files; series stays. Optimistically zeroes size + file count. |
 | Delete Series + Files | `DELETE /series/{id}?deleteFiles=true` | Removes the series entirely + its files. Row dropped optimistically. |
 | Set Future | `POST /seasonPass { monitoringOptions: { monitor: "future" } }` | Recomputes per-episode monitored flags. SeasonPass is the **only** documented path that re-applies monitoring to an *existing* series — `addOptions.monitor` is add-time only and is never stored, so editing the series via `PUT /series/{id}` won't re-render monitoring. |
+| Set Future + Delete Files | `POST /series/{id}/future-and-delete-files` | Runs SeasonPass first, then bulk-deletes episode files; keeps the series and reports partial success if deletion fails after monitoring changes. |
 
 Behind a delete-files success the UI emits a tip toast nudging **Set Future**,
 because deleting files leaves episodes monitored & missing — Sonarr would
-otherwise re-grab them. Routes reuse the shared `resolveLocalArrClient()`
-resolver (`src/app/api/local-arrs/_shared.ts`); 400 on bad id/slug/monitor,
-503 on missing key, 502 on upstream failure.
+otherwise re-grab them. The combined action performs the safer order—Future
+first, files second—with one confirmation. Routes reuse the shared
+`resolveLocalArrClient()` resolver (`src/app/api/local-arrs/_shared.ts`); 400
+on bad id/slug/monitor, 503 on missing key, 502 on upstream failure.
 

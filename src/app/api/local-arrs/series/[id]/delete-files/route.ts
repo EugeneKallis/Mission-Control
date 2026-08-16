@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ArrClient } from "@/lib/clients/arr";
-import { noStore, parseSeriesId, resolveLocalArrClient, validLocalSlug } from "../../../_shared";
+import { noStore, parseSeriesId, resolveLocalArrClient, validSonarrSlug } from "../../../_shared";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     return NextResponse.json({ error: "Invalid series id" }, { status: 400, headers: noStore });
   }
 
-  const slug = validLocalSlug(request.nextUrl.searchParams.get("instance"));
+  const slug = validSonarrSlug(request.nextUrl.searchParams.get("instance"));
   if (!slug) {
     return NextResponse.json({ error: "Unknown local Arr instance" }, { status: 400, headers: noStore });
   }

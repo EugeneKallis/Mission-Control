@@ -46,8 +46,8 @@ export function LocalArrsPage() {
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
   const toast = useToast();
-  const [pendingAction, setPendingAction] = useState<{ itemId: number; kind: "delete-files" | "delete-series" | "monitor-future" } | null>(null);
-  const [confirm, setConfirm] = useState<{ item: LocalArrItem; kind: "delete-files" | "delete-series" | "monitor-future" } | null>(null);
+  const [pendingAction, setPendingAction] = useState<{ itemId: number; kind: "delete-files" | "delete-series" | "monitor-future" | "future-and-delete-files" } | null>(null);
+  const [confirm, setConfirm] = useState<{ item: LocalArrItem; kind: "delete-files" | "delete-series" | "monitor-future" | "future-and-delete-files" } | null>(null);
   const selected = LOCAL_ARRS[instance];
 
   useEffect(() => {
@@ -103,7 +103,7 @@ export function LocalArrsPage() {
 
   /** Run one of the three Sonarr actions against a series, optimistically updating the row. */
   const runAction = useCallback(
-    async (item: LocalArrItem, kind: "delete-files" | "delete-series" | "monitor-future") => {
+    async (item: LocalArrItem, kind: "delete-files" | "delete-series" | "monitor-future" | "future-and-delete-files") => {
       if (pendingAction) return;
       setPendingAction({ itemId: item.id, kind });
       const base = `/api/local-arrs/series/${item.id}`;
@@ -115,7 +115,13 @@ export function LocalArrsPage() {
           if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
           const deleted = (body as { deleted?: number }).deleted ?? 0;
           setLibrary((current) =>
-            current ? { ...current, items: current.items.map((row) => (row.id === item.id ? { ...row, sizeOnDisk: 0, fileCount: 0 } : row)) } : current
+            current
+              ? {
+                  ...current,
+                  totalSize: Math.max(0, current.totalSize - item.sizeOnDisk),
+                  items: current.items.map((row) => (row.id === item.id ? { ...row, sizeOnDisk: 0, fileCount: 0 } : row)),
+                }
+              : current
           );
           toast.showToast(`Deleted ${deleted} episode file${deleted === 1 ? "" : "s"} from \u201C${item.title}\u201D.`, "success");
           if (deleted > 0) {
@@ -126,9 +132,31 @@ export function LocalArrsPage() {
           const body = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
           setLibrary((current) =>
-            current ? { ...current, items: current.items.filter((row) => row.id !== item.id), totalItems: current.totalItems - 1 } : current
+            current
+              ? {
+                  ...current,
+                  totalItems: Math.max(0, current.totalItems - 1),
+                  totalSize: Math.max(0, current.totalSize - item.sizeOnDisk),
+                  items: current.items.filter((row) => row.id !== item.id),
+                }
+              : current
           );
           toast.showToast(`Removed \u201C${item.title}\u201D and its files from ${selected.label}.`, "success");
+        } else if (kind === "future-and-delete-files") {
+          const res = await fetch(`${base}/future-and-delete-files${query}`, { method: "POST" });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+          const deleted = (body as { deleted?: number }).deleted ?? 0;
+          setLibrary((current) =>
+            current
+              ? {
+                  ...current,
+                  totalSize: Math.max(0, current.totalSize - item.sizeOnDisk),
+                  items: current.items.map((row) => (row.id === item.id ? { ...row, sizeOnDisk: 0, fileCount: 0 } : row)),
+                }
+              : current
+          );
+          toast.showToast(`Set \u201C${item.title}\u201D to Future and deleted ${deleted} episode file${deleted === 1 ? "" : "s"}.`, "success");
         } else {
           const res = await fetch(`${base}/monitor${query}`, {
             method: "POST",
@@ -308,6 +336,16 @@ export function LocalArrsPage() {
                         >
                           <span aria-hidden="true" className="material-symbols-outlined text-lg">{pendingAction?.itemId === item.id && pendingAction.kind === "monitor-future" ? "progress_activity" : "event_upcoming"}</span>
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirm({ item, kind: "future-and-delete-files" })}
+                          disabled={pendingAction !== null}
+                          title="Set Future and delete all episode files"
+                          aria-label={`Set ${item.title} to future and delete files`}
+                          className="inline-flex items-center justify-center size-8 rounded-[var(--radius-button)] text-error/80 hover:bg-error/10 hover:text-error disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <span aria-hidden="true" className="material-symbols-outlined text-lg">{pendingAction?.itemId === item.id && pendingAction.kind === "future-and-delete-files" ? "progress_activity" : "auto_delete"}</span>
+                        </button>
                       </div>
                     </td>
                   )}
@@ -385,6 +423,24 @@ export function LocalArrsPage() {
             Switch <span className="font-semibold text-on-surface">{confirm.item.title}</span> to monitoring future
             episodes only? All already-aired episodes become unmonitored, future episodes remain monitored, and existing
             files are not deleted.
+          </p>
+        )}
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={confirm?.kind === "future-and-delete-files"}
+        onClose={() => setConfirm(null)}
+        onConfirm={() => { if (confirm) void runAction(confirm.item, "future-and-delete-files"); }}
+        title="Set Future and delete files?"
+        icon="auto_delete"
+        confirmLabel="Set Future + Delete"
+        variant="danger"
+      >
+        {confirm && (
+          <p className="text-sm text-on-surface-variant">
+            First change <span className="font-semibold text-on-surface">{confirm.item.title}</span> to future-only
+            monitoring, then delete its {confirm.item.fileCount.toLocaleString()} episode file{confirm.item.fileCount === 1 ? "" : "s"}
+            ({humanReadableSize(confirm.item.sizeOnDisk)}). The series stays in Sonarr. This cannot be undone.
           </p>
         )}
       </ConfirmDialog>
