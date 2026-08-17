@@ -236,20 +236,20 @@ export default function ConfigPage() {
 
           </div>
         )}
-
-        {hasChanges && !loading && (
-          <div className="fixed bottom-5 right-5 z-50">
-            <Button
-              variant="primary"
-              onClick={handleSave}
-              disabled={saving}
-              className="shadow-lg"
-            >
-              {saving ? "Saving..." : "Save changes"}
-            </Button>
-          </div>
-        )}
       </div>
+
+      {hasChanges && !loading && (
+        <div className="fixed bottom-5 right-5 z-50">
+          <Button
+            variant="primary"
+            onClick={handleSave}
+            disabled={saving}
+            className="shadow-lg"
+          >
+            {saving ? "Saving..." : "Save changes"}
+          </Button>
+        </div>
+      )}
     </AppShell>
   );
 }
