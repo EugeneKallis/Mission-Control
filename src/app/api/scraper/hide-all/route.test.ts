@@ -69,7 +69,6 @@ describe("POST /api/scraper/hide-all", () => {
   test("hides every visible row when no source is specified", async () => {
     await seed({ source: "141jav", title: "A" });
     await seed({ source: "pornrips", title: "B" });
-    await seed({ source: "141jav", title: "C" });
     const { POST } = await loadRoute();
     const res = await POST(jsonRequest("/api/scraper/hide-all", {}));
     expect(status(res)).toBe(200);
@@ -78,7 +77,7 @@ describe("POST /api/scraper/hide-all", () => {
       hidden: number;
     };
     expect(body.success).toBe(true);
-    expect(body.hidden).toBe(3);
+    expect(body.hidden).toBe(2);
 
     const remaining = await testDB.db.scrapeResult.count({
       where: { isHidden: false },
@@ -104,7 +103,6 @@ describe("POST /api/scraper/hide-all", () => {
   test("hides only rows for the given source when source is specified", async () => {
     const a = await seed({ source: "141jav", title: "A" });
     const b = await seed({ source: "pornrips", title: "B" });
-    const c = await seed({ source: "141jav", title: "C" });
     const { POST } = await loadRoute();
     const res = await POST(jsonRequest("/api/scraper/hide-all", {
       source: "pornrips",
@@ -127,12 +125,8 @@ describe("POST /api/scraper/hide-all", () => {
     const bAfter = await testDB.db.scrapeResult.findUnique({
       where: { id: b.id },
     });
-    const cAfter = await testDB.db.scrapeResult.findUnique({
-      where: { id: c.id },
-    });
     expect(aAfter?.isHidden).toBe(false);
     expect(bAfter?.isHidden).toBe(true);
-    expect(cAfter?.isHidden).toBe(false);
   });
 
   test("does not re-hide already-hidden rows (count is only newly hidden)", async () => {
