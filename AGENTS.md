@@ -320,7 +320,6 @@ This tells the next agent exactly where to pick up.
 ```
 src/workers/scrapers/      # One source-specific scraper per file
   141jav.ts                # Big Tits tag listing (3 pages, all magnets)
-  projectjav.ts            # big-tits-7 tag (3 pages, first magnet per item)
   pornrips.ts              # 1080p category (1 page, PixHost image enrichment)
   shared.ts                # sanitizeTitle, parseSize, fetchHtml, scrapePixHost
   status.ts                # DB-backed is_scraping flag (so web and worker share state)
@@ -382,7 +381,7 @@ test files.
   `migrate`, `runner`, `cron-scheduler`).
 - Every HTTP client in `src/lib/clients/` with `fetch` mocked
   (decypharr, real-debrid, arr, plex, trakt, tvmaze).
-- All three HTML parsers in `src/workers/scrapers/` plus the shared
+- Both HTML parsers in `src/workers/scrapers/` plus the shared
   helpers (`sanitizeTitle`, `parseSize`, `scrapePixHost`, `fetchHtml`).
 - The scraping status helpers (`withScrapingStatus`,
   `getScrapingStatus`, etc.) with a real in-file Prisma + libsql DB.
@@ -562,7 +561,7 @@ imports and runs the worker's `main()` function on the configured schedule.
 
 | Name | Worker Path | Default Schedule | Description |
 | ---- | ----------- | ---------------- | ----------- |
-| Scraper | `src/workers/scraper-worker.ts` | `*/30 * * * *` (every 30 min) | Runs all three scrape sources |
+| Scraper | `src/workers/scraper-worker.ts` | `*/30 * * * *` (every 30 min) | Runs all scrape sources |
 | Energy Price Scraper | `src/workers/energy-price-scraper.ts` | `0 8 * * *` (daily at 8 AM) | Scrapes EnergizeCT.com rates |
 
 Custom workers can also be added by specifying a worker script path directly.
@@ -573,9 +572,9 @@ Custom workers can also be added by specifying a worker script path directly.
 
 | Caller                      | Command                                                                  | Effect                             |
 | --------------------------- | ------------------------------------------------------------------------ | ---------------------------------- |
-| Worker Timer scheduler (in-process) | `worker-timer-scheduler.ts` → `main()` | All three sources, sequentially    |
+| Worker Timer scheduler (in-process) | `worker-timer-scheduler.ts` → `main()` | All scrape sources, sequentially    |
 | `POST /api/scraper/trigger` (web)         | `triggerSourceInBackground(src)`                            | One source, background             |
-| `POST /api/scraper/trigger-all`           | `triggerAllSourcesInBackground()`                           | All three sources, background      |
+| `POST /api/scraper/trigger-all`           | `triggerAllSourcesInBackground()`                           | All scrape sources, background      |
 | Manual (one source)         | `just run-worker src/workers/scraper-runner.ts -- <source>`               | One source, foreground (logs visible) |
 
 The Worker Timer scheduler (`/timers` page) stores cron expressions in the `worker_timers`
@@ -594,7 +593,7 @@ can share it. The web page polls `/api/scraper/status?source=` every 2s.
 | GET    | `/api/scraper/status?source=`     | Is a source currently scraping?        |
 | GET    | `/api/scraper/status-all`         | Is any source currently scraping?      |
 | POST   | `/api/scraper/trigger`            | Trigger one source                     |
-| POST   | `/api/scraper/trigger-all`        | Trigger all three sources              |
+| POST   | `/api/scraper/trigger-all`        | Trigger all scrape sources              |
 | POST   | `/api/scraper/hide`               | Hide one result (id)                   |
 | POST   | `/api/scraper/undo`               | Un-hide (source = last hidden, or id)  |
 | POST   | `/api/scraper/download`           | Submit to Decypharr, mark downloaded   |

@@ -68,8 +68,8 @@ describe("POST /api/scraper/hide-all", () => {
 
   test("hides every visible row when no source is specified", async () => {
     await seed({ source: "141jav", title: "A" });
-    await seed({ source: "projectjav", title: "B" });
-    await seed({ source: "pornrips", title: "C" });
+    await seed({ source: "pornrips", title: "B" });
+    await seed({ source: "141jav", title: "C" });
     const { POST } = await loadRoute();
     const res = await POST(jsonRequest("/api/scraper/hide-all", {}));
     expect(status(res)).toBe(200);
@@ -88,7 +88,7 @@ describe("POST /api/scraper/hide-all", () => {
 
   test("empty body is treated as hide-all (no source)", async () => {
     await seed({ source: "141jav", title: "A" });
-    await seed({ source: "projectjav", title: "B" });
+    await seed({ source: "pornrips", title: "B" });
     const { POST } = await loadRoute();
     const req = new Request("http://localhost/api/scraper/hide-all", {
       method: "POST",
@@ -103,11 +103,11 @@ describe("POST /api/scraper/hide-all", () => {
 
   test("hides only rows for the given source when source is specified", async () => {
     const a = await seed({ source: "141jav", title: "A" });
-    const b = await seed({ source: "projectjav", title: "B" });
-    const c = await seed({ source: "pornrips", title: "C" });
+    const b = await seed({ source: "pornrips", title: "B" });
+    const c = await seed({ source: "141jav", title: "C" });
     const { POST } = await loadRoute();
     const res = await POST(jsonRequest("/api/scraper/hide-all", {
-      source: "projectjav",
+      source: "pornrips",
     }));
     expect(status(res)).toBe(200);
     const body = (await jsonBody(res)) as {
@@ -118,7 +118,7 @@ describe("POST /api/scraper/hide-all", () => {
     expect(body).toEqual({
       success: true,
       hidden: 1,
-      source: "projectjav",
+      source: "pornrips",
     });
 
     const aAfter = await testDB.db.scrapeResult.findUnique({

@@ -74,12 +74,12 @@ function fakeSnapshot(): SourceSnapshot {
       },
       {
         id: 2,
-        source: "projectjav",
+        source: "legacy",
         title: "FAKE-002",
         imageUrl: "https://example.com/img.jpg",
         magnetLink: "magnet:?xt=urn:btih:bbbb",
         torrentLink: "https://example.com/FAKE-002.torrent",
-        uniqueKey: "projectjav:FAKE-002",
+        uniqueKey: "legacy:FAKE-002",
         infoHash: "bbbb",
         fileSize: null,
         tags: "big-tits,1080p",
@@ -397,7 +397,7 @@ describe("applySnapshot", () => {
     expect(scrapeResults).toHaveLength(2);
     expect(scrapeResults.map((r) => r.uniqueKey).sort()).toEqual([
       "141jav:FAKE-001",
-      "projectjav:FAKE-002",
+      "legacy:FAKE-002",
     ]);
 
     const items = await target.db.scrapedItem.findMany();

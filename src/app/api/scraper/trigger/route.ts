@@ -1,6 +1,6 @@
 /**
  * POST /api/scraper/trigger
- * Body: { source: "141jav" | "projectjav" | "pornrips" }
+ * Body: { source: "141jav" | "pornrips" }
  * Triggers a scrape of the given source in the background.
  */
 
@@ -10,7 +10,7 @@ import { triggerSourceInBackground } from "@/workers/scraper-runner";
 import { getScrapingStatus } from "@/workers/scrapers/status";
 
 const schema = z.object({
-  source: z.enum(["141jav", "projectjav", "pornrips"]),
+  source: z.enum(["141jav", "pornrips"]),
 });
 
 export async function POST(request: NextRequest) {

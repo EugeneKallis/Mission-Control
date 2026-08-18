@@ -81,7 +81,7 @@ const sampleResults: { results: ScrapeResultView[] } = {
   ],
 };
 
-function renderPage(initialSource: "141jav" | "projectjav" | "pornrips" = "141jav") {
+function renderPage(initialSource: "141jav" | "pornrips" = "141jav") {
   return render(
     <ToastProvider>
       <ScraperPage initialSource={initialSource} />
