@@ -1,7 +1,7 @@
 /**
  * Shared helpers for the scraper workers.
  * Mirrors the helpers in ~/ServerTool/cmd/web/handler/scraper.go,
- * ~/ServerTool/cmd/web/handler/projectjav.go, and ~/ServerTool/cmd/web/handler/pornrips.go.
+ * ~/ServerTool/cmd/web/handler/pornrips.go.
  */
 
 // ── Title / size helpers ──────────────────────────────────────────────────

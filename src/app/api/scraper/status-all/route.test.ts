@@ -57,7 +57,6 @@ describe("GET /api/scraper/status-all", () => {
   test("returns is_scraping=false when every source is false", async () => {
     getAllScrapingStatusesMock = mock(async () => ({
       "141jav": false,
-      projectjav: false,
       pornrips: false,
     }));
     statusState.getAllScrapingStatuses = (..._args: unknown[]) =>
@@ -71,8 +70,7 @@ describe("GET /api/scraper/status-all", () => {
   test("returns is_scraping=true when any source is true", async () => {
     getAllScrapingStatusesMock = mock(async () => ({
       "141jav": false,
-      projectjav: true,
-      pornrips: false,
+      pornrips: true,
     }));
     statusState.getAllScrapingStatuses = (..._args: unknown[]) =>
       getAllScrapingStatusesMock(..._args);
@@ -83,13 +81,12 @@ describe("GET /api/scraper/status-all", () => {
       sources: Record<string, boolean>;
     };
     expect(body.is_scraping).toBe(true);
-    expect(body.sources.projectjav).toBe(true);
+    expect(body.sources.pornrips).toBe(true);
   });
 
   test("passes through the full sources map", async () => {
     getAllScrapingStatusesMock = mock(async () => ({
       "141jav": true,
-      projectjav: false,
       pornrips: true,
     }));
     statusState.getAllScrapingStatuses = (..._args: unknown[]) =>
@@ -101,7 +98,6 @@ describe("GET /api/scraper/status-all", () => {
     };
     expect(body.sources).toEqual({
       "141jav": true,
-      projectjav: false,
       pornrips: true,
     });
   });

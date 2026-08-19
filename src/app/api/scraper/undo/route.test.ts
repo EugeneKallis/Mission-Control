@@ -126,7 +126,7 @@ describe("POST /api/scraper/undo", () => {
   });
 
   test("with { id } — un-hides the specific row", async () => {
-    const row = await seedHidden({ source: "projectjav", title: "target" });
+    const row = await seedHidden({ source: "pornrips", title: "target" });
     const { POST } = await loadRoute();
     const res = await POST(jsonRequest("/api/scraper/undo", { id: row.id }));
     expect(status(res)).toBe(200);

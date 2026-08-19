@@ -75,7 +75,7 @@ describe("GET /api/scraper/results", () => {
 
   test("defaults source to 141jav when query param is missing", async () => {
     await seed({ source: "141jav", title: "Default source item" });
-    await seed({ source: "projectjav", title: "Other source" });
+    await seed({ source: "pornrips", title: "Other source" });
     const { GET } = await loadRoute();
     const res = await GET(getRequest("/api/scraper/results"));
     expect(status(res)).toBe(200);
@@ -196,10 +196,10 @@ describe("GET /api/scraper/results", () => {
 
   test("filters by source — rows from other sources are excluded", async () => {
     await seed({ source: "141jav", title: "A" });
-    await seed({ source: "projectjav", title: "B" });
-    await seed({ source: "pornrips", title: "C" });
+    await seed({ source: "pornrips", title: "B" });
+    await seed({ source: "141jav", title: "C" });
     const { GET } = await loadRoute();
-    const res = await GET(getRequest("/api/scraper/results?source=projectjav"));
+    const res = await GET(getRequest("/api/scraper/results?source=pornrips"));
     const body = (await jsonBody(res)) as { results: Array<{ title: string }> };
     expect(body.results).toHaveLength(1);
     expect(body.results[0].title).toBe("B");

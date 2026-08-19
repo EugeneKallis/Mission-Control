@@ -1,7 +1,7 @@
 /**
  * Unit tests for the pure parseTargets helper in src/workers/scraper-runner.ts.
  *
- * The scraper-runner is a small orchestrator that runs all three
+ * The scraper-runner is a small orchestrator that runs all
  * sources (or a CLI-provided subset) sequentially. The only piece
  * worth unit-testing is the argv parser, which is exposed for tests
  * via `__parseTargets`.
@@ -17,7 +17,6 @@ describe("__parseTargets", () => {
   test("with no user args, returns every source", () => {
     expect(__parseTargets(["bun", "scraper-runner.ts"])).toEqual([
       "141jav",
-      "projectjav",
       "pornrips",
     ]);
   });
@@ -41,10 +40,10 @@ describe("__parseTargets", () => {
         "scraper-runner.ts",
         "141jav",
         "garbage",
-        "projectjav",
+        "pornrips",
         "more-junk",
       ]),
-    ).toEqual(["141jav", "projectjav"]);
+    ).toEqual(["141jav", "pornrips"]);
   });
 
   test("all-unknown args yields an empty list", () => {

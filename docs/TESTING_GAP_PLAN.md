@@ -6,7 +6,7 @@
 | Area | Count | Examples |
 |------|-------|---------|
 | `src/lib/*` (pure logic) | 14 | agents/event-stream, agents/registry, arr-map, clients/* (6), config, cron-scheduler, cron, format, live-bus, migrate, runner, db/queries |
-| `src/workers/scrapers/*` (parsers) | 5 | 141jav, pornrips, projectjav, shared, status |
+| `src/workers/scrapers/*` (parsers) | 4 | 141jav, pornrips, shared, status |
 | `src/workers/*.ts` (pure helpers) | 3 | file-scanner, magnet-bridge, scraper-runner (parseTargets) |
 | `scripts/_lib/*` | 4 | cli, collections, format, log |
 | `scripts/arr/*` | 4 | arr-searcher, radarr-sync, sonarr-sync, sonarr-season-searcher |

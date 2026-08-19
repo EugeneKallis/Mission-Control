@@ -10,7 +10,7 @@ import { z } from "zod";
 import { hideAllScrapeResults, hideScrapeResultsBySource } from "@/lib/db/queries";
 
 const schema = z.object({
-  source: z.enum(["141jav", "projectjav", "pornrips"]).optional(),
+  source: z.enum(["141jav", "pornrips"]).optional(),
 });
 
 export async function POST(request: NextRequest) {

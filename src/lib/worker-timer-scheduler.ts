@@ -22,7 +22,7 @@ import {
 export const WORKER_REGISTRY: Record<string, { path: string; description: string; defaultCron: string }> = {
   scraper: {
     path: "src/workers/scraper-worker.ts",
-    description: "Runs all three scrape sources (141jav, projectjav, pornrips) sequentially",
+    description: "Runs all scrape sources (141jav, pornrips) sequentially",
     defaultCron: "*/30 * * * *",
   },
   "energy-price": {

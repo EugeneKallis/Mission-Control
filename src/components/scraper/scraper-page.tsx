@@ -519,7 +519,7 @@ export function ScraperPage({
                       active ? "text-on-surface border-rose-500" : "text-on-surface-variant border-transparent hover:text-on-surface"
                     }`}
                   >
-                    {s === "141jav" ? "141JAV" : s === "projectjav" ? "ProjectJAV" : "PornRips"}
+                    {s === "141jav" ? "141JAV" : "PornRips"}
                   </button>
                 );
               })}
