@@ -131,6 +131,8 @@ function resourceGroup(resource: PulseResource): "Proxmox" | "Docker" | "Other" 
 }
 
 type ResourceMetricKind = "cpu" | "memory" | "disk";
+type ResourceSortColumn = "name" | "type" | "id" | "status" | "cpu" | "memory" | "disk" | "uptime" | "network" | "diskIo" | "location";
+type SortDirection = "asc" | "desc";
 
 interface ResourceMetricValues {
   used?: number;
@@ -208,6 +210,24 @@ function resourceMetricDetail(values: ResourceMetricValues, kind: ResourceMetric
 function formatResourceUptime(resource: PulseResource): string {
   const uptime = numberValue(resource, "uptime", "uptimeSeconds", "uptime_seconds");
   return uptime === undefined ? "—" : formatUptime(uptime);
+}
+
+function resourceSortValue(resource: PulseResource, column: ResourceSortColumn): string | number | undefined {
+  switch (column) {
+    case "name": return resourceName(resource, 0);
+    case "type": return resourceTypeLabel(resource);
+    case "id": return resourceId(resource);
+    case "status": return resourceValue(resource, "status", "state", "health");
+    case "cpu": return resourceMetricValues(resource, "cpu").percent;
+    case "memory": return resourceMetricValues(resource, "memory").percent;
+    case "disk": return resourceMetricValues(resource, "disk").percent;
+    case "uptime": return numberValue(resource, "uptime", "uptimeSeconds", "uptime_seconds");
+    case "network": return (numberValue(resource, "netin", "netIn", "networkIn", "network_in", "rxBytes", "rx_bytes") ?? 0)
+      + (numberValue(resource, "netout", "netOut", "networkOut", "network_out", "txBytes", "tx_bytes") ?? 0);
+    case "diskIo": return (numberValue(resource, "diskread", "diskRead", "disk_read", "readBytes", "read_bytes") ?? 0)
+      + (numberValue(resource, "diskwrite", "diskWrite", "disk_write", "writeBytes", "write_bytes") ?? 0);
+    case "location": return resourceValue(resource, "node", "hostname", "host", "server");
+  }
 }
 
 function formatIo(resource: PulseResource, direction: "network" | "disk"): string {
@@ -290,6 +310,37 @@ function MetricCard({ label, value, detail }: { label: string; value: string; de
   );
 }
 
+function ResourceSortHeader({
+  label,
+  column,
+  type,
+  sort,
+  onSort,
+}: {
+  label: string;
+  column: ResourceSortColumn;
+  type: string;
+  sort: { column: ResourceSortColumn; direction: SortDirection };
+  onSort: (type: string, column: ResourceSortColumn) => void;
+}) {
+  const active = sort.column === column;
+  return (
+    <th className="px-3 py-2 font-semibold">
+      <button
+        type="button"
+        onClick={() => onSort(type, column)}
+        aria-label={`Sort ${label} ${active && sort.direction === "asc" ? "descending" : "ascending"}`}
+        className="inline-flex items-center gap-1 whitespace-nowrap hover:text-on-surface"
+      >
+        {label}
+        <span aria-hidden="true" className="material-symbols-outlined text-xs">
+          {active ? (sort.direction === "asc" ? "arrow_upward" : "arrow_downward") : "unfold_more"}
+        </span>
+      </button>
+    </th>
+  );
+}
+
 export function PulsePage() {
   const [snapshot, setSnapshot] = useState<PulseSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
@@ -298,6 +349,7 @@ export function PulsePage() {
   const [resourceQuery, setResourceQuery] = useState("");
   const [resourceGroupFilter, setResourceGroupFilter] = useState("All");
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [groupSorts, setGroupSorts] = useState<Record<string, { column: ResourceSortColumn; direction: SortDirection }>>({});
 
   const fetchStatus = useCallback(async (manual = false) => {
     if (manual) setRefreshing(true);
@@ -382,6 +434,33 @@ export function PulsePage() {
     if (resourceQuery.trim()) return true;
     const priority = PRIORITY_RESOURCE_GROUPS.includes(type as typeof PRIORITY_RESOURCE_GROUPS[number]);
     return collapsedGroups[type] ?? priority;
+  };
+
+  const sortGroupResources = (type: string, resources: PulseResource[]): PulseResource[] => {
+    const sort = groupSorts[type] ?? { column: "name" as ResourceSortColumn, direction: "asc" as SortDirection };
+    const direction = sort.direction === "asc" ? 1 : -1;
+    return [...resources].sort((a, b) => {
+      const left = resourceSortValue(a, sort.column);
+      const right = resourceSortValue(b, sort.column);
+      if (left === undefined && right === undefined) return 0;
+      if (left === undefined) return 1;
+      if (right === undefined) return -1;
+      if (typeof left === "number" && typeof right === "number") return (left - right) * direction;
+      return String(left).localeCompare(String(right), undefined, { numeric: true, sensitivity: "base" }) * direction;
+    });
+  };
+
+  const toggleGroupSort = (type: string, column: ResourceSortColumn) => {
+    setGroupSorts((current) => {
+      const previous = current[type] ?? { column: "name" as ResourceSortColumn, direction: "asc" as SortDirection };
+      return {
+        ...current,
+        [type]: {
+          column,
+          direction: previous.column === column && previous.direction === "asc" ? "desc" : "asc",
+        },
+      };
+    });
   };
 
   return (
@@ -492,77 +571,74 @@ export function PulsePage() {
                   </div>
                 </div>
                 <div className="mt-4 overflow-x-auto">
-                  <table className="w-full min-w-[1320px] text-left text-xs">
-                    <thead className="border-b border-outline-variant/30 text-[10px] uppercase tracking-wider text-on-surface-variant/70">
-                      <tr>
-                        <th className="px-3 py-2 font-semibold">Name</th>
-                        <th className="px-3 py-2 font-semibold">Type</th>
-                        <th className="px-3 py-2 font-semibold">ID</th>
-                        <th className="px-3 py-2 font-semibold">Status</th>
-                        <th className="px-3 py-2 font-semibold">CPU</th>
-                        <th className="px-3 py-2 font-semibold">Memory</th>
-                        <th className="px-3 py-2 font-semibold">Disk</th>
-                        <th className="px-3 py-2 font-semibold">Uptime</th>
-                        <th className="px-3 py-2 font-semibold" title="Cumulative bytes received and sent">Net IO (total)</th>
-                        <th className="px-3 py-2 font-semibold" title="Cumulative bytes read and written">Disk IO (total)</th>
-                        <th className="px-3 py-2 font-semibold">Location</th>
-                        <th className="px-3 py-2 font-semibold">Details</th>
-                      </tr>
-                    </thead>
-                    {filteredResources.length > 0 && resourceGroups.map(([type, resources]) => {
-                      const expanded = isGroupExpanded(type);
-                      return (
-                      <tbody key={type} className="divide-y divide-outline-variant/20">
-                        <tr className="bg-surface-container/60">
-                          <th colSpan={12} className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-primary">
-                            <button
-                              type="button"
-                              aria-expanded={expanded}
-                              aria-label={`${expanded ? "Collapse" : "Expand"} ${type} group`}
-                              onClick={() => setCollapsedGroups((groups) => ({ ...groups, [type]: expanded ? false : true }))}
-                              className="inline-flex items-center gap-1.5 text-left hover:text-on-surface"
-                            >
-                              <span aria-hidden="true" className="material-symbols-outlined text-sm">{expanded ? "expand_less" : "expand_more"}</span>
-                              {type} <span className="text-on-surface-variant">({resources.length})</span>
-                            </button>
-                          </th>
-                        </tr>
-                        {expanded && resources.map((resource, index) => {
-                          const status = resourceValue(resource, "status", "state", "health");
-                          const statusLower = status.toLowerCase();
-                          const statusClass = /online|running|healthy|ready|active/.test(statusLower)
-                            ? "bg-success/15 text-success"
-                            : /offline|stopped|error|failed|unhealthy/.test(statusLower)
-                              ? "bg-error/15 text-error"
-                              : "bg-surface-container-high/50 text-on-surface-variant";
-                          return (
-                            <tr key={`${resourceId(resource)}-${resourceName(resource, index)}-${index}`} className="hover:bg-surface-container/50">
-                              <td className="max-w-[200px] truncate px-3 py-3 font-medium text-on-surface">{resourceName(resource, index)}</td>
-                              <td className="px-3 py-3 font-semibold text-primary">{resourceTypeLabel(resource)}</td>
-                              <td className="px-3 py-3 font-mono text-on-surface-variant">{resourceId(resource)}</td>
-                              <td className="px-3 py-3">
-                                <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusClass}`}>{status}</span>
-                              </td>
-                              <td className="px-3 py-3"><ResourceMetric resource={resource} kind="cpu" /></td>
-                              <td className="px-3 py-3"><ResourceMetric resource={resource} kind="memory" /></td>
-                              <td className="px-3 py-3"><ResourceMetric resource={resource} kind="disk" /></td>
-                              <td className="whitespace-nowrap px-3 py-3 text-on-surface-variant">{formatResourceUptime(resource)}</td>
-                              <td className="whitespace-nowrap px-3 py-3 font-mono text-[10px] text-on-surface-variant">{formatIo(resource, "network")}</td>
-                              <td className="whitespace-nowrap px-3 py-3 font-mono text-[10px] text-on-surface-variant">{formatIo(resource, "disk")}</td>
-                              <td className="px-3 py-3 text-on-surface-variant">{resourceValue(resource, "node", "hostname", "host", "server")}</td>
-                              <td className="px-3 py-3">
-                                <details>
-                                  <summary className="cursor-pointer text-primary hover:underline">View details</summary>
-                                  <pre className="mt-2 max-w-[420px] overflow-auto whitespace-pre-wrap rounded bg-surface-container p-2 text-[10px] text-on-surface-variant">{JSON.stringify(resource, null, 2)}</pre>
-                                </details>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                      );
-                    })}
-                  </table>
+                  {filteredResources.length > 0 && resourceGroups.map(([type, resources]) => {
+                    const expanded = isGroupExpanded(type);
+                    const sort = groupSorts[type] ?? { column: "name" as ResourceSortColumn, direction: "asc" as SortDirection };
+                    const sortedResources = sortGroupResources(type, resources);
+                    return (
+                      <table key={type} className="mb-4 w-full min-w-[1320px] text-left text-xs last:mb-0">
+                        <thead className="border-b border-outline-variant/30 text-[10px] uppercase tracking-wider text-on-surface-variant/70">
+                          <tr className="bg-surface-container/60">
+                            <th colSpan={12} className="px-3 py-2 text-left text-primary">
+                              <button
+                                type="button"
+                                aria-expanded={expanded}
+                                aria-label={`${expanded ? "Collapse" : "Expand"} ${type} group`}
+                                onClick={() => setCollapsedGroups((groups) => ({ ...groups, [type]: expanded ? false : true }))}
+                                className="inline-flex items-center gap-1.5 text-left hover:text-on-surface"
+                              >
+                                <span aria-hidden="true" className="material-symbols-outlined text-sm">{expanded ? "expand_less" : "expand_more"}</span>
+                                {type} <span className="text-on-surface-variant">({resources.length})</span>
+                              </button>
+                            </th>
+                          </tr>
+                          <tr>
+                            <ResourceSortHeader label="Name" column="name" type={type} sort={sort} onSort={toggleGroupSort} />
+                            <ResourceSortHeader label="Type" column="type" type={type} sort={sort} onSort={toggleGroupSort} />
+                            <ResourceSortHeader label="ID" column="id" type={type} sort={sort} onSort={toggleGroupSort} />
+                            <ResourceSortHeader label="Status" column="status" type={type} sort={sort} onSort={toggleGroupSort} />
+                            <ResourceSortHeader label="CPU" column="cpu" type={type} sort={sort} onSort={toggleGroupSort} />
+                            <ResourceSortHeader label="Memory" column="memory" type={type} sort={sort} onSort={toggleGroupSort} />
+                            <ResourceSortHeader label="Disk" column="disk" type={type} sort={sort} onSort={toggleGroupSort} />
+                            <ResourceSortHeader label="Uptime" column="uptime" type={type} sort={sort} onSort={toggleGroupSort} />
+                            <ResourceSortHeader label="Net IO (total)" column="network" type={type} sort={sort} onSort={toggleGroupSort} />
+                            <ResourceSortHeader label="Disk IO (total)" column="diskIo" type={type} sort={sort} onSort={toggleGroupSort} />
+                            <ResourceSortHeader label="Location" column="location" type={type} sort={sort} onSort={toggleGroupSort} />
+                            <th className="px-3 py-2 font-semibold">Details</th>
+                          </tr>
+                        </thead>
+                        {expanded && (
+                          <tbody className="divide-y divide-outline-variant/20">
+                            {sortedResources.map((resource, index) => {
+                              const status = resourceValue(resource, "status", "state", "health");
+                              const statusLower = status.toLowerCase();
+                              const statusClass = /online|running|healthy|ready|active/.test(statusLower)
+                                ? "bg-success/15 text-success"
+                                : /offline|stopped|error|failed|unhealthy/.test(statusLower)
+                                  ? "bg-error/15 text-error"
+                                  : "bg-surface-container-high/50 text-on-surface-variant";
+                              return (
+                                <tr key={`${resourceId(resource)}-${resourceName(resource, index)}-${index}`} className="hover:bg-surface-container/50">
+                                  <td className="max-w-[200px] truncate px-3 py-3 font-medium text-on-surface">{resourceName(resource, index)}</td>
+                                  <td className="px-3 py-3 font-semibold text-primary">{resourceTypeLabel(resource)}</td>
+                                  <td className="px-3 py-3 font-mono text-on-surface-variant">{resourceId(resource)}</td>
+                                  <td className="px-3 py-3"><span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusClass}`}>{status}</span></td>
+                                  <td className="px-3 py-3"><ResourceMetric resource={resource} kind="cpu" /></td>
+                                  <td className="px-3 py-3"><ResourceMetric resource={resource} kind="memory" /></td>
+                                  <td className="px-3 py-3"><ResourceMetric resource={resource} kind="disk" /></td>
+                                  <td className="whitespace-nowrap px-3 py-3 text-on-surface-variant">{formatResourceUptime(resource)}</td>
+                                  <td className="whitespace-nowrap px-3 py-3 font-mono text-[10px] text-on-surface-variant">{formatIo(resource, "network")}</td>
+                                  <td className="whitespace-nowrap px-3 py-3 font-mono text-[10px] text-on-surface-variant">{formatIo(resource, "disk")}</td>
+                                  <td className="px-3 py-3 text-on-surface-variant">{resourceValue(resource, "node", "hostname", "host", "server")}</td>
+                                  <td className="px-3 py-3"><details><summary className="cursor-pointer text-primary hover:underline">View details</summary><pre className="mt-2 max-w-[420px] overflow-auto whitespace-pre-wrap rounded bg-surface-container p-2 text-[10px] text-on-surface-variant">{JSON.stringify(resource, null, 2)}</pre></details></td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        )}
+                      </table>
+                    );
+                  })}
                   {filteredResources.length === 0 && (
                     <p className="px-3 py-6 text-center text-sm text-on-surface-variant">
                       {resourceQuery.trim() || resourceGroupFilter !== "All"

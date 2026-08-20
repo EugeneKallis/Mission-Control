@@ -187,6 +187,38 @@ describe("PulsePage", () => {
     expect(vmRows[0].compareDocumentPosition(vmRows[1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  test("sorts each group's columns independently when headers are clicked", async () => {
+    mockStatus({
+      health: { status: "healthy" },
+      resources: [
+        { name: "vm-1", type: "qemu", status: "running" },
+        { name: "vm-2", type: "qemu", status: "running" },
+        { name: "host-1", type: "agent", status: "online" },
+        { name: "host-2", type: "agent", status: "online" },
+      ],
+      resourceCount: 4,
+      authenticated: true,
+      errors: [],
+    });
+
+    render(<PulsePage />);
+    await waitFor(() => expect(screen.getByText("Monitored resources")).toBeInTheDocument());
+
+    const nameHeaders = screen.getAllByRole("button", { name: "Sort Name descending" });
+    fireEvent.click(nameHeaders[1]);
+
+    const vmRows = [
+      screen.getByRole("row", { name: /vm-2/ }),
+      screen.getByRole("row", { name: /vm-1/ }),
+    ];
+    const hostRows = [
+      screen.getByRole("row", { name: /host-1/ }),
+      screen.getByRole("row", { name: /host-2/ }),
+    ];
+    expect(vmRows[0].compareDocumentPosition(vmRows[1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(hostRows[0].compareDocumentPosition(hostRows[1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   test("keeps multi-core CPU fractions high and preserves explicit percent values", async () => {
     mockStatus({
       health: { status: "healthy" },
