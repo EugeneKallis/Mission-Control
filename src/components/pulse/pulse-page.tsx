@@ -77,14 +77,36 @@ function resourceType(resource: PulseResource): string {
   return resourceValue(resource, "type", "kind", "resourceType", "category");
 }
 
+type ResourceDisplayGroup = "Host" | "LXCs" | "VMs" | "Docker containers" | string;
+
+const PRIORITY_RESOURCE_GROUPS = ["Host", "LXCs", "VMs", "Docker containers"] as const;
+const IGNORED_RESOURCE_TYPES = new Set(["docker image", "docker network", "docker volume"]);
+
+function normalizedResourceType(resource: PulseResource): string {
+  return resourceType(resource).toLowerCase().replace(/[_-]/g, " ").trim();
+}
+
+function isIgnoredResource(resource: PulseResource): boolean {
+  return IGNORED_RESOURCE_TYPES.has(normalizedResourceType(resource));
+}
+
 function resourceTypeLabel(resource: PulseResource): string {
-  const type = resourceType(resource).toLowerCase().replace(/[_-]/g, " ");
+  const type = normalizedResourceType(resource);
   if (["qemu", "vm", "virtual machine"].includes(type)) return "VM";
-  if (type === "lxc") return "LXC";
-  if (["container", "system container", "oci container", "app container", "docker container", "docker service"].includes(type)) return "Container";
+  if (["lxc", "system container"].includes(type)) return "LXC";
+  if (["container", "oci container", "app container", "docker container", "docker service", "docker task"].includes(type)) return "Docker container";
   if (["agent", "host", "docker host"].includes(type)) return "Host";
   if (["storage", "physical disk", "ceph", "pbs", "pmg"].includes(type)) return "Storage";
   return resourceType(resource) === "—" ? "Other" : resourceType(resource);
+}
+
+function resourceDisplayGroup(resource: PulseResource): ResourceDisplayGroup {
+  const type = normalizedResourceType(resource);
+  if (["agent", "host", "docker host"].includes(type)) return "Host";
+  if (["lxc", "system container"].includes(type)) return "LXCs";
+  if (["qemu", "vm", "virtual machine"].includes(type)) return "VMs";
+  if (["container", "oci container", "app container", "docker container", "docker service", "docker task"].includes(type)) return "Docker containers";
+  return resourceTypeLabel(resource);
 }
 
 function resourceName(resource: PulseResource, index: number): string {
@@ -275,7 +297,7 @@ export function PulsePage() {
   const [error, setError] = useState<string | null>(null);
   const [resourceQuery, setResourceQuery] = useState("");
   const [resourceGroupFilter, setResourceGroupFilter] = useState("All");
-  const [groupByType, setGroupByType] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
   const fetchStatus = useCallback(async (manual = false) => {
     if (manual) setRefreshing(true);
@@ -318,6 +340,8 @@ export function PulsePage() {
   const healthy = healthStatus === "healthy";
   const dependencies = snapshot?.health?.dependencies ?? {};
   const hasPartialErrors = Boolean(snapshot?.errors.length);
+  const visibleResources = (snapshot?.resources ?? []).filter((resource) => !isIgnoredResource(resource));
+  const visibleResourceCount = visibleResources.length;
   const resourceDetail = !snapshot?.authenticated
     ? "API key not configured"
     : snapshot.resourceCount != null
@@ -325,23 +349,34 @@ export function PulsePage() {
       : snapshot.resourcesError
         ? `Key rejected or resources unavailable — ${snapshot.resourcesError}`
         : "Key rejected or resources unavailable — check Config → Pulse API Key";
-  const filteredResources = (snapshot?.resources ?? []).filter((resource) => {
+  const filteredResources = visibleResources.filter((resource) => {
     const matchesGroup = resourceGroupFilter === "All" || resourceGroup(resource) === resourceGroupFilter;
     const query = resourceQuery.trim().toLowerCase();
     const matchesQuery = !query || resourceSearchText(resource).includes(query);
     return matchesGroup && matchesQuery;
   });
-  const resourceGroups = groupByType
-    ? Array.from(
-        filteredResources.reduce((groups, resource) => {
-          const type = resourceTypeLabel(resource);
-          const group = groups.get(type) ?? [];
-          group.push(resource);
-          groups.set(type, group);
-          return groups;
-        }, new Map<string, PulseResource[]>()).entries(),
-      ).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
-    : [["", filteredResources] as const];
+  const resourceGroups = Array.from(
+    filteredResources.reduce((groups, resource) => {
+      const type = resourceDisplayGroup(resource);
+      const group = groups.get(type) ?? [];
+      group.push(resource);
+      groups.set(type, group);
+      return groups;
+    }, new Map<string, PulseResource[]>()).entries(),
+  ).sort(([a], [b]) => {
+    const aPriority = PRIORITY_RESOURCE_GROUPS.indexOf(a as typeof PRIORITY_RESOURCE_GROUPS[number]);
+    const bPriority = PRIORITY_RESOURCE_GROUPS.indexOf(b as typeof PRIORITY_RESOURCE_GROUPS[number]);
+    if (aPriority !== -1 || bPriority !== -1) {
+      return (aPriority === -1 ? PRIORITY_RESOURCE_GROUPS.length : aPriority)
+        - (bPriority === -1 ? PRIORITY_RESOURCE_GROUPS.length : bPriority);
+    }
+    return a.localeCompare(b, undefined, { numeric: true });
+  });
+  const isGroupExpanded = (type: string): boolean => {
+    if (resourceQuery.trim()) return true;
+    const priority = PRIORITY_RESOURCE_GROUPS.includes(type as typeof PRIORITY_RESOURCE_GROUPS[number]);
+    return collapsedGroups[type] ?? priority;
+  };
 
   return (
     <section className="flex h-full min-h-0 flex-col" aria-label="Pulse">
@@ -411,7 +446,7 @@ export function PulsePage() {
               <MetricCard label="Status" value={snapshot.health?.status ?? "Unknown"} detail="Pulse health endpoint" />
               <MetricCard label="Uptime" value={formatUptime(snapshot.health?.uptime)} detail="Since Pulse started" />
               <MetricCard label="Version" value={snapshot.version?.version ?? "Unknown"} detail={snapshot.version?.build ?? "Build unavailable"} />
-              <MetricCard label="Resources" value={snapshot.resourceCount == null ? "—" : String(snapshot.resourceCount)} detail={resourceDetail} />
+              <MetricCard label="Resources" value={snapshot.resourceCount == null ? "—" : String(visibleResourceCount)} detail={resourceDetail} />
               <MetricCard label="Authentication" value={snapshot.security?.requiresAuth ? "Required" : "Not required"} detail={snapshot.security?.ssoEnabled ? "SSO enabled" : "Local login"} />
             </div>
 
@@ -421,7 +456,7 @@ export function PulsePage() {
                   <div>
                     <h2 className="text-sm font-semibold text-on-surface">Monitored resources</h2>
                     <p className="mt-1 text-xs text-on-surface-variant">
-                      {filteredResources.length} of {snapshot.resourceCount ?? snapshot.resources.length} resources shown.
+                      {filteredResources.length} of {visibleResourceCount} visible resources shown.
                     </p>
                   </div>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -445,16 +480,9 @@ export function PulsePage() {
                       <option>Docker</option>
                       <option>Other</option>
                     </select>
-                    <label className="inline-flex cursor-pointer items-center gap-2 whitespace-nowrap text-xs text-on-surface-variant">
-                      <input
-                        type="checkbox"
-                        aria-label="Group by type"
-                        checked={groupByType}
-                        onChange={(event) => setGroupByType(event.target.checked)}
-                        className="size-4 accent-[var(--color-primary)]"
-                      />
-                      Group by type
-                    </label>
+                    <span className="whitespace-nowrap text-xs text-on-surface-variant">
+                      Groups are collapsible
+                    </span>
                   </div>
                 </div>
                 <div className="mt-4 overflow-x-auto">
@@ -475,16 +503,25 @@ export function PulsePage() {
                         <th className="px-3 py-2 font-semibold">Details</th>
                       </tr>
                     </thead>
-                    {filteredResources.length > 0 && resourceGroups.map(([type, resources]) => (
-                      <tbody key={type || "all"} className="divide-y divide-outline-variant/20">
-                        {groupByType && (
-                          <tr className="bg-surface-container/60">
-                            <th colSpan={12} className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-primary">
+                    {filteredResources.length > 0 && resourceGroups.map(([type, resources]) => {
+                      const expanded = isGroupExpanded(type);
+                      return (
+                      <tbody key={type} className="divide-y divide-outline-variant/20">
+                        <tr className="bg-surface-container/60">
+                          <th colSpan={12} className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-primary">
+                            <button
+                              type="button"
+                              aria-expanded={expanded}
+                              aria-label={`${expanded ? "Collapse" : "Expand"} ${type} group`}
+                              onClick={() => setCollapsedGroups((groups) => ({ ...groups, [type]: expanded ? false : true }))}
+                              className="inline-flex items-center gap-1.5 text-left hover:text-on-surface"
+                            >
+                              <span aria-hidden="true" className="material-symbols-outlined text-sm">{expanded ? "expand_less" : "expand_more"}</span>
                               {type} <span className="text-on-surface-variant">({resources.length})</span>
-                            </th>
-                          </tr>
-                        )}
-                        {resources.map((resource, index) => {
+                            </button>
+                          </th>
+                        </tr>
+                        {expanded && resources.map((resource, index) => {
                           const status = resourceValue(resource, "status", "state", "health");
                           const statusLower = status.toLowerCase();
                           const statusClass = /online|running|healthy|ready|active/.test(statusLower)
@@ -517,7 +554,8 @@ export function PulsePage() {
                           );
                         })}
                       </tbody>
-                    ))}
+                      );
+                    })}
                   </table>
                   {filteredResources.length === 0 && (
                     <p className="px-3 py-6 text-center text-sm text-on-surface-variant">
