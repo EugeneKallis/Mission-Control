@@ -70,7 +70,7 @@ describe("PulsePage", () => {
     expect(screen.getByText("No resources match the current filter.")).toBeInTheDocument();
   });
 
-  test("renders guest metrics with utilization bars and groups resources by type", async () => {
+  test("renders guest metrics with utilization bars and collapsible type groups", async () => {
     mockStatus({
       health: { status: "healthy" },
       resources: [
@@ -109,9 +109,52 @@ describe("PulsePage", () => {
     expect(screen.getByRole("progressbar", { name: "disk utilization" })).toHaveAttribute("aria-valuenow", "95");
     expect(screen.getByRole("progressbar", { name: "disk utilization" }).firstElementChild?.className).toContain("bg-error");
 
-    fireEvent.click(screen.getByLabelText("Group by type"));
-    expect(screen.getByRole("columnheader", { name: "VM (1)" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "LXC (1)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Collapse VMs group" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Collapse LXCs group" })).toBeInTheDocument();
+  });
+
+  test("orders groups, hides Docker metadata, and collapses remaining types", async () => {
+    mockStatus({
+      health: { status: "healthy" },
+      resources: [
+        { name: "disk-array", type: "storage", status: "online" },
+        { name: "app-01", type: "container", source: "docker", status: "running" },
+        { name: "vm-01", type: "qemu", status: "running" },
+        { name: "ct-01", type: "lxc", status: "running" },
+        { name: "host-01", type: "agent", status: "online" },
+        { name: "base-image", type: "docker-image" },
+        { name: "app-network", type: "docker-network" },
+        { name: "app-volume", type: "docker-volume" },
+      ],
+      resourceCount: 8,
+      authenticated: true,
+      errors: [],
+    });
+
+    render(<PulsePage />);
+    await waitFor(() => expect(screen.getByText("Monitored resources")).toBeInTheDocument());
+
+    const groups = [
+      screen.getByRole("button", { name: "Collapse Host group" }),
+      screen.getByRole("button", { name: "Collapse LXCs group" }),
+      screen.getByRole("button", { name: "Collapse VMs group" }),
+      screen.getByRole("button", { name: "Collapse Docker containers group" }),
+      screen.getByRole("button", { name: "Expand Storage group" }),
+    ];
+    for (let index = 1; index < groups.length; index += 1) {
+      expect(groups[index - 1].compareDocumentPosition(groups[index]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+
+    expect(screen.queryByText("base-image")).not.toBeInTheDocument();
+    expect(screen.queryByText("app-network")).not.toBeInTheDocument();
+    expect(screen.queryByText("app-volume")).not.toBeInTheDocument();
+    expect(screen.queryByText("disk-array")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand Storage group" }));
+    expect(screen.getByRole("row", { name: /disk-array/ })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Collapse Storage group" }));
+    expect(screen.queryByRole("row", { name: /disk-array/ })).not.toBeInTheDocument();
   });
 
   test("keeps multi-core CPU fractions high and preserves explicit percent values", async () => {
