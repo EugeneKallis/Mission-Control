@@ -556,7 +556,7 @@ export async function getConfig() {
   let config = await db.config.findUnique({ where: { id: 1 } });
   if (!config) {
     config = await db.config.create({
-      data: { id: 1, configJson: '{"real_debrid_api_key":""}' },
+      data: { id: 1, configJson: '{"real_debrid_api_key":"","pulse_api_key":""}' },
     });
   }
   return config;

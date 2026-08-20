@@ -126,6 +126,15 @@ describe("resolveConfig — DB fallback", () => {
     expect(cfg.realDebridApiKey).toBe("db-rd");
   });
 
+  test("fills pulseApiKey from DB when env is empty", async () => {
+    await seedConfig({ pulse_api_key: "db-pulse" });
+
+    const mod = await loadFreshConfig("fallback-pulse");
+    const cfg = await mod.resolveConfig();
+
+    expect(cfg.pulseApiKey).toBe("db-pulse");
+  });
+
   test("fills all three fields from DB when env is completely empty", async () => {
     await seedConfig({
       plex_token: "db-token",
@@ -169,6 +178,17 @@ describe("resolveConfig — env wins over DB", () => {
     const cfg = await mod.resolveConfig();
 
     expect(cfg.plexToken).toBe("env-token");
+  });
+
+  test("env PULSE_API_KEY takes precedence over DB value", async () => {
+    process.env.PULSE_API_KEY = "env-pulse";
+
+    await seedConfig({ pulse_api_key: "db-pulse" });
+
+    const mod = await loadFreshConfig("env-wins-pulse");
+    const cfg = await mod.resolveConfig();
+
+    expect(cfg.pulseApiKey).toBe("env-pulse");
   });
 
   test("env PLEX_URL takes precedence over DB value", async () => {

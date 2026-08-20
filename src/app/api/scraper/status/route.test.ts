@@ -72,13 +72,13 @@ describe("GET /api/scraper/status", () => {
     statusState.getScrapingStatus = (..._args: unknown[]) =>
       getScrapingStatusMock(..._args);
     const { GET } = await loadRoute();
-    const res = await GET(getRequest("/api/scraper/status?source=projectjav"));
+    const res = await GET(getRequest("/api/scraper/status?source=pornrips"));
     expect(status(res)).toBe(200);
     const body = (await jsonBody(res)) as {
       is_scraping: boolean;
       source: string;
     };
-    expect(body).toEqual({ is_scraping: true, source: "projectjav" });
+    expect(body).toEqual({ is_scraping: true, source: "pornrips" });
   });
 
   test("defaults source to 141jav when query param is missing", async () => {

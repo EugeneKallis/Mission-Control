@@ -176,6 +176,9 @@ describe("getAllLogAlertCounts", () => {
           }
           return "info: running\n";
         }
+        if (cmd === "systemctl" && args.includes("show")) {
+          return "2024-01-01 12:00:00 UTC";
+        }
         return "";
       }),
     }));
@@ -235,6 +238,31 @@ describe("getAllLogAlertCounts", () => {
     const result = await getAllLogAlertCounts();
     expect(result.perService).toHaveProperty("agent-tasks");
     expect(result.perService["agent-tasks"]).toBe(0);
+  });
+
+  test("does not count systemd errors from before the latest service start", async () => {
+    const latestStart = new Date(Date.now() - 60 * 60 * 1000);
+
+    mock.module("child_process", () => ({
+      execFileSync: mock((cmd: string, args: string[]) => {
+        if (cmd === "systemctl") return latestStart.toISOString();
+        if (cmd === "journalctl") {
+          const since = args[args.indexOf("--since") + 1];
+          return new Date(since).getTime() < latestStart.getTime()
+            ? "ERROR: happened before restart\n"
+            : "service restarted cleanly\n";
+        }
+        return "";
+      }),
+    }));
+
+    const { getAllLogAlertCounts } = await import(
+      `./log-alerts-server?bust=${Date.now()}-${Math.random()}`
+    );
+    const result = await getAllLogAlertCounts();
+    expect(result.perService.web).toBe(0);
+    expect(result.perService["magnet-bridge"]).toBe(0);
+    expect(result.total).toBe(0);
   });
 });
 

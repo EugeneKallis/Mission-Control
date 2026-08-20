@@ -7,8 +7,8 @@
  * and triggers `MoviesSearch` on each. For Sonarr, paginates
  * `/api/v3/wanted/missing` (50/page) and triggers `EpisodeSearch`.
  *
- * Priority order is main → variant (Radarr → RadarrKids → Radarr4K, same for
- * Sonarr). Each instance is capped at `--limit` triggers per run so a backlog
+ * Priority order is main → variant (Radarr → RadarrKids → Radarr4K → RadarrAnime,
+ * same for Sonarr). Each instance is capped at `--limit` triggers per run so a backlog
  * doesn't get hammered all at once.
  *
  * Dry-run is the default (safe preview). Pass --run to actually trigger
@@ -34,9 +34,8 @@ import { parseArgs } from "../_lib/cli";
 import { banner, error, info, summary, warn } from "../_lib/log";
 import type { ArrInstance } from "@/types";
 
-const RADARR_PRIORITY = ["Radarr", "RadarrKids", "Radarr4K", "RadarrLocal"];
-const SONARR_PRIORITY = ["Sonarr", "SonarrKids", "Sonarr4K", "SonarrLocal"];
-const EXCLUDED_INSTANCES = new Set(["RadarrAnime", "SonarrAnime"]);
+const RADARR_PRIORITY = ["Radarr", "RadarrKids", "Radarr4K", "RadarrAnime", "RadarrLocal"];
+const SONARR_PRIORITY = ["Sonarr", "SonarrKids", "Sonarr4K", "SonarrAnime", "SonarrLocal"];
 
 export async function main(argv?: string[]) {
   const args = parseArgs(
@@ -53,9 +52,8 @@ export async function main(argv?: string[]) {
   banner("Arr searcher", { dryRun });
 
   const config = await resolveConfig();
-  const searchableInstances = config.arrInstances.filter((i) => !EXCLUDED_INSTANCES.has(i.name));
-  const radarr = sortByPriority(searchableInstances.filter((i) => i.type === "radarr"), RADARR_PRIORITY);
-  const sonarr = sortByPriority(searchableInstances.filter((i) => i.type === "sonarr"), SONARR_PRIORITY);
+  const radarr = sortByPriority(config.arrInstances.filter((i) => i.type === "radarr"), RADARR_PRIORITY);
+  const sonarr = sortByPriority(config.arrInstances.filter((i) => i.type === "sonarr"), SONARR_PRIORITY);
 
   let totalTriggered = 0;
   let totalSkipped = 0;

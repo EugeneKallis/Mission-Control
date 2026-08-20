@@ -18,6 +18,7 @@ const arrUrlSchema = z
 // API-key keys are plain optional strings.
 const configSchema = z.object({
   real_debrid_api_key: z.string().optional(),
+  pulse_api_key: z.string().optional(),
   plex_token: z.string().optional(),
   plex_url: z.string().optional(),
   ...Object.fromEntries(
@@ -60,6 +61,9 @@ export async function PUT(request: Request) {
     const sanitized: Record<string, string> = {};
     if (typeof parsed.data.real_debrid_api_key === "string") {
       sanitized.real_debrid_api_key = parsed.data.real_debrid_api_key.trim();
+    }
+    if (typeof parsed.data.pulse_api_key === "string") {
+      sanitized.pulse_api_key = parsed.data.pulse_api_key.trim();
     }
     if (typeof parsed.data.plex_token === "string") {
       sanitized.plex_token = parsed.data.plex_token.trim();

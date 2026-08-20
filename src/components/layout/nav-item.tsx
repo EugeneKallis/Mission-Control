@@ -40,13 +40,15 @@ export function NavItem({ label, icon, href, color = "primary", badge, badgeTitl
   return (
     <Link
       href={href}
+      aria-label={label}
+      aria-current={isActive ? "page" : undefined}
       className={`
         flex items-center gap-3 px-5 py-2 text-sm font-medium transition-colors mx-2 rounded-[var(--radius-button)]
         ${isActive ? "bg-surface-container text-on-surface shadow-sm" : "text-on-surface-variant hover:bg-surface-container/60 hover:text-on-surface"}
         ${accentColors[color] ?? accentColors.primary}
       `}
     >
-      <span className={`material-symbols-outlined text-xl ${isActive ? "text-primary" : ""}`}>{icon}</span>
+      <span aria-hidden="true" className={`material-symbols-outlined text-xl ${isActive ? "text-primary" : ""}`}>{icon}</span>
       <span>{label}</span>
       {showBadge && (
         <span

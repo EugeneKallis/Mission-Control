@@ -286,6 +286,8 @@ export function SidebarContent({
           </span>
         </div>
         <NavItem label="Proxmox" icon="dns" href="/pve" color="green" badge={pveAlertCount ?? undefined} badgeTitle="alerts" />
+        <NavItem label="Local Arrs" icon="video_library" href="/local-arrs" color="teal" />
+        <NavItem label="Pulse" icon="monitor_heart" href="/pulse" color="cyan" />
         <NavItem
           label="Log Viewer"
           icon="terminal"
@@ -301,17 +303,6 @@ export function SidebarContent({
           color="amber"
           badge={brokenCount ?? undefined}
         />
-        <NavItem label="Database" icon="table_chart" href="/database" color="violet" />
-
-        {/* Media section */}
-        <div className="my-2 mx-5 mt-3">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant/50">
-            Media
-          </span>
-        </div>
-        <NavItem label="NZB Viewer" icon="folder_open" href="/nzb" color="teal" />
-        <NavItem label="Debrid Viewer" icon="cloud" href="/debrid" color="teal" />
-
         {/* Settings section */}
         <div className="my-2 mx-5 mt-3">
           <span className="text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant/50">
@@ -328,6 +319,26 @@ export function SidebarContent({
         />
         <NavItem label="Admin" icon="admin_panel_settings" href="/admin" color="violet" />
         <NavItem label="Config" icon="settings" href="/admin/config" color="violet" />
+
+        {/* Archive section (collapsible, collapsed by default) */}
+        <details className="group">
+          <summary className="list-none cursor-pointer outline-none">
+            <div className="flex items-center gap-3 px-5 py-2 text-on-surface hover:bg-surface-container/60 transition-colors mx-2 rounded-[var(--radius-button)]">
+              <span className="material-symbols-outlined text-teal-500 text-xl">
+                perm_media
+              </span>
+              <span className="flex-1 text-sm font-semibold">Archive</span>
+              <span className="material-symbols-outlined text-on-surface-variant text-base transition-transform duration-200 expand-icon">
+                expand_more
+              </span>
+            </div>
+          </summary>
+          <div className="pl-1">
+            <NavItem label="NZB Viewer" icon="folder_open" href="/nzb" color="teal" />
+            <NavItem label="Debrid Viewer" icon="cloud" href="/debrid" color="teal" />
+            <NavItem label="Database" icon="table_chart" href="/database" color="violet" />
+          </div>
+        </details>
 
         {/* Scraper stays as the final navbar item. */}
         <div className="my-3 mx-5 h-px bg-outline-variant/30" />

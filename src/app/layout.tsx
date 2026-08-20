@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme/theme-provider";
+import { ToastProvider } from "@/components/toast-provider";
 import { BOOTSTRAP_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
@@ -61,7 +62,9 @@ export default function RootLayout({
         />
       </head>
       <body className="h-dvh w-full overflow-hidden bg-bg text-on-surface">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

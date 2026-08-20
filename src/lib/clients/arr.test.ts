@@ -171,6 +171,19 @@ describe("ArrClient", () => {
     expect(calls[0].url).toBe("http://192.168.1.111:8989/api/v3/series/2?deleteFiles=false");
   });
 
+  test("setSeriesMonitoring matches Sonarr's SeasonPass request", async () => {
+    const calls = installFetch(() => new Response("{}"));
+    const client = new ArrClient(sonarr);
+    await client.setSeriesMonitoring(74, "future");
+
+    expect(calls[0].url).toBe("http://192.168.1.111:8989/api/v3/seasonPass");
+    expect(calls[0].init.method).toBe("POST");
+    expect(JSON.parse(calls[0].init.body as string)).toEqual({
+      series: [{ id: 74 }],
+      monitoringOptions: { monitor: "future" },
+    });
+  });
+
   test("addSeries posts JSON body to /series", async () => {
     const calls = installFetch(() => new Response("{}"));
     const client = new ArrClient(sonarr);

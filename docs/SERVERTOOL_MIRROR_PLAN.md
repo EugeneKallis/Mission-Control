@@ -34,7 +34,7 @@ When a Part is finished, mark it ✅ here so any agent can see progress at a gla
 | Part 10 — Cron Scheduler | In-process cron scheduler service | ✅ Done |
 | Part 11 — Agent System | Remote agent execution (Phase 2) | 🗑️ Retired — removed; Proxmox + Pi agent replace it |
 | Part 12 — File Scanner Worker | File-tree scanner worker (systemd timer) | ✅ Done |
-| Part 13 — Scraper Workers | Webscraper workers (141jav, ProjectJAV, PornRips) | ✅ Done |
+| Part 13 — Scraper Workers | Webscraper workers (141jav, PornRips) | ✅ Done |
 | Part 14 — Database Viewer | Table browser with column filters | ✅ Done |
 | Part 15 — Config | Global config page (Real-Debrid key) | ✅ Done |
 | Part 16 — Server Status | Agent metrics table with live refresh | 🗑️ Retired — removed; Proxmox dashboard (`/pve`) replaces it |
@@ -487,8 +487,8 @@ links open.
 
 ## Part 8 — Scraper page
 
-**Route:** `/scraper?source={141jav|projectjav|pornrips}` · **Source:** `scraper.templ`,
-`scraper.go`, `projectjav.go`, `pornrips.go`. **Depends on:** Part 13 (scraper workers).
+**Route:** `/scraper?source={141jav|pornrips}` · **Source:** `scraper.templ`,
+`scraper.go`, `pornrips.go`. **Depends on:** Part 13 (scraper workers).
 
 ### Purpose
 Browse scraped media cards, filter by tags, hide/download items, trigger rescrapes.
@@ -502,7 +502,7 @@ Browse scraped media cards, filter by tags, hide/download items, trigger rescrap
   (deletes + rescrapes current source).
 - **Tag filters**: collapsible panel of tags with counts (only tags with ≥2 occurrences);
   checkboxes filter visible cards client-side; "Clear Filters" button.
-- **Source tabs**: 141JAV / ProjectJAV / PornRips (border underline accent color
+- **Source tabs**: 141JAV / PornRips (border underline accent color
   `#f43f5e`).
 - **Card grid** (scroll-snap, one card per viewport): image area (PornRips shows up to 2
   images side-by-side; others single image; placeholder icon when none), "DOWNLOADED"
@@ -651,7 +651,7 @@ files + rows.
 
 ## Part 13 — Scraper workers (the webscrapers)
 
-**Source:** `scraper.go` (141jav + orchestration), `projectjav.go`, `pornrips.go`,
+**Source:** `scraper.go` (141jav + orchestration), `pornrips.go`,
 `pkg/decypharr`. **Type:** run-once workers in
 `src/workers/scrapers/`, scheduled by systemd timer (original = every 3h).
 
@@ -672,13 +672,6 @@ files + rows.
 - Extract title, image, magnet, tags per item.
 - For each magnet: **insert the item directly** (no cache filter). `unique_key = magnet + "|"`.
 - Sanitize titles.
-
-### Source: ProjectJAV (`scrape-projectjav.ts`)
-- Fetch `https://projectjav.com/tag/big-tits-7/`, up to 3 pages.
-- Parse `.video-item`: title, image, date, page URL, tags, and per-item files
-  (magnet/fileSize/seeds/leechers).
-- **Insert the item with its largest file** (no cache check); skip VR tags and JAV filters
-  per original logic. `unique_key` per file.
 
 ### Source: PornRips (`scrape-pornrips.ts`)
 - Fetch `https://pornrips.to/category/1080p/`, 1 page.
@@ -925,7 +918,7 @@ original behavior (dry-run output identical where feasible).
   App Router pages + route handlers, but the JSON contracts stay the same.
 - **External services** (keep addresses configurable): Decypharr `192.168.1.99:8282`,
   Plex, Trakt, TVMaze,
-  141jav, ProjectJAV, PornRips, PixHost.
+  141jav, PornRips, PixHost.
 
 ---
 

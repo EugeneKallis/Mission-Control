@@ -43,8 +43,9 @@ describe("GET /api/config", () => {
     const { GET } = await loadRoute();
     const res = await GET();
     expect(status(res)).toBe(200);
-    const body = (await jsonBody(res)) as { real_debrid_api_key: string };
+    const body = (await jsonBody(res)) as { real_debrid_api_key: string; pulse_api_key: string };
     expect(body.real_debrid_api_key).toBe("");
+    expect(body.pulse_api_key).toBe("");
   });
 
   test("returns 200 with the stored config values", async () => {
@@ -247,6 +248,25 @@ describe("PUT /api/config", () => {
   });
 
   // ── Trimming ───────────────────────────────────────────────────────
+
+  test("saves and trims the Pulse API key", async () => {
+    const { PUT, GET } = await loadRoute();
+    const putRes = await PUT(
+      jsonRequest("/api/config", { pulse_api_key: "  pulse-secret  " }, "PUT"),
+    );
+    expect(status(putRes)).toBe(200);
+    const putBody = (await jsonBody(putRes)) as Record<string, string>;
+    expect(putBody.pulse_api_key).toBe("pulse-secret");
+
+    const getBody = (await jsonBody(await GET())) as Record<string, string>;
+    expect(getBody.pulse_api_key).toBe("pulse-secret");
+  });
+
+  test("rejects a Pulse API key with the wrong type", async () => {
+    const { PUT } = await loadRoute();
+    const res = await PUT(jsonRequest("/api/config", { pulse_api_key: 123 }, "PUT"));
+    expect(status(res)).toBe(400);
+  });
 
   test("trims whitespace from arr URL", async () => {
     const { PUT } = await loadRoute();

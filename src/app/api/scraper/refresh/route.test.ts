@@ -4,7 +4,7 @@
  * Clears non-downloaded rows and triggers a re-scrape:
  *   - { source } → delete rows for that source, then trigger that source
  *   - {} (no source) → delete all non-downloaded rows, then trigger
- *                       141jav + projectjav (NOT pornrips — matches Go)
+ *                       141jav only (PornRips is intentionally explicit)
  *
  * NOTE: `mock.module("@/workers/scraper-runner", ...)` is hoisted to the
  * top of the file. The DB mock for `@/lib/db` stays in `beforeAll`
@@ -90,7 +90,7 @@ describe("POST /api/scraper/refresh", () => {
 
   test("with { source } — deletes non-downloaded rows for that source and triggers that source", async () => {
     const a = await seed({ source: "141jav", title: "A" });
-    const b = await seed({ source: "projectjav", title: "B" });
+    const b = await seed({ source: "pornrips", title: "B" });
     const c = await seed({ source: "pornrips", title: "C" });
     const { POST } = await loadRoute();
     const res = await POST(jsonRequest("/api/scraper/refresh", {
@@ -118,14 +118,14 @@ describe("POST /api/scraper/refresh", () => {
 
   test("with { source } — keeps downloaded rows even for the same source", async () => {
     const downloaded = await seed({
-      source: "projectjav",
+      source: "pornrips",
       title: "downloaded",
       isDownloaded: true,
     });
-    const visible = await seed({ source: "projectjav", title: "visible" });
+    const visible = await seed({ source: "pornrips", title: "visible" });
     const { POST } = await loadRoute();
     const res = await POST(jsonRequest("/api/scraper/refresh", {
-      source: "projectjav",
+      source: "pornrips",
     }));
     expect(status(res)).toBe(200);
 
@@ -138,10 +138,10 @@ describe("POST /api/scraper/refresh", () => {
     ).toBeNull();
   });
 
-  test("with no source — deletes ALL non-downloaded rows and triggers 141jav + projectjav (not pornrips)", async () => {
+  test("with no source — deletes ALL non-downloaded rows and triggers 141jav only", async () => {
     const a = await seed({ source: "141jav", title: "A" });
-    const b = await seed({ source: "projectjav", title: "B" });
-    const c = await seed({ source: "pornrips", title: "C" });
+    const b = await seed({ source: "pornrips", title: "B" });
+    const c = await seed({ source: "141jav", title: "C" });
     const downloaded = await seed({
       source: "141jav",
       title: "downloaded",
@@ -168,17 +168,16 @@ describe("POST /api/scraper/refresh", () => {
       await testDB.db.scrapeResult.findUnique({ where: { id: downloaded.id } }),
     ).not.toBeNull();
 
-    // Runner was triggered for 141jav + projectjav ONLY (not pornrips).
-    expect(triggerSourceInBackgroundMock).toHaveBeenCalledTimes(2);
+    // Runner was triggered for 141jav only; PornRips requires an explicit source.
+    expect(triggerSourceInBackgroundMock).toHaveBeenCalledTimes(1);
     const calledSources = triggerSourceInBackgroundMock.mock.calls.map(
       (c) => c[0],
     );
     expect(calledSources).toContain("141jav");
-    expect(calledSources).toContain("projectjav");
     expect(calledSources).not.toContain("pornrips");
   });
 
-  test("empty body / malformed JSON is treated as no-source (delete all, trigger two)", async () => {
+  test("empty body / malformed JSON is treated as no-source (delete all, trigger one)", async () => {
     await seed({ source: "141jav", title: "A" });
     const { POST } = await loadRoute();
     const req = new Request("http://localhost/api/scraper/refresh", {
@@ -188,7 +187,7 @@ describe("POST /api/scraper/refresh", () => {
     });
     const res = await POST(req as never);
     expect(status(res)).toBe(200);
-    expect(triggerSourceInBackgroundMock).toHaveBeenCalledTimes(2);
+    expect(triggerSourceInBackgroundMock).toHaveBeenCalledTimes(1);
   });
 
   test("returns 500 when the underlying delete throws", async () => {

@@ -44,12 +44,13 @@ describe("NavItem", () => {
     expect(link?.getAttribute("href")).toBe("/schedules");
   });
 
-  test("applies the active background class when pathname matches href", () => {
-    mockUsePathname.mockReturnValue("/history");
-    const { container } = render(<NavItem label="History" icon="history" href="/history" />);
+  test("marks a matching navigation item as the current page", () => {
+    mockUsePathname.mockReturnValue("/pulse");
+    const { container } = render(<NavItem label="Pulse" icon="monitor_heart" href="/pulse" />);
     const link = container.querySelector("a");
     expect(link?.className).toContain("bg-surface-container");
     expect(link?.className).toContain("text-on-surface");
+    expect(link?.getAttribute("aria-current")).toBe("page");
   });
 
   test("applies the inactive classes when pathname does not match href", () => {
