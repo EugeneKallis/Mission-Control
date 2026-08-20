@@ -363,7 +363,13 @@ export function PulsePage() {
       groups.set(type, group);
       return groups;
     }, new Map<string, PulseResource[]>()).entries(),
-  ).sort(([a], [b]) => {
+  ).map(([type, resources]) => [
+    type,
+    [...resources].sort((a, b) => {
+      const byName = resourceName(a, 0).localeCompare(resourceName(b, 0), undefined, { numeric: true, sensitivity: "base" });
+      return byName || resourceId(a).localeCompare(resourceId(b), undefined, { numeric: true, sensitivity: "base" });
+    }),
+  ] as [string, PulseResource[]]).sort(([a], [b]) => {
     const aPriority = PRIORITY_RESOURCE_GROUPS.indexOf(a as typeof PRIORITY_RESOURCE_GROUPS[number]);
     const bPriority = PRIORITY_RESOURCE_GROUPS.indexOf(b as typeof PRIORITY_RESOURCE_GROUPS[number]);
     if (aPriority !== -1 || bPriority !== -1) {

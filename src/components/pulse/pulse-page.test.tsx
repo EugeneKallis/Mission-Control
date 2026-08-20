@@ -157,6 +157,36 @@ describe("PulsePage", () => {
     expect(screen.queryByRole("row", { name: /disk-array/ })).not.toBeInTheDocument();
   });
 
+  test("sorts resources independently within each group", async () => {
+    mockStatus({
+      health: { status: "healthy" },
+      resources: [
+        { name: "vm-10", type: "qemu", status: "running" },
+        { name: "vm-2", type: "qemu", status: "running" },
+        { name: "host-2", type: "agent", status: "online" },
+        { name: "host-1", type: "agent", status: "online" },
+      ],
+      resourceCount: 4,
+      authenticated: true,
+      errors: [],
+    });
+
+    render(<PulsePage />);
+    await waitFor(() => expect(screen.getByText("Monitored resources")).toBeInTheDocument());
+
+    const hostRows = [
+      screen.getByRole("row", { name: /host-1/ }),
+      screen.getByRole("row", { name: /host-2/ }),
+    ];
+    const vmRows = [
+      screen.getByRole("row", { name: /vm-2/ }),
+      screen.getByRole("row", { name: /vm-10/ }),
+    ];
+
+    expect(hostRows[0].compareDocumentPosition(hostRows[1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(vmRows[0].compareDocumentPosition(vmRows[1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   test("keeps multi-core CPU fractions high and preserves explicit percent values", async () => {
     mockStatus({
       health: { status: "healthy" },
