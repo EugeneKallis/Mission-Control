@@ -310,6 +310,8 @@ This tells the next agent exactly where to pick up.
 | Phase 13 — Pi Agent Integration | Pi-powered chat (Phases 1–9): process manager, SSE/command endpoints, skills/tools settings, streaming UI, tool call rendering, model controls, session persistence, legacy cleanup | ✅ Done |
 | Phase 14 — Scheduled Agent Tasks | Cron-scheduled Pi agent tasks: headless print+JSON mode, per-task tools/skills, scheduler, API, UI, Log tab integration | ✅ Done |
 | Phase 15 — Proxmox VE Monitoring | Proxmox cluster dashboard: multi-endpoint config, live CPU/RAM/disk/guest snapshot, expandable node→VM/LXC/Storage drill-down | ✅ Done |
+| Phase 16 — Docker Logs | Configurable multi-Dozzle container/log viewer with client-side instance grouping and MC SSE/JSONL pass-through routes | ✅ Done |
+| Phase 17 — Energy-price history graph | 24 (time-series chart of supplier rates at bottom of `/energy-prices` with 7/30/60/120/365-day toggle and target-rate reference line; reuses the existing `energy_prices` rows instead of a parallel table) | ✅ Done |
 
 **Convention:** After completing a phase, update:
 1. This table (set Status to ✅ Done, add next phase as ⏳ In progress)
@@ -1195,6 +1197,35 @@ to ID ascending and storage defaults to name ascending.
   so the frontend never needs to send the full token back.
 - `verifyTls: false` disables TLS verification for Proxmox's default
   self-signed certificate (common in homelab setups).
+
+## Docker Logs — multi-instance Dozzle viewer
+
+Docker Logs combines independent Dozzle instances without Dozzle agent federation. Endpoint
+URLs are stored in the `dozzle_endpoints` table and managed at `/docker-logs`; MC pass-through
+routes are required because Dozzle does not emit CORS headers. The browser merges each
+endpoint's `/api/events/stream`, fetches JSONL backfill from `/logs?min=...`, and keeps the
+live `/logs/stream` SSE open. The page is LAN-oriented and has no sidebar badge or container
+actions.
+
+### Files
+
+```
+prisma/migrations/20260817120000_add_dozzle_endpoints/migration.sql
+src/lib/docker-logs.ts                         # Upstream types, URL/query builders, log decoding
+src/app/docker-logs/page.tsx                   # /docker-logs shell
+src/app/api/docker-logs/endpoints/             # Endpoint CRUD + Dozzle SSE/JSONL pass-through
+src/components/docker-logs/                     # Page, settings modal, native log viewer
+```
+
+### API surface
+
+| Method | Path | Purpose |
+| ------ | ---- | ------- |
+| GET/POST | `/api/docker-logs/endpoints` | List/create Dozzle endpoints |
+| GET/PUT/DELETE | `/api/docker-logs/endpoints/[id]` | Read/update/delete one endpoint |
+| GET | `/api/docker-logs/endpoints/[id]/events/stream` | Pipe Dozzle container events/stats SSE |
+| GET | `/api/docker-logs/endpoints/[id]/containers/[containerId]/logs` | Pipe bounded JSONL backfill |
+| GET | `/api/docker-logs/endpoints/[id]/containers/[containerId]/logs/stream` | Pipe live log SSE |
 
 ## Local Arrs — local library browser
 

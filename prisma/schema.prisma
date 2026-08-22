@@ -216,6 +216,7 @@ model EnergyPrice {
 
   @@index([isActive])
   @@index([fetchedAt])
+  @@index([supplier, fetchedAt])
   @@map("energy_prices")
 }
 
@@ -232,6 +233,18 @@ model ProxmoxEndpoint {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("proxmox_endpoints")
+}
+
+model DozzleEndpoint {
+  id        Int      @id @default(autoincrement())
+  name      String
+  apiUrl    String   @map("api_url")
+  enabled   Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("dozzle_endpoints")
 }
 
 model Config {

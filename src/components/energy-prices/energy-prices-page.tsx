@@ -1,6 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import {
+  PriceHistoryChart,
+  type DaysOption,
+  PRICE_HISTORY_STORAGE_KEY,
+} from "./price-history-chart";
+
+const VALID_DAYS: DaysOption[] = [7, 30, 60, 120, 365];
+
+function readStoredDays(): DaysOption {
+  if (typeof window === "undefined") return 30;
+  try {
+    const raw = window.localStorage.getItem(PRICE_HISTORY_STORAGE_KEY);
+    const n = raw ? parseInt(raw, 10) : NaN;
+    return VALID_DAYS.includes(n as DaysOption) ? (n as DaysOption) : 30;
+  } catch {
+    return 30;
+  }
+}
 
 interface SupplierOffer {
   id: number;
@@ -32,6 +50,21 @@ export function EnergyPricesPage() {
   const [targetRate, setTargetRate] = useState<number | null>(null);
   const [editingTarget, setEditingTarget] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [historyDays, setHistoryDays] = useState<DaysOption>(30);
+
+  // Load persisted chart range after mount (avoid SSR mismatch).
+  useEffect(() => {
+    setHistoryDays(readStoredDays());
+  }, []);
+
+  const handleChangeDays = useCallback((d: DaysOption) => {
+    setHistoryDays(d);
+    try {
+      window.localStorage.setItem(PRICE_HISTORY_STORAGE_KEY, String(d));
+    } catch {
+      // localStorage may be blocked (e.g. privacy mode); ignore
+    }
+  }, []);
 
   const fetchPrices = useCallback(async () => {
     try {
@@ -329,6 +362,13 @@ export function EnergyPricesPage() {
         Supplier rates and terms are subject to change. Always verify with the
         supplier before enrolling.
       </div>
+
+      {/* ── Rate History Graph (bottom of page) ─────────────── */}
+      <PriceHistoryChart
+        days={historyDays}
+        targetRate={targetRate}
+        onChangeDays={handleChangeDays}
+      />
     </div>
   );
 }
