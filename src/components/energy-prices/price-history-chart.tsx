@@ -24,29 +24,22 @@ export type DaysOption = (typeof DAYS_OPTIONS)[number];
 
 export const PRICE_HISTORY_STORAGE_KEY = "mission-control:energy-prices:history-days:v1";
 
-// ── Palette (12 colors, cycle if >12 suppliers) ─────────────────────────────
-// Pick from the existing theme palette so lines stay legible in any theme.
-const PALETTE = [
-  "#22d3ee", // cyan
-  "#fbbf24", // amber
-  "#a78bfa", // violet
-  "#34d399", // emerald
-  "#fb7185", // rose
-  "#60a5fa", // blue
-  "#f97316", // orange
-  "#e879f9", // fuchsia
-  "#a3e635", // lime
-  "#f43f5e", // crimson
-  "#14b8a6", // teal
-  "#c084fc", // purple
-];
-
-function colorFor(name: string, index: number): string {
-  // Stable color per supplier name (so toggling it off and on keeps the
-  // same color). Falls back to palette cycling for >12 suppliers.
-  let h = 0;
-  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) | 0;
-  return PALETTE[Math.abs(h) % PALETTE.length];
+// ── Unique colors via golden-ratio hue spacing ─────────────────────────────
+//
+// Assigns one hue per supplier index using the golden ratio
+// conjugate (137.508°). Adjacent indexes never land close together on
+// the colour wheel, so two suppliers never get the same colour no
+// matter how many there are. Saturation/lightness are kept in a
+// "themed" band that stays legible on the dark UI surface.
+//
+// The hue is derived from the supplier's position in the API's
+// alphabetical sort, not from a hash of the name, so the same
+// supplier always gets the same colour across renders and the
+// colours remain distinct regardless of how many suppliers we get.
+function colorForIndex(index: number): string {
+  const GOLDEN = 137.508;
+  const hue = (index * GOLDEN) % 360;
+  return `hsl(${hue.toFixed(2)}, 70%, 60%)`;
 }
 
 interface ChartProps {
@@ -282,6 +275,23 @@ function ChartCanvas({
   const recentVisible = visible.filter((s) => recentSupplierNames.has(s.name));
   const olderVisible = visible.filter((s) => !recentSupplierNames.has(s.name));
 
+  // Stable supplier → colour assignment, derived from the API's
+  // alphabetical ordering. Recomputed only when the supplier list
+  // changes, so toggling a single supplier's visibility never
+  // re-shuffles anyone else's colour.
+  const supplierColors = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const [i, s] of data.suppliers.entries()) {
+      m.set(s.name, colorForIndex(i));
+    }
+    return m;
+  }, [data.suppliers]);
+
+  const colorFor = useCallback(
+    (name: string) => supplierColors.get(name) ?? "#888",
+    [supplierColors],
+  );
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px] gap-4">
       <div className="relative">
@@ -345,7 +355,7 @@ function ChartCanvas({
           strokeOpacity={0.15}
         />
 
-        {/* Target-rate reference line */}
+        {/* Current-rate reference line (dotted; aim below it for savings) */}
         {targetRate !== null && targetRate >= yMin && targetRate <= yMax && (
           <g>
             <line
@@ -353,33 +363,34 @@ function ChartCanvas({
               x2={W - padding.right}
               y1={yScale(targetRate)}
               y2={yScale(targetRate)}
-              stroke="#fbbf24"
-              strokeWidth={1.5}
-              strokeDasharray="6 4"
+              stroke="#facc15"
+              strokeWidth={2}
+              strokeDasharray="2 5"
+              strokeLinecap="round"
               data-testid="target-line"
             />
             <text
               x={W - padding.right - 4}
               y={yScale(targetRate) - 6}
               textAnchor="end"
-              className="fill-current text-[10px]"
-              fill="#fbbf24"
+              className="fill-current text-[10px] font-semibold"
+              fill="#facc15"
             >
-              Target {targetRate.toFixed(2)}¢
+              Your current {targetRate.toFixed(2)}¢ — aim below
             </text>
           </g>
         )}
 
         {/* Series — older suppliers drawn under recent for legibility */}
-        {[...olderVisible, ...recentVisible].map((s, seriesIdx) => {
-          const color = colorFor(s.name, seriesIdx);
+        {[...olderVisible, ...recentVisible].map((s) => {
+          const color = colorFor(s.name);
           const path = buildPath(s.points, xScale, yScale);
           return (
             <g key={s.name}>
               <polyline
                 fill="none"
                 stroke={color}
-                strokeWidth={1.6}
+                strokeWidth={2.2}
                 strokeLinejoin="round"
                 strokeLinecap="round"
                 points={path}
@@ -389,7 +400,7 @@ function ChartCanvas({
                   key={i}
                   cx={xScale(new Date(p.t).getTime())}
                   cy={yScale(p.rate)}
-                  r={2}
+                  r={1.6}
                   fill={color}
                 />
               ))}
@@ -411,10 +422,10 @@ function ChartCanvas({
             <circle
               cx={xScale(new Date(hover.t).getTime())}
               cy={yScale(hover.rate)}
-              r={3.5}
-              fill={colorFor(hover.supplier, 0)}
+              r={4}
+              fill={colorFor(hover.supplier)}
               stroke="white"
-              strokeWidth={1}
+              strokeWidth={1.5}
             />
           </g>
         )}
@@ -445,6 +456,7 @@ function ChartCanvas({
         hidden={hiddenSuppliers}
         onToggle={onToggleSupplier}
         recentSupplierNames={recentSupplierNames}
+        colors={supplierColors}
       />
     </div>
   );
@@ -456,11 +468,13 @@ function Legend({
   hidden,
   onToggle,
   recentSupplierNames,
+  colors,
 }: {
   suppliers: PriceHistorySupplier[];
   hidden: Set<string>;
   onToggle: (name: string) => void;
   recentSupplierNames: Set<string>;
+  colors: Map<string, string>;
 }) {
   const [showAll, setShowAll] = useState(false);
   const recent = suppliers.filter((s) => recentSupplierNames.has(s.name));
@@ -474,8 +488,8 @@ function Legend({
         {visible.length === 0 ? (
           <div className="text-on-surface-variant italic">No suppliers visible</div>
         ) : (
-          visible.map((s, i) => {
-            const color = colorFor(s.name, i);
+          visible.map((s) => {
+            const color = colors.get(s.name) ?? "#888";
             const isHidden = hidden.has(s.name);
             return (
               <button

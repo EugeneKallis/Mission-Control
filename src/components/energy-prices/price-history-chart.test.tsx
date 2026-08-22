@@ -172,6 +172,94 @@ describe("<PriceHistoryChart />", () => {
     expect(await screen.findByText(/HTTP 500/)).toBeInTheDocument();
   });
 
+  test("assigns a distinct colour to every supplier even with 20+ lines", async () => {
+    const t = (offsetMs: number) => new Date(Date.now() - offsetMs).toISOString();
+    // 22 suppliers — well past the old 12-colour palette limit.
+    const names = [
+      "Acme Energy", "Beta Power", "Coastal Electric", "Delta Energy",
+      "Evergreen Power", "First Light", "Green Volt", "Harbor Electric",
+      "Iron Mountain Energy", "Juniper Power", "Keystone Energy", "Liberty Power",
+      "Maple Electric", "Northstar Energy", "Ocean Power", "Pine State Energy",
+      "Quincy Power", "River Light", "Summit Electric", "Town Square Energy",
+      "Union Energy", "Valley Power",
+    ];
+    const suppliers = names.map((name) => ({
+      name,
+      points: [
+        { t: t(20 * 86400000), rate: 10 + (name.charCodeAt(0) % 5) },
+        { t: t(2 * 86400000), rate: 10 + (name.charCodeAt(0) % 5) + 0.5 },
+      ],
+    }));
+    globalThis.fetch = makeFetch(
+      new Map([
+        [/energy-prices\/history/, {
+          days: 30, targetRate: null,
+          sinceIso: new Date(Date.now() - 30 * 86400000).toISOString(),
+          suppliers,
+        }],
+      ]),
+    );
+    const { container } = render(
+      <PriceHistoryChart days={30} targetRate={null} onChangeDays={() => {}} />,
+    );
+    await waitFor(() => {
+      expect(container.querySelectorAll("svg polyline").length).toBe(22);
+    });
+    const colors = new Set<string>();
+    container.querySelectorAll("svg polyline").forEach((pl) => {
+      const stroke = pl.getAttribute("stroke");
+      if (stroke) colors.add(stroke);
+    });
+    expect(colors.size).toBe(22);
+  });
+
+  test("labels the dotted reference line 'Your current ... — aim below'", async () => {
+    const t = (offsetMs: number) => new Date(Date.now() - offsetMs).toISOString();
+    globalThis.fetch = makeFetch(
+      new Map([
+        [/energy-prices\/history/, {
+          days: 30,
+          targetRate: 10.5,
+          sinceIso: new Date(Date.now() - 30 * 86400000).toISOString(),
+          suppliers: [
+            { name: "Acme", points: [{ t: t(10 * 86400000), rate: 9.0 }, { t: t(2 * 86400000), rate: 11.0 }] },
+          ],
+        }],
+      ]),
+    );
+    render(<PriceHistoryChart days={30} targetRate={10.5} onChangeDays={() => {}} />);
+    await screen.findByTestId("target-line");
+    expect(await screen.findByText(/Your current/)).toBeInTheDocument();
+    expect(await screen.findByText(/aim below/)).toBeInTheDocument();
+  });
+
+  test("the reference line uses a dotted dash pattern, not a long-dash", async () => {
+    const t = (offsetMs: number) => new Date(Date.now() - offsetMs).toISOString();
+    globalThis.fetch = makeFetch(
+      new Map([
+        [/energy-prices\/history/, {
+          days: 30,
+          targetRate: 10.5,
+          sinceIso: new Date(Date.now() - 30 * 86400000).toISOString(),
+          suppliers: [
+            { name: "Acme", points: [{ t: t(2 * 86400000), rate: 10.5 }] },
+          ],
+        }],
+      ]),
+    );
+    const { container } = render(
+      <PriceHistoryChart days={30} targetRate={10.5} onChangeDays={() => {}} />,
+    );
+    await screen.findByTestId("target-line");
+    const line = container.querySelector('[data-testid="target-line"]');
+    const dash = line?.getAttribute("stroke-dasharray") ?? "";
+    // dotted pattern: short on-segment, longer gap. e.g. "2 5"
+    // not the old "6 4" long-dash pattern.
+    expect(dash).not.toBe("6 4");
+    const [on, off] = dash.split(/\s+/).map(Number);
+    expect(off).toBeGreaterThan(on); // off-gap > on-segment = looks dotted
+  });
+
   test("re-fetches when the `days` prop changes", async () => {
     const t = (offsetMs: number) => new Date(Date.now() - offsetMs).toISOString();
     const fetchMock = mock(async () => {
