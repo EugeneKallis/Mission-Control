@@ -390,7 +390,7 @@ function ChartCanvas({
               <polyline
                 fill="none"
                 stroke={color}
-                strokeWidth={2.2}
+                strokeWidth={3}
                 strokeLinejoin="round"
                 strokeLinecap="round"
                 points={path}
@@ -400,8 +400,10 @@ function ChartCanvas({
                   key={i}
                   cx={xScale(new Date(p.t).getTime())}
                   cy={yScale(p.rate)}
-                  r={1.6}
+                  r={2}
                   fill={color}
+                  stroke="rgba(0,0,0,0.25)"
+                  strokeWidth={0.5}
                 />
               ))}
             </g>
@@ -422,7 +424,7 @@ function ChartCanvas({
             <circle
               cx={xScale(new Date(hover.t).getTime())}
               cy={yScale(hover.rate)}
-              r={4}
+              r={4.5}
               fill={colorFor(hover.supplier)}
               stroke="white"
               strokeWidth={1.5}

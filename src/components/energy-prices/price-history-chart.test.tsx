@@ -79,6 +79,56 @@ describe("<PriceHistoryChart />", () => {
     expect(circles.length).toBe(3);
   });
 
+  test("each supplier polyline is at least 3px stroke and connects its dots", async () => {
+    const t = (offsetMs: number) => new Date(Date.now() - offsetMs).toISOString();
+    globalThis.fetch = makeFetch(
+      new Map([
+        [/energy-prices\/history/, {
+          days: 30,
+          targetRate: null,
+          sinceIso: new Date(Date.now() - 30 * 86400000).toISOString(),
+          suppliers: [
+            { name: "Acme", points: [{ t: t(20 * 86400000), rate: 10.0 }, { t: t(10 * 86400000), rate: 10.5 }, { t: t(2 * 86400000), rate: 11.0 }] },
+            { name: "Beta", points: [{ t: t(15 * 86400000), rate: 12.0 }, { t: t(5 * 86400000), rate: 12.5 }] },
+          ],
+        }],
+      ]),
+    );
+    const { container } = render(
+      <PriceHistoryChart days={30} targetRate={null} onChangeDays={() => {}} />,
+    );
+    await waitFor(() => expect(container.querySelectorAll("svg polyline").length).toBe(2));
+
+    // Every series polyline must have a thick stroke (lines need to be
+    // visually dominant over the dots).
+    const polylines = Array.from(container.querySelectorAll("svg polyline"));
+    for (const pl of polylines) {
+      const sw = parseFloat(pl.getAttribute("stroke-width") ?? "0");
+      expect(sw).toBeGreaterThanOrEqual(3);
+    }
+
+    // Points attribute must contain at least one M and one L, otherwise
+    // the polyline collapses to a single point and looks like an
+    // isolated dot instead of a line.
+    for (const pl of polylines) {
+      const pts = pl.getAttribute("points") ?? "";
+      expect(pts).toMatch(/\bM/);
+      expect(pts).toMatch(/\bL/); // at least one line segment after the move
+    }
+
+    // Dots should be no larger than the line is thick, in ratio, so the
+    // line reads as the primary visual.
+    for (const circle of container.querySelectorAll("svg circle")) {
+      // circles for series data have fill == the supplier's hsl color
+      // (excludes the reference hover dot which has stroke="white")
+      const isSeriesDot = !circle.getAttribute("stroke")?.includes("white");
+      if (!isSeriesDot) continue;
+      const r = parseFloat(circle.getAttribute("r") ?? "0");
+      // ratio: dot diameter / line stroke should be < 1.5
+      expect(r * 2).toBeLessThan(4.5);
+    }
+  });
+
   test("renders the target-rate reference line when targetRate is set", async () => {
     const t = (offsetMs: number) => new Date(Date.now() - offsetMs).toISOString();
     // Keep target inside the y-range. Chart pads ±10% so rates 9-11
