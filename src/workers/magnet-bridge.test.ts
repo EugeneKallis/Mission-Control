@@ -19,6 +19,7 @@ import {
   getDirSize,
   cleanupSmallSymlinks,
   moveToLibrary,
+  pollOnce,
 } from "./magnet-bridge";
 
 let root: string;
@@ -35,6 +36,37 @@ async function write(path: string, bytes: number): Promise<void> {
   await mkdir(join(path, ".."), { recursive: true });
   await writeFile(path, Buffer.alloc(bytes, 0));
 }
+
+describe("pollOnce", () => {
+  test("does not inspect or delete torrents during an upstream incident", async () => {
+    let listed = false;
+    let deleted = false;
+    const client = {
+      listTorrents: async () => { listed = true; return { torrents: [] }; },
+      deleteTorrent: async () => { deleted = true; },
+    };
+
+    await pollOnce(
+      client as never,
+      "special",
+      join(root, "dest"),
+      async () => ({
+        allowed: false,
+        incident: {
+          status: "open",
+          startedAt: new Date().toISOString(),
+          resolvedAt: null,
+          lastCheckedAt: new Date().toISOString(),
+          consecutiveSuccesses: 0,
+          failures: [{ id: "rclone", name: "rclone", detail: "Mount unavailable" }],
+        },
+      }),
+    );
+
+    expect(listed).toBe(false);
+    expect(deleted).toBe(false);
+  });
+});
 
 describe("resolvePath", () => {
   test("returns the verbatim path when it exists", async () => {

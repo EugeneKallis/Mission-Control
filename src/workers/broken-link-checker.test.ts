@@ -21,6 +21,7 @@ import { makeTestDB, type TestDB } from "@/lib/db/test-helpers";
 let testDB: TestDB;
 let probeFileReadableMock: ReturnType<typeof mock>;
 let discoverFilesMock: ReturnType<typeof mock>;
+let dependencyGuardMock: ReturnType<typeof mock>;
 
 // ── Mock @/lib/broken-link so the test doesn't spawn ffprobe or walk the
 //    real filesystem. We keep the rest of the module shape so future
@@ -38,6 +39,9 @@ const brokenLinkMockState = {
 };
 
 mock.module("@/lib/broken-link", () => brokenLinkMockState);
+mock.module("@/lib/media-dependency-breaker", () => ({
+  checkMediaDependencies: (...args: unknown[]) => dependencyGuardMock(...args),
+}));
 
 beforeAll(async () => {
   testDB = await makeTestDB();
@@ -63,6 +67,7 @@ beforeEach(async () => {
   }));
   // Default discover: no files (tests can override).
   discoverFilesMock = mock(async () => []);
+  dependencyGuardMock = mock(async () => ({ allowed: true, incident: null }));
 });
 
 async function loadWorker() {
@@ -93,6 +98,25 @@ async function seedRow(p: { filePath: string; status?: string; lastChecked?: Dat
 }
 
 describe("pollOnce", () => {
+  test("upstream incident leaves individual failure counts untouched", async () => {
+    await seedRow({ filePath: "/m/a.mkv" });
+    dependencyGuardMock = mock(async () => ({
+      allowed: false,
+      incident: {
+        failures: [{ id: "nfs", name: "NFS media", detail: "Mount unavailable" }],
+      },
+    }));
+
+    const { pollOnce } = await loadWorker();
+    const result = await pollOnce(defaultOpts);
+
+    expect(result.checked).toBe(0);
+    expect(probeFileReadableMock.mock.calls).toHaveLength(0);
+    const row = await testDB.db.fileCheck.findFirstOrThrow();
+    expect(row.status).toBe("pending");
+    expect(row.brokenCount).toBe(0);
+  });
+
   test("discovery: upserts each seed", async () => {
     discoverFilesMock = mock(async () => [
       { filePath: "/mnt/debrid/media/movies/a.mkv", mediaDir: "movies", symlinkTarget: "x", fileSize: 100 },

@@ -30,6 +30,7 @@
  */
 
 import { discoverFiles, probeFileReadable } from "@/lib/broken-link";
+import { checkMediaDependencies } from "@/lib/media-dependency-breaker";
 import {
   getBlFinderConfig,
   getBlFinderStatus,
@@ -180,6 +181,14 @@ export async function pollOnce(opts: PollOnceOptions): Promise<BlFinderPassResul
   // (not from opts) so the UI toggle takes effect within one tick interval.
   const liveConfig = await getBlFinderConfig().catch(() => null);
   if (liveConfig && !liveConfig.enabled && !opts.forceDiscover) {
+    return result;
+  }
+
+  const dependencyGuard = await checkMediaDependencies();
+  if (!dependencyGuard.allowed) {
+    result.error = `Paused for upstream incident: ${dependencyGuard.incident?.failures.map((failure) => failure.name).join(", ") || "recovering"}`;
+    await setBlFinderStatus({ running: false, error: result.error }).catch(() => {});
+    warn(result.error);
     return result;
   }
 
