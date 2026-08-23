@@ -151,10 +151,10 @@ export function PiSettingsPage() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 max-w-4xl mx-auto">
-      <div className="flex items-center gap-3 mb-6">
+    <div className="flex-1 w-full min-w-0 overflow-y-auto p-4 md:p-6 max-w-4xl mx-auto">
+      <div className="flex items-start gap-3 mb-6 min-w-0">
         <span className="material-symbols-outlined text-2xl text-primary">settings</span>
-        <div>
+        <div className="min-w-0">
           <h1 className="text-xl font-display font-semibold text-on-surface">Pi Settings</h1>
           <p className="text-sm text-on-surface-variant/70 mt-0.5">
             Control which tools and skills are available to Pi sessions.
@@ -175,21 +175,21 @@ export function PiSettingsPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4 min-w-0">
           <input
             type="text"
             placeholder="Search tools…"
             value={toolSearch}
             onChange={(e) => setToolSearch(e.target.value)}
-            className="flex-1 bg-surface-container-high text-sm text-on-surface px-3 py-2 outline-none border border-outline-variant/30 focus:border-primary/50 max-w-sm"
+            className="w-full min-w-0 sm:flex-1 bg-surface-container-high text-sm text-on-surface px-3 py-2 outline-none border border-outline-variant/30 focus:border-primary/50 sm:max-w-sm"
             aria-label="Search tools"
           />
-          <div className="flex gap-1">
+          <div className="flex w-full sm:w-auto gap-1">
             {(["all", "enabled", "disabled"] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setToolFilter(f)}
-                className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-medium transition-colors ${
                   toolFilter === f
                     ? "bg-primary/20 text-primary"
                     : "text-on-surface-variant hover:text-on-surface bg-surface-container-high"
@@ -220,7 +220,7 @@ export function PiSettingsPage() {
                   label={`Toggle ${tool.label}`}
                 />
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-medium text-on-surface">{tool.label}</span>
                     {tool.dangerous && (
                       <span className="text-[10px] px-1.5 py-0.5 bg-warning/15 text-warning font-medium">
@@ -251,21 +251,21 @@ export function PiSettingsPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4 min-w-0">
           <input
             type="text"
             placeholder="Search skills…"
             value={skillSearch}
             onChange={(e) => setSkillSearch(e.target.value)}
-            className="flex-1 bg-surface-container-high text-sm text-on-surface px-3 py-2 outline-none border border-outline-variant/30 focus:border-primary/50 max-w-sm"
+            className="w-full min-w-0 sm:flex-1 bg-surface-container-high text-sm text-on-surface px-3 py-2 outline-none border border-outline-variant/30 focus:border-primary/50 sm:max-w-sm"
             aria-label="Search skills"
           />
-          <div className="flex gap-1">
+          <div className="flex w-full sm:w-auto gap-1">
             {(["all", "enabled", "disabled"] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setSkillFilter(f)}
-                className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-medium transition-colors ${
                   skillFilter === f
                     ? "bg-primary/20 text-primary"
                     : "text-on-surface-variant hover:text-on-surface bg-surface-container-high"
@@ -296,7 +296,7 @@ export function PiSettingsPage() {
                   label={`Toggle ${skill.name}`}
                 />
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-medium text-on-surface">{skill.name}</span>
                     {skill.source !== "user" && (
                       <span className="text-[10px] px-1.5 py-0.5 bg-surface-container-high text-on-surface-variant/60">

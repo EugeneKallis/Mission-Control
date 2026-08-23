@@ -111,7 +111,7 @@ export function BlFinderConfigBar({
         dirs={draft.mediaDirs}
         onChange={(v) => update("mediaDirs", v)}
       />
-      <div className="flex items-center gap-2 ml-auto">
+      <div className="flex w-full sm:w-auto items-center justify-between sm:justify-start gap-2 sm:ml-auto">
         {/* Enable/disable toggle */}
         <label
           className="flex items-center gap-2 cursor-pointer select-none shrink-0"
@@ -194,7 +194,7 @@ function MediaDirsField({
   };
 
   return (
-    <label className="flex flex-col gap-0.5 min-w-[260px]">
+    <label className="flex w-full min-w-0 sm:w-auto sm:min-w-[260px] flex-col gap-0.5">
       <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: "var(--color-on-surface-variant)" }}>
         Media Dirs
       </span>

@@ -94,7 +94,7 @@ export function AppShell({ children, noScroll = false, showRightRail = false, ri
             aria-modal={drawerOpen ? "true" : undefined}
             aria-label="Navigation menu"
           >
-            <SidebarContent uptime={uptime} />
+            <SidebarContent uptime={uptime} onClose={() => setDrawerOpen(false)} />
           </div>
         </>
 

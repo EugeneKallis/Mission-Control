@@ -115,6 +115,19 @@ describe("AppShell — mobile drawer", () => {
     expect(container.querySelector(".backdrop-blur-sm")).not.toBeNull();
   });
 
+  test("the drawer has a touch-sized close button that closes it", () => {
+    const { container } = render(
+      <AppShell>
+        <div>child</div>
+      </AppShell>,
+    );
+    fireEvent.click(within(container).getByLabelText("Open menu"));
+    const closeButton = within(container).getByLabelText("Close menu");
+    expect(closeButton.className).toContain("size-11");
+    fireEvent.click(closeButton);
+    expect(container.querySelector(".backdrop-blur-sm")).toBeNull();
+  });
+
   test("clicking the backdrop closes the drawer", () => {
     const { container } = render(
       <AppShell>

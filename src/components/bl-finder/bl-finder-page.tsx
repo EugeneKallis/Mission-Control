@@ -365,7 +365,7 @@ export function BlFinderPage() {
 
   return (
     <div
-      className="max-w-[1400px] mx-auto relative flex flex-col h-full overflow-y-auto"
+      className="w-full min-w-0 max-w-[1400px] mx-auto relative flex flex-col h-full overflow-y-auto overflow-x-hidden"
     >
       {/* ── Header ──────────────────────────────────────────────── */}
       <div className="pt-5 pb-2 flex-shrink-0">
@@ -415,9 +415,10 @@ export function BlFinderPage() {
             </span>
 
             {/* Media root */}
-            <span className="inline-flex items-center gap-1 whitespace-nowrap">
-              <span className="material-symbols-outlined text-[12px]">folder</span>
+            <span className="inline-flex items-center gap-1 min-w-0 max-w-full">
+              <span className="material-symbols-outlined text-[12px] shrink-0">folder</span>
               <span
+                className="truncate"
                 title={effectiveMediaDirs.map((d) => `${envInfo.mediaBasePath}${d}`).join("\n")}
               >
                 Scanning: {effectiveMediaDirs.map((d) => envInfo.mediaBasePath + d).join(", ")}
@@ -434,7 +435,7 @@ export function BlFinderPage() {
             </span>
 
             {/* DB totals */}
-            <span className="inline-flex items-center gap-1 whitespace-nowrap">
+            <span className="flex flex-wrap items-center gap-x-1 gap-y-0.5 min-w-0">
               <span className="material-symbols-outlined text-[12px]">database</span>
               <button
                 type="button"

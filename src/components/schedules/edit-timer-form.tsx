@@ -87,7 +87,7 @@ export function EditTimerForm({
 
   return (
     <div className="flex flex-col gap-6 stagger-1 p-4 md:p-6 w-full">
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-4 min-w-0">
         <Link href="/schedules" aria-label="Back to schedules">
           <Button variant="ghost">
             <span className="material-symbols-outlined">arrow_back</span>
@@ -96,7 +96,7 @@ export function EditTimerForm({
         <h1 className="text-2xl font-bold text-on-surface tracking-tight font-display">
           Edit Timer
         </h1>
-        <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-[var(--radius-pill)] bg-primary/15 text-primary">
+        <span className="max-w-full truncate text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-[var(--radius-pill)] bg-primary/15 text-primary">
           {timerName}
         </span>
         {!initialEnabled && (

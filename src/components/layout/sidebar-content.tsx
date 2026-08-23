@@ -12,6 +12,7 @@ interface SidebarContentProps {
   version?: string;
   uptime?: string;
   macrosCollapsed?: boolean;
+  onClose?: () => void;
 }
 
 /**
@@ -37,6 +38,7 @@ export function SidebarContent({
   version = "0.1.0",
   uptime,
   macrosCollapsed = true,
+  onClose,
 }: SidebarContentProps) {
   const [rdStatus, setRdStatus] = useState<{ label: string; ok: boolean } | null>(null);
   const [groupedMacros, setGroupedMacros] = useState<GroupWithMacros[]>([]);
@@ -201,9 +203,21 @@ export function SidebarContent({
           />
           {brand}
         </Link>
-        <div className="text-[11px] text-on-surface-variant text-right leading-tight">
-          <div className="font-medium">v{version}</div>
-          {uptime && <div className="text-[10px]">{uptime}</div>}
+        <div className="flex items-center gap-1">
+          <div className="text-[11px] text-on-surface-variant text-right leading-tight">
+            <div className="font-medium">v{version}</div>
+            {uptime && <div className="text-[10px]">{uptime}</div>}
+          </div>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex size-11 items-center justify-center rounded-[var(--radius-button)] text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
+              aria-label="Close menu"
+            >
+              <span className="material-symbols-outlined text-xl">close</span>
+            </button>
+          )}
         </div>
       </div>
 

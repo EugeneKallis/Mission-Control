@@ -253,7 +253,7 @@ export default function LogsPage() {
         {/* Controls */}
         <div className="flex flex-wrap items-center gap-3 shrink-0">
           {/* Service selector */}
-          <div className="flex gap-1 p-0.5 rounded-[var(--radius-button)]" style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
+          <div className="flex flex-wrap gap-1 p-0.5 rounded-[var(--radius-button)]" style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
             {SERVICES.map((s) => (
               <button
                 key={s}

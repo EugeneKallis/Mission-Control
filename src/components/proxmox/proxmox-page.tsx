@@ -248,7 +248,7 @@ export function ProxmoxPage() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-6 py-4 border-b border-outline-variant/30 shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 md:px-6 py-4 border-b border-outline-variant/30 shrink-0">
         <div>
           <h1 className="text-xl font-bold font-display text-on-surface">Proxmox VE</h1>
           <p className="text-xs text-on-surface-variant mt-0.5">
@@ -258,7 +258,7 @@ export function ProxmoxPage() {
             {lastUpdated && <span className="ml-2 text-on-surface-variant/60">Last updated: {lastUpdated}</span>}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleRefresh}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-button)] transition-all duration-200 bg-surface-container text-on-surface hover:bg-surface-container-high active:scale-[0.98]"
