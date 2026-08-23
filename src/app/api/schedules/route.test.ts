@@ -194,6 +194,7 @@ describe("POST /api/schedules", () => {
       body.id,
       seededMacroId,
       "*/10 * * * *",
+      "skip",
     ]);
   });
 

@@ -9,12 +9,14 @@ import {
   type DayOfWeek,
 } from "@/lib/cron";
 import type { MacroOption } from "./schedules-list";
+import type { ConcurrencyPolicy } from "@/lib/scheduled-run-controller";
 
 interface NewScheduleFormProps {
   macros: MacroOption[];
   onCreate: (params: {
     macroId: number;
     cronExpression: string;
+    concurrencyPolicy: ConcurrencyPolicy;
   }) => void | Promise<void>;
   onCancel: () => void;
 }
@@ -71,6 +73,7 @@ export function NewScheduleForm({ macros, onCreate, onCancel }: NewScheduleFormP
   const [intervalUnit, setIntervalUnit] = useState<IntervalUnit>(DEFAULT_VALUES.intervalUnit);
   const [time, setTime] = useState(DEFAULT_VALUES.time);
   const [dayOfWeek, setDayOfWeek] = useState<DayOfWeek>(DEFAULT_VALUES.dayOfWeek);
+  const [concurrencyPolicy, setConcurrencyPolicy] = useState<ConcurrencyPolicy>("skip");
   const [submitting, setSubmitting] = useState(false);
 
   const currentValues = { frequency, intervalValue, intervalUnit, time, dayOfWeek };
@@ -105,6 +108,7 @@ export function NewScheduleForm({ macros, onCreate, onCancel }: NewScheduleFormP
       await onCreate({
         macroId: Number(macroId),
         cronExpression,
+        concurrencyPolicy,
       });
     } finally {
       setSubmitting(false);
@@ -270,6 +274,20 @@ export function NewScheduleForm({ macros, onCreate, onCancel }: NewScheduleFormP
             )}
           </>
         )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-1.5">
+        <label htmlFor="concurrency_policy" className={labelCls}>Overlap policy</label>
+        <select
+          id="concurrency_policy"
+          value={concurrencyPolicy}
+          onChange={(e) => setConcurrencyPolicy(e.target.value as ConcurrencyPolicy)}
+          className={inputCls}
+        >
+          <option value="skip">Skip overlapping triggers</option>
+          <option value="queue-one">Queue one overlapping trigger</option>
+          <option value="allow">Allow concurrent runs</option>
+        </select>
       </div>
 
       <div className="h-px w-full bg-outline-variant/30" />

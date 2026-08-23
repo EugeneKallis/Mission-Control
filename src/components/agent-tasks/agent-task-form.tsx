@@ -12,6 +12,7 @@ import {
 } from "@/lib/cron";
 import type { AgentTaskRow, ResourceState, ToolInfo, SkillInfo } from "./agent-task-types";
 import { usePiModels, type PiModelEntry } from "@/hooks/use-pi-models";
+import type { ConcurrencyPolicy } from "@/lib/scheduled-run-controller";
 
 interface Props {
   resources: ResourceState | null;
@@ -44,6 +45,9 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
   const [appendSystem, setAppendSystem] = useState(initial?.appendSystem ?? "");
   const [persistSession, setPersistSession] = useState(initial?.persistSession ?? false);
   const [timeoutSec, setTimeoutSec] = useState(initial?.timeoutSec ?? 300);
+  const [concurrencyPolicy, setConcurrencyPolicy] = useState<ConcurrencyPolicy>(
+    initial?.concurrencyPolicy ?? "skip",
+  );
 
   // ── Phase 2: Pi model registry for cascading Provider/Model dropdowns ───────
   const { models, loading: modelsLoading, error: modelsError } = usePiModels();
@@ -143,6 +147,7 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
       appendSystem: appendSystem || null,
       persistSession,
       timeoutSec,
+      concurrencyPolicy,
     });
   }
 
@@ -364,6 +369,18 @@ export function AgentTaskForm({ resources, initial, onSubmit, onCancel }: Props)
               {THINKING_LEVELS.map((l) => (
                 <option key={l} value={l}>{l}</option>
               ))}
+            </select>
+          </div>
+          <div className="w-[160px]">
+            <label className="block text-xs font-semibold text-[var(--color-on-surface-variant)] mb-1">Overlap policy</label>
+            <select
+              className="w-full bg-[var(--terminal-bg)] border border-[var(--color-outline-variant)] rounded px-2.5 py-1.5 text-xs text-[var(--color-on-surface)] outline-none focus:border-[var(--color-success)]"
+              value={concurrencyPolicy}
+              onChange={(e) => setConcurrencyPolicy(e.target.value as ConcurrencyPolicy)}
+            >
+              <option value="skip">Skip</option>
+              <option value="queue-one">Queue one</option>
+              <option value="allow">Allow</option>
             </select>
           </div>
           <div className="w-[100px]">

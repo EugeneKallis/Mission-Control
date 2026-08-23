@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { toggleWorkerTimer, getWorkerTimer } from "@/lib/db/queries";
 import { workerTimerScheduler } from "@/lib/worker-timer-scheduler";
+import type { ConcurrencyPolicy } from "@/lib/scheduled-run-controller";
 
 export async function POST(
   _request: NextRequest,
@@ -26,6 +27,7 @@ export async function POST(
       toggled.workerPath,
       toggled.cronExpression,
       toggled.enabled,
+      toggled.concurrencyPolicy as ConcurrencyPolicy,
     );
 
     return NextResponse.json(toggled);

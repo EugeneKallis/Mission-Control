@@ -10,10 +10,19 @@
  */
 
 import { CronJob } from "cron";
-import { getEnabledSchedules } from "@/lib/db/queries";
+import { createHistory, getEnabledSchedules } from "@/lib/db/queries";
+import {
+  ScheduledRunController,
+  skippedRunOutput,
+  type ConcurrencyPolicy,
+} from "@/lib/scheduled-run-controller";
 
 // Lazy import — runner is built by Part 9.
-let runMacro: ((macroId: number, triggeredBy: string) => Promise<{ historyId: number; status: string }>) | null = null;
+let runMacro: ((
+  macroId: number,
+  triggeredBy: string,
+  onHistoryCreated?: (historyId: number) => void,
+) => Promise<{ historyId: number; status: string }>) | null = null;
 
 async function getRunMacro() {
   if (!runMacro) {
@@ -29,13 +38,14 @@ async function getRunMacro() {
 class CronScheduler {
   // Maps schedule DB id → CronJob
   private jobs = new Map<number, CronJob>();
+  private runs = new ScheduledRunController();
 
   /** Load all enabled schedules from DB and start their jobs. */
   async init() {
     try {
       const schedules = await getEnabledSchedules();
       for (const s of schedules) {
-        this.addJob(s.id, s.macroId, s.cronExpression);
+        this.addJob(s.id, s.macroId, s.cronExpression, s.concurrencyPolicy as ConcurrencyPolicy);
       }
       console.log(`[cron] Loaded ${schedules.length} enabled schedule(s)`);
     } catch (err) {
@@ -48,8 +58,9 @@ class CronScheduler {
     id: number,
     macroId: number,
     cronExpression: string,
+    concurrencyPolicy: ConcurrencyPolicy = "skip",
   ) {
-    this.addJob(id, macroId, cronExpression);
+    this.addJob(id, macroId, cronExpression, concurrencyPolicy);
     console.log(`[cron] Added schedule ${id} for macro ${macroId}: ${cronExpression}`);
   }
 
@@ -69,10 +80,11 @@ class CronScheduler {
     macroId: number,
     cronExpression: string,
     enabled: boolean,
+    concurrencyPolicy: ConcurrencyPolicy = "skip",
   ) {
     await this.removeSchedule(id);
     if (enabled) {
-      this.addJob(id, macroId, cronExpression);
+      this.addJob(id, macroId, cronExpression, concurrencyPolicy);
     }
     console.log(`[cron] Updated schedule ${id} (enabled=${enabled})`);
   }
@@ -88,7 +100,12 @@ class CronScheduler {
 
   // ── private ──────────────────────────────────────────────────────────
 
-  private addJob(id: number, macroId: number, cronExpression: string) {
+  private addJob(
+    id: number,
+    macroId: number,
+    cronExpression: string,
+    concurrencyPolicy: ConcurrencyPolicy,
+  ) {
     // Stop existing job with same id (if any)
     const existing = this.jobs.get(id);
     if (existing) {
@@ -99,12 +116,27 @@ class CronScheduler {
     const job = new CronJob(
       cronExpression,
       async () => {
-        try {
-          const fn = await getRunMacro();
-          await fn(macroId, "schedule");
-        } catch (err) {
-          console.error(`[cron] Failed to run macro ${macroId}:`, err);
-        }
+        await this.runs.trigger(`macro:${macroId}`, concurrencyPolicy, {
+          execute: async (setHistoryId) => {
+            try {
+              const fn = await getRunMacro();
+              await fn(macroId, "schedule", setHistoryId);
+            } catch (err) {
+              console.error(`[cron] Failed to run macro ${macroId}:`, err);
+            }
+          },
+          onSkip: async (activeRunId, reason) => {
+            const now = new Date();
+            await createHistory({
+              macroId,
+              startTime: now,
+              endTime: now,
+              status: "skipped",
+              output: skippedRunOutput(reason, activeRunId),
+              triggeredBy: "schedule",
+            });
+          },
+        });
       },
       null,   // onComplete
       true,   // start immediately

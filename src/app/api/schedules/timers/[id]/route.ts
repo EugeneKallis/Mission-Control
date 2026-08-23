@@ -6,9 +6,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getWorkerTimer, updateWorkerTimer } from "@/lib/db/queries";
 import { workerTimerScheduler } from "@/lib/worker-timer-scheduler";
+import { CONCURRENCY_POLICIES } from "@/lib/scheduled-run-controller";
 
 const updateSchema = z.object({
   cronExpression: z.string().min(1, "cronExpression is required"),
+  concurrencyPolicy: z.enum(CONCURRENCY_POLICIES).optional(),
 });
 
 export async function PUT(
@@ -38,9 +40,7 @@ export async function PUT(
 
   try {
     const existing = await getWorkerTimer(timerId);
-    const updated = await updateWorkerTimer(timerId, {
-      cronExpression: parsed.data.cronExpression,
-    });
+    const updated = await updateWorkerTimer(timerId, parsed.data);
 
     // Update the scheduler with new cron expression
     await workerTimerScheduler.updateTimer(
@@ -48,6 +48,7 @@ export async function PUT(
       updated.workerPath,
       updated.cronExpression,
       updated.enabled,
+      updated.concurrencyPolicy as (typeof CONCURRENCY_POLICIES)[number],
     );
 
     return NextResponse.json(updated);

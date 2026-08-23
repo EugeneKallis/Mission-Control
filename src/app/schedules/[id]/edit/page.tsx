@@ -46,6 +46,7 @@ export default async function EditSchedulePage({
         }))}
         initialValues={formValues}
         initialMacroId={schedule.macroId}
+        initialConcurrencyPolicy={schedule.concurrencyPolicy as "skip" | "queue-one" | "allow"}
       />
     </AppShell>
   );

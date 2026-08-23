@@ -22,6 +22,11 @@ import {
 import { getPiPath } from "@/lib/pi/pi-path";
 import { buildAgentTaskSpawnArgs, agentTaskRowToSpawnConfig, type AgentTaskSpawnConfig } from "@/lib/pi/headless-prompt";
 import { renderJsonEvent } from "@/lib/pi/json-event-renderer";
+import {
+  ScheduledRunController,
+  skippedRunOutput,
+  type ConcurrencyPolicy,
+} from "@/lib/scheduled-run-controller";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -43,8 +48,7 @@ class AgentTaskScheduler {
   /** Maps task DB id → CronJob instance. */
   private jobs = new Map<number, CronJob>();
 
-  /** Set of task IDs with an active run (overlap guard). */
-  private running = new Set<number>();
+  private runs = new ScheduledRunController();
 
   // ── Lifecycle management ───────────────────────────────────────────
 
@@ -95,15 +99,15 @@ class AgentTaskScheduler {
 
   /** Run a task immediately, regardless of cron schedule. */
   async runNow(id: number): Promise<void> {
-    if (this.running.has(id)) {
-      console.log(`[agent-task] Task ${id} is already running — skipping runNow`);
-      return;
-    }
-
     try {
       const task = await getAgentTask(id);
       const config = agentTaskRowToSpawnConfig(task);
-      await this.runOnce(id, config, config.timeoutSec);
+      await this.runWithPolicy(
+        id,
+        config,
+        config.timeoutSec,
+        config.concurrencyPolicy ?? "skip",
+      );
     } catch (err) {
       console.error(`[agent-task] runNow(${id}) failed:`, err);
     }
@@ -129,13 +133,8 @@ class AgentTaskScheduler {
     id: number,
     config: AgentTaskSpawnConfig,
     timeoutSec: number,
+    setHistoryId: (id: number) => void,
   ) {
-    if (this.running.has(id)) {
-      console.log(`[agent-task] Task ${id} already running — skipping tick`);
-      return;
-    }
-
-    this.running.add(id);
     let historyId: number | undefined;
     let transcript = "";
     let flushInterval: ReturnType<typeof setInterval> | null = null;
@@ -161,6 +160,7 @@ class AgentTaskScheduler {
         triggeredBy: "schedule",
       });
       historyId = history.id;
+      setHistoryId(history.id);
 
       // ── Flush interval ─────────────────────────────────────────
       flushInterval = setInterval(async () => {
@@ -299,8 +299,29 @@ class AgentTaskScheduler {
       if (proc && !proc.killed) {
         proc.kill("SIGTERM");
       }
-      this.running.delete(id);
     }
+  }
+
+  private async runWithPolicy(
+    id: number,
+    config: AgentTaskSpawnConfig,
+    timeoutSec: number,
+    concurrencyPolicy: ConcurrencyPolicy,
+  ) {
+    await this.runs.trigger(`agent:${id}`, concurrencyPolicy, {
+      execute: (setHistoryId) => this.runOnce(id, config, timeoutSec, setHistoryId),
+      onSkip: async (activeRunId, reason) => {
+        const now = new Date();
+        await createHistory({
+          agentTaskId: id,
+          startTime: now,
+          endTime: now,
+          status: "skipped",
+          output: skippedRunOutput(reason, activeRunId),
+          triggeredBy: "schedule",
+        });
+      },
+    });
   }
 
   // ── Private: Register a cron job ─────────────────────────────────
@@ -314,8 +335,9 @@ class AgentTaskScheduler {
     }
 
     const timeout = task.timeoutSec ?? 300;
+    const concurrencyPolicy = task.concurrencyPolicy ?? "skip";
     // Build config without scheduler-only fields for the spawn args
-    const { cronExpression, timeoutSec: _ts, ...spawnConfig } = task;
+    const { cronExpression, timeoutSec: _ts, concurrencyPolicy: _cp, ...spawnConfig } = task;
 
     const cronExpr = cronExpression;
     if (!cronExpr) {
@@ -326,7 +348,7 @@ class AgentTaskScheduler {
     const job = new CronJob(
       cronExpr,
       () => {
-        void this.runOnce(id, spawnConfig, timeout);
+        void this.runWithPolicy(id, spawnConfig, timeout, concurrencyPolicy);
       },
       null,
       true, // start immediately

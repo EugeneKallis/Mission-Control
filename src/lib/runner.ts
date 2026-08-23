@@ -30,6 +30,7 @@ function decodeChunk(chunk: Uint8Array): string {
 export async function runMacro(
   macroId: number,
   triggeredBy: string,
+  onHistoryCreated?: (historyId: number) => void,
 ): Promise<{ historyId: number; status: string }> {
   // 1. Load macro
   const macro = await getMacro(macroId);
@@ -42,6 +43,7 @@ export async function runMacro(
     triggeredBy,
     output: "",
   });
+  onHistoryCreated?.(history.id);
 
   // 3. Parse commands
   let commands: MacroCommand[] = [];

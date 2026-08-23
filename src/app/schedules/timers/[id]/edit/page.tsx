@@ -40,6 +40,7 @@ export default async function EditTimerPage({
         workerPath={timer.workerPath}
         initialEnabled={timer.enabled}
         initialValues={formValues}
+        initialConcurrencyPolicy={timer.concurrencyPolicy as "skip" | "queue-one" | "allow"}
       />
     </AppShell>
   );

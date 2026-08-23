@@ -18,6 +18,7 @@ export interface AgentTaskRow {
   appendSystem: string | null;
   persistSession: boolean;
   timeoutSec: number;
+  concurrencyPolicy: "skip" | "queue-one" | "allow";
   lastRunAt: string | null;
   lastStatus: string | null;
   createdAt: string | null;

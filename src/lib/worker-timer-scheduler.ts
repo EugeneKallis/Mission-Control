@@ -17,6 +17,11 @@ import {
   createHistory,
   updateHistory,
 } from "@/lib/db/queries";
+import {
+  ScheduledRunController,
+  skippedRunOutput,
+  type ConcurrencyPolicy,
+} from "@/lib/scheduled-run-controller";
 
 // Predefined worker registry — maps friendly names to their script paths
 export const WORKER_REGISTRY: Record<string, { path: string; description: string; defaultCron: string }> = {
@@ -58,6 +63,7 @@ async function ensureDefaultTimers() {
 class WorkerTimerScheduler {
   // Maps timer DB id → CronJob
   private jobs = new Map<number, CronJob>();
+  private runs = new ScheduledRunController();
 
   /** Load all enabled timers from DB and start their jobs. */
   async init() {
@@ -67,7 +73,7 @@ class WorkerTimerScheduler {
       
       const timers = await getEnabledWorkerTimers();
       for (const t of timers) {
-        this.addJob(t.id, t.workerPath, t.cronExpression);
+        this.addJob(t.id, t.workerPath, t.cronExpression, t.concurrencyPolicy as ConcurrencyPolicy);
       }
       console.log(`[worker-timer] Loaded ${timers.length} enabled timer(s)`);
     } catch (err) {
@@ -76,8 +82,13 @@ class WorkerTimerScheduler {
   }
 
   /** Register a new timer job. */
-  async addTimer(id: number, workerPath: string, cronExpression: string) {
-    this.addJob(id, workerPath, cronExpression);
+  async addTimer(
+    id: number,
+    workerPath: string,
+    cronExpression: string,
+    concurrencyPolicy: ConcurrencyPolicy = "skip",
+  ) {
+    this.addJob(id, workerPath, cronExpression, concurrencyPolicy);
     console.log(`[worker-timer] Added timer ${id} for ${workerPath}: ${cronExpression}`);
   }
 
@@ -92,10 +103,16 @@ class WorkerTimerScheduler {
   }
 
   /** Update a timer: stop old, start new if enabled. */
-  async updateTimer(id: number, workerPath: string, cronExpression: string, enabled: boolean) {
+  async updateTimer(
+    id: number,
+    workerPath: string,
+    cronExpression: string,
+    enabled: boolean,
+    concurrencyPolicy: ConcurrencyPolicy = "skip",
+  ) {
     await this.removeTimer(id);
     if (enabled) {
-      this.addJob(id, workerPath, cronExpression);
+      this.addJob(id, workerPath, cronExpression, concurrencyPolicy);
     }
     console.log(`[worker-timer] Updated timer ${id} (enabled=${enabled})`);
   }
@@ -111,7 +128,12 @@ class WorkerTimerScheduler {
 
   // ── private ──────────────────────────────────────────────────────────
 
-  private addJob(id: number, workerPath: string, cronExpression: string) {
+  private addJob(
+    id: number,
+    workerPath: string,
+    cronExpression: string,
+    concurrencyPolicy: ConcurrencyPolicy,
+  ) {
     // Stop existing job with same id (if any)
     const existing = this.jobs.get(id);
     if (existing) {
@@ -122,79 +144,80 @@ class WorkerTimerScheduler {
     const job = new CronJob(
       cronExpression,
       async () => {
-        let historyId: number | undefined;
-        try {
-          console.log(`[worker-timer] Running ${workerPath}...`);
-          const startTime = new Date();
+        await this.runs.trigger(`worker:${workerPath}`, concurrencyPolicy, {
+          execute: async (setHistoryId) => {
+            let historyId: number | undefined;
+            try {
+              console.log(`[worker-timer] Running ${workerPath}...`);
+              const startTime = new Date();
 
-          // Create history entry for this run
-          const history = await createHistory({
-            workerTimerId: id,
-            startTime,
-            status: "running",
-            triggeredBy: "schedule",
-          });
-          historyId = history.id;
+              const history = await createHistory({
+                workerTimerId: id,
+                startTime,
+                status: "running",
+                triggeredBy: "schedule",
+              });
+              historyId = history.id;
+              setHistoryId(history.id);
 
-          // Run the worker as a child process using bun
-          const output = await new Promise<string>((resolve, reject) => {
-            let stdout = "";
-            let stderr = "";
+              const output = await new Promise<string>((resolve, reject) => {
+                let stdout = "";
+                let stderr = "";
+                const child = spawn("bun", ["run", workerPath], {
+                  stdio: ["ignore", "pipe", "pipe"],
+                  cwd: process.cwd(),
+                });
 
-            const child = spawn("bun", ["run", workerPath], {
-              stdio: ["ignore", "pipe", "pipe"],
-              cwd: process.cwd(),
-            });
+                child.stdout?.on("data", (data: Buffer) => {
+                  stdout += data.toString();
+                });
+                child.stderr?.on("data", (data: Buffer) => {
+                  stderr += data.toString();
+                });
+                child.on("close", (code) => {
+                  if (code === 0) resolve(stdout || "(no output)");
+                  else reject(new Error(`Worker exited with code ${code}\n${stderr}`));
+                });
+                child.on("error", reject);
+              });
 
-            child.stdout?.on("data", (data: Buffer) => {
-              stdout += data.toString();
-            });
+              const endTime = new Date();
+              const duration = endTime.getTime() - startTime.getTime();
+              console.log(`[worker-timer] ${workerPath} completed in ${duration}ms`);
 
-            child.stderr?.on("data", (data: Buffer) => {
-              stderr += data.toString();
-            });
+              await updateHistory(historyId, {
+                endTime,
+                status: "success",
+                output: output.slice(-10000),
+              });
+              await updateWorkerTimerRunStatus(id, "success");
+            } catch (err) {
+              const endTime = new Date();
+              const errorMsg = err instanceof Error ? err.message : String(err);
+              console.error(`[worker-timer] Failed to run ${workerPath}:`, err);
 
-            child.on("close", (code) => {
-              if (code === 0) {
-                resolve(stdout || "(no output)");
-              } else {
-                reject(new Error(`Worker exited with code ${code}\n${stderr}`));
+              if (historyId) {
+                await updateHistory(historyId, {
+                  endTime,
+                  status: "error",
+                  output: errorMsg.slice(-10000),
+                }).catch(() => {});
               }
+              await updateWorkerTimerRunStatus(id, "error").catch(() => {});
+            }
+          },
+          onSkip: async (activeRunId, reason) => {
+            const now = new Date();
+            await createHistory({
+              workerTimerId: id,
+              startTime: now,
+              endTime: now,
+              status: "skipped",
+              output: skippedRunOutput(reason, activeRunId),
+              triggeredBy: "schedule",
             });
-
-            child.on("error", reject);
-          });
-
-          const endTime = new Date();
-          const duration = endTime.getTime() - startTime.getTime();
-          console.log(`[worker-timer] ${workerPath} completed in ${duration}ms`);
-
-          // Update history with success
-          if (historyId) {
-            await updateHistory(historyId, {
-              endTime,
-              status: "success",
-              output: output.slice(-10000), // Keep last 10KB of output
-            });
-          }
-
-          await updateWorkerTimerRunStatus(id, "success");
-        } catch (err) {
-          const endTime = new Date();
-          const errorMsg = err instanceof Error ? err.message : String(err);
-          console.error(`[worker-timer] Failed to run ${workerPath}:`, err);
-
-          // Update history with error
-          if (historyId) {
-            await updateHistory(historyId, {
-              endTime,
-              status: "error",
-              output: errorMsg.slice(-10000),
-            }).catch(() => {});
-          }
-
-          await updateWorkerTimerRunStatus(id, "error").catch(() => {});
-        }
+          },
+        });
       },
       null,   // onComplete
       true,   // start immediately
