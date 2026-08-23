@@ -12,7 +12,6 @@ import {
   test,
   expect,
   mock,
-  beforeEach,
   afterEach,
 } from "bun:test";
 import { render, screen, waitFor } from "@/test-utils/render";
@@ -76,13 +75,16 @@ const HISTORY_30 = {
   ],
 };
 
-function mockFetchWith(opts: { latest?: any; history?: any; refresh?: any }) {
+function mockFetchWith(opts: {
+  latest?: typeof LATEST;
+  history?: typeof HISTORY_30;
+}) {
   globalThis.fetch = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input.toString();
     const method = (init?.method ?? "GET").toUpperCase();
 
     if (url.includes("/api/energy-prices/refresh")) {
-      return new Response(JSON.stringify(opts.refresh ?? { ok: true, count: 0, offers: [] }), {
+      return new Response(JSON.stringify({ ok: true, count: 0, offers: [] }), {
         status: 200,
         headers: { "content-type": "application/json" },
       });

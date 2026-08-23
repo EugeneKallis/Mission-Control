@@ -9,6 +9,7 @@ export interface PriceHistoryPoint {
 
 export interface PriceHistorySupplier {
   name: string;
+  active?: boolean;
   points: PriceHistoryPoint[];
 }
 
@@ -53,22 +54,32 @@ export function PriceHistoryChart({ days, targetRate, onChangeDays }: ChartProps
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchHistory = useCallback(async (d: number) => {
+  const fetchHistory = useCallback(async (d: number, signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/energy-prices/history?days=${d}`, { cache: "no-store" });
+      const res = await fetch(`/api/energy-prices/history?days=${d}`, {
+        cache: "no-store",
+        signal,
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setData(await res.json());
+      const nextData = await res.json() as PriceHistoryResponse;
+      if (!signal?.aborted) setData(nextData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load history");
+      if (!signal?.aborted) {
+        setError(err instanceof Error ? err.message : "Failed to load history");
+      }
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchHistory(days);
+    const controller = new AbortController();
+    queueMicrotask(() => {
+      if (!controller.signal.aborted) fetchHistory(days, controller.signal);
+    });
+    return () => controller.abort();
   }, [days, fetchHistory]);
 
   // Hide lines via the legend; keep the data shape the same so re-toggle is cheap.
@@ -82,19 +93,13 @@ export function PriceHistoryChart({ days, targetRate, onChangeDays }: ChartProps
     });
   }, []);
 
-  // Decide which suppliers to highlight in the legend default view: those
-  // present in the most recent scrape. Everything else stays but is bucketed.
-  const recentSupplierNames = useMemo(() => {
-    if (!data) return new Set<string>();
-    const ts = new Map<string, string>(); // name -> latest timestamp
-    for (const s of data.suppliers) {
-      for (const p of s.points) {
-        const cur = ts.get(s.name);
-        if (!cur || p.t > cur) ts.set(s.name, p.t);
-      }
-    }
-    return new Set(ts.keys());
-  }, [data]);
+  // The API marks suppliers from the current active snapshot. Treating an
+  // omitted flag as active keeps the component tolerant of older responses.
+  const currentSupplierNames = useMemo(
+    () => new Set(data?.suppliers.filter((supplier) => supplier.active !== false)
+      .map((supplier) => supplier.name) ?? []),
+    [data],
+  );
 
   return (
     <div
@@ -141,8 +146,15 @@ export function PriceHistoryChart({ days, targetRate, onChangeDays }: ChartProps
           <div className="text-on-surface-variant animate-pulse text-sm">Loading history&hellip;</div>
         </div>
       ) : error ? (
-        <div className="h-40 flex items-center justify-center text-error text-sm">
-          {error}
+        <div className="h-40 flex flex-col gap-3 items-center justify-center text-error text-sm">
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => fetchHistory(days)}
+            className="px-3 py-1.5 rounded-[var(--radius-button)] border border-error/30 hover:bg-error/10"
+          >
+            Retry
+          </button>
         </div>
       ) : !data || data.suppliers.length === 0 ? (
         <EmptyChart />
@@ -152,7 +164,7 @@ export function PriceHistoryChart({ days, targetRate, onChangeDays }: ChartProps
           targetRate={targetRate}
           hiddenSuppliers={hiddenSuppliers}
           onToggleSupplier={toggleSupplier}
-          recentSupplierNames={recentSupplierNames}
+          currentSupplierNames={currentSupplierNames}
         />
       )}
     </div>
@@ -165,8 +177,7 @@ function EmptyChart() {
     <div className="p-8 text-center" data-testid="price-history-empty">
       <p className="text-base mb-2 text-on-surface-variant">No history yet</p>
       <p className="text-sm text-on-surface-variant">
-        Each scrape keeps every previous offer in the database. The graph fills in
-        as soon as a second scrape lands — backfills once you scrape again tomorrow.
+        Run a refresh to collect the first snapshot. Each later scrape adds to the graph.
       </p>
     </div>
   );
@@ -178,7 +189,7 @@ interface ChartCanvasProps {
   targetRate: number | null;
   hiddenSuppliers: Set<string>;
   onToggleSupplier: (name: string) => void;
-  recentSupplierNames: Set<string>;
+  currentSupplierNames: Set<string>;
 }
 
 function ChartCanvas({
@@ -186,7 +197,7 @@ function ChartCanvas({
   targetRate,
   hiddenSuppliers,
   onToggleSupplier,
-  recentSupplierNames,
+  currentSupplierNames,
 }: ChartCanvasProps) {
   // Dimensions
   const W = 800;
@@ -195,17 +206,20 @@ function ChartCanvas({
   const innerW = W - padding.left - padding.right;
   const innerH = H - padding.top - padding.bottom;
 
-  // X range: from earliest data point to now, capped at sinceIso on the right.
-  // We display the request window (sinceIso..now) so the chart is honest about
-  // what it covers even with only one scrape so far.
+  // Display the full requested window, extending only for an unexpected
+  // future-dated point so every returned value remains visible.
   const windowStart = new Date(data.sinceIso).getTime();
+  const requestedWindowEnd = windowStart + data.days * 24 * 60 * 60 * 1000;
   const windowEnd = data.suppliers
-    .flatMap((s) => s.points.map((p) => new Date(p.t).getTime()))
-    .reduce((max, t) => (t > max ? t : max), Date.now());
+    .flatMap((supplier) => supplier.points.map((point) => new Date(point.t).getTime()))
+    .reduce((max, time) => Math.max(max, time), requestedWindowEnd);
 
   // Y bounds: union of every visible point + a 5% pad.
   const visible = data.suppliers.filter((s) => !hiddenSuppliers.has(s.name));
   const allRates = visible.flatMap((s) => s.points.map((p) => p.rate));
+  if (targetRate !== null && Number.isFinite(targetRate) && targetRate >= 0) {
+    allRates.push(targetRate);
+  }
   const minRate = allRates.length ? Math.min(...allRates) : 0;
   const maxRate = allRates.length ? Math.max(...allRates) : 1;
   const yPad = (maxRate - minRate) * 0.1 || 1;
@@ -271,9 +285,9 @@ function ChartCanvas({
     }
   };
 
-  // Group visible suppliers: those that have ANY data in this window first
-  const recentVisible = visible.filter((s) => recentSupplierNames.has(s.name));
-  const olderVisible = visible.filter((s) => !recentSupplierNames.has(s.name));
+  // Draw historical-only suppliers underneath suppliers in the active snapshot.
+  const currentVisible = visible.filter((s) => currentSupplierNames.has(s.name));
+  const olderVisible = visible.filter((s) => !currentSupplierNames.has(s.name));
 
   // Stable supplier → colour assignment, derived from the API's
   // alphabetical ordering. Recomputed only when the supplier list
@@ -381,19 +395,19 @@ function ChartCanvas({
           </g>
         )}
 
-        {/* Series — older suppliers drawn under recent for legibility */}
-        {[...olderVisible, ...recentVisible].map((s) => {
+        {/* Series — historical-only suppliers drawn under current ones */}
+        {[...olderVisible, ...currentVisible].map((s) => {
           const color = colorFor(s.name);
           const path = buildPath(s.points, xScale, yScale);
           return (
             <g key={s.name}>
-              <polyline
+              <path
+                d={path}
                 fill="none"
                 stroke={color}
                 strokeWidth={3}
                 strokeLinejoin="round"
                 strokeLinecap="round"
-                points={path}
               />
               {s.points.map((p, i) => (
                 <circle
@@ -457,7 +471,7 @@ function ChartCanvas({
         suppliers={data.suppliers}
         hidden={hiddenSuppliers}
         onToggle={onToggleSupplier}
-        recentSupplierNames={recentSupplierNames}
+        currentSupplierNames={currentSupplierNames}
         colors={supplierColors}
       />
     </div>
@@ -469,20 +483,21 @@ function Legend({
   suppliers,
   hidden,
   onToggle,
-  recentSupplierNames,
+  currentSupplierNames,
   colors,
 }: {
   suppliers: PriceHistorySupplier[];
   hidden: Set<string>;
   onToggle: (name: string) => void;
-  recentSupplierNames: Set<string>;
+  currentSupplierNames: Set<string>;
   colors: Map<string, string>;
 }) {
   const [showAll, setShowAll] = useState(false);
-  const recent = suppliers.filter((s) => recentSupplierNames.has(s.name));
-  const older = suppliers.filter((s) => !recentSupplierNames.has(s.name));
-  const visible = showAll ? [...recent, ...older] : recent.slice(0, 8);
-  const remainder = recent.length + older.length - visible.length;
+  const current = suppliers.filter((s) => currentSupplierNames.has(s.name));
+  const older = suppliers.filter((s) => !currentSupplierNames.has(s.name));
+  const ordered = [...current, ...older];
+  const visible = showAll ? ordered : ordered.slice(0, 8);
+  const hasOverflow = ordered.length > 8;
 
   return (
     <div className="text-xs" data-testid="price-history-legend">
@@ -521,13 +536,13 @@ function Legend({
             );
           })
         )}
-        {remainder > 0 && (
+        {hasOverflow && (
           <button
             type="button"
-            onClick={() => setShowAll((v) => !v)}
+            onClick={() => setShowAll((value) => !value)}
             className="w-full text-center text-primary hover:underline py-1"
           >
-            {showAll ? "Show fewer" : `Show all (${remainder} more)`}
+            {showAll ? "Show fewer" : `Show all (${ordered.length - 8} more)`}
           </button>
         )}
       </div>
@@ -568,9 +583,6 @@ function formatXLabel(t: number, days: number): string {
   const d = new Date(t);
   if (days >= 365) {
     return d.toLocaleDateString(undefined, { month: "short", year: "2-digit" });
-  }
-  if (days >= 60) {
-    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   }
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }

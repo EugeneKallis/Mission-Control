@@ -54,7 +54,7 @@ export function EnergyPricesPage() {
 
   // Load persisted chart range after mount (avoid SSR mismatch).
   useEffect(() => {
-    setHistoryDays(readStoredDays());
+    queueMicrotask(() => setHistoryDays(readStoredDays()));
   }, []);
 
   const handleChangeDays = useCallback((d: DaysOption) => {
@@ -84,7 +84,9 @@ export function EnergyPricesPage() {
     }
   }, []);
 
-  useEffect(() => { fetchPrices(); }, [fetchPrices]);
+  useEffect(() => {
+    queueMicrotask(fetchPrices);
+  }, [fetchPrices]);
 
   const handleSaveTarget = useCallback(async () => {
     let rate = parseFloat(targetInput);
@@ -180,7 +182,7 @@ export function EnergyPricesPage() {
       <div className="mb-6 p-5 rounded-[var(--radius-card)] border border-outline-variant/30 bg-surface-container-lowest/50">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <label className="text-sm font-medium text-on-surface">My Target Rate</label>
+            <label className="text-sm font-medium text-on-surface">My Current Rate</label>
             <p className="text-xs text-on-surface-variant mt-0.5">
               Enter your current supply rate &mdash; offers at or below this are highlighted
             </p>

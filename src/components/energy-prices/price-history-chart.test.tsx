@@ -9,7 +9,6 @@ import {
   test,
   expect,
   mock,
-  beforeEach,
   afterEach,
 } from "bun:test";
 import { render, screen, waitFor } from "@/test-utils/render";
@@ -18,10 +17,8 @@ import userEvent from "@testing-library/user-event";
 
 const originalFetch = globalThis.fetch;
 
-type FetchInit = Parameters<typeof fetch>[1];
-
 function makeFetch(responses: Map<string | RegExp, unknown>) {
-  return mock(async (input: RequestInfo | URL, _init?: FetchInit) => {
+  return mock(async (input: RequestInfo | URL) => {
     const url = typeof input === "string" ? input : input.toString();
     for (const [pattern, payload] of responses.entries()) {
       if (
@@ -79,7 +76,7 @@ describe("<PriceHistoryChart />", () => {
     expect(circles.length).toBe(3);
   });
 
-  test("each supplier polyline is at least 3px stroke and connects its dots", async () => {
+  test("each supplier path is at least 3px stroke and connects its dots", async () => {
     const t = (offsetMs: number) => new Date(Date.now() - offsetMs).toISOString();
     globalThis.fetch = makeFetch(
       new Map([
@@ -97,23 +94,21 @@ describe("<PriceHistoryChart />", () => {
     const { container } = render(
       <PriceHistoryChart days={30} targetRate={null} onChangeDays={() => {}} />,
     );
-    await waitFor(() => expect(container.querySelectorAll("svg polyline").length).toBe(2));
+    await waitFor(() => expect(container.querySelectorAll("svg path").length).toBe(2));
 
-    // Every series polyline must have a thick stroke (lines need to be
+    // Every series path must have a thick stroke (lines need to be
     // visually dominant over the dots).
-    const polylines = Array.from(container.querySelectorAll("svg polyline"));
-    for (const pl of polylines) {
-      const sw = parseFloat(pl.getAttribute("stroke-width") ?? "0");
+    const paths = Array.from(container.querySelectorAll("svg path"));
+    for (const path of paths) {
+      const sw = parseFloat(path.getAttribute("stroke-width") ?? "0");
       expect(sw).toBeGreaterThanOrEqual(3);
     }
 
-    // Points attribute must contain at least one M and one L, otherwise
-    // the polyline collapses to a single point and looks like an
-    // isolated dot instead of a line.
-    for (const pl of polylines) {
-      const pts = pl.getAttribute("points") ?? "";
-      expect(pts).toMatch(/\bM/);
-      expect(pts).toMatch(/\bL/); // at least one line segment after the move
+    // A path with M and L commands is valid SVG and connects the points.
+    for (const path of paths) {
+      const d = path.getAttribute("d") ?? "";
+      expect(d).toMatch(/\bM/);
+      expect(d).toMatch(/\bL/);
     }
 
     // Dots should be no larger than the line is thick, in ratio, so the
@@ -178,7 +173,7 @@ describe("<PriceHistoryChart />", () => {
         }],
       ]),
     );
-    const onChange = mock((_d: number) => {});
+    const onChange = mock(() => {});
     render(<PriceHistoryChart days={7} targetRate={null} onChangeDays={onChange} />);
     const user = userEvent.setup();
     // wait for empty state since no suppliers were seeded
@@ -253,11 +248,11 @@ describe("<PriceHistoryChart />", () => {
       <PriceHistoryChart days={30} targetRate={null} onChangeDays={() => {}} />,
     );
     await waitFor(() => {
-      expect(container.querySelectorAll("svg polyline").length).toBe(22);
+      expect(container.querySelectorAll("svg path").length).toBe(22);
     });
     const colors = new Set<string>();
-    container.querySelectorAll("svg polyline").forEach((pl) => {
-      const stroke = pl.getAttribute("stroke");
+    container.querySelectorAll("svg path").forEach((path) => {
+      const stroke = path.getAttribute("stroke");
       if (stroke) colors.add(stroke);
     });
     expect(colors.size).toBe(22);
@@ -334,5 +329,40 @@ describe("<PriceHistoryChart />", () => {
     const callsAfterFirst = fetchMock.mock.calls.length;
     rerender(<PriceHistoryChart days={7} targetRate={null} onChangeDays={() => {}} />);
     await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThan(callsAfterFirst));
+  });
+
+  test("keeps the current-rate reference visible when it is outside supplier rates", async () => {
+    const t = new Date().toISOString();
+    globalThis.fetch = makeFetch(new Map([[/energy-prices\/history/, {
+      days: 30,
+      targetRate: 20,
+      sinceIso: new Date(Date.now() - 30 * 86400000).toISOString(),
+      suppliers: [{ name: "Acme", active: true, points: [{ t, rate: 10 }] }],
+    }]]));
+
+    render(<PriceHistoryChart days={30} targetRate={20} onChangeDays={() => {}} />);
+    expect(await screen.findByTestId("target-line")).toBeInTheDocument();
+  });
+
+  test("can collapse the legend after showing all suppliers", async () => {
+    const t = new Date().toISOString();
+    const suppliers = Array.from({ length: 10 }, (_, index) => ({
+      name: `Supplier ${index}`,
+      active: true,
+      points: [{ t, rate: 10 + index }],
+    }));
+    globalThis.fetch = makeFetch(new Map([[/energy-prices\/history/, {
+      days: 30,
+      targetRate: null,
+      sinceIso: new Date(Date.now() - 30 * 86400000).toISOString(),
+      suppliers,
+    }]]));
+
+    render(<PriceHistoryChart days={30} targetRate={null} onChangeDays={() => {}} />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Show all (2 more)" }));
+    expect(screen.getByRole("button", { name: "Show fewer" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Show fewer" }));
+    expect(screen.getByRole("button", { name: "Show all (2 more)" })).toBeInTheDocument();
   });
 });

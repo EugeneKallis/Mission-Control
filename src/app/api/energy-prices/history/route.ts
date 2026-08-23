@@ -14,6 +14,7 @@
  *     suppliers: [
  *       {
  *         name: string,
+ *         active: boolean,
  *         points: [{ t: string, rate: number }, ...]
  *       },
  *       ...
@@ -39,31 +40,43 @@ export async function GET(req: NextRequest) {
     db.energyPrice.findMany({
       where: { fetchedAt: { gte: since } },
       orderBy: { fetchedAt: "asc" },
-      select: { supplier: true, rate: true, fetchedAt: true },
+      select: { supplier: true, rate: true, fetchedAt: true, isActive: true },
     }),
     db.setting.findUnique({ where: { key: "energy_price:target_rate" } }),
   ]);
 
-  const targetRateValue =
-    targetSetting?.value != null ? parseFloat(targetSetting.value) : null;
+  const parsedTargetRate =
+    targetSetting?.value != null ? Number.parseFloat(targetSetting.value) : NaN;
+  const targetRateValue = Number.isFinite(parsedTargetRate) ? parsedTargetRate : null;
 
-  // Group rows by supplier (preserving time order). Supplier names
-  // are emitted as-is — EnergizeCT already canonicalizes them in the
-  // scraper's deduplication step.
-  const map = new Map<string, { t: string; rate: number }[]>();
-  for (const r of rows) {
-    const name = r.supplier ?? "";
-    if (!name) continue; // skip rows with no supplier name (shouldn't exist)
-    const list = map.get(name) ?? [];
-    list.push({
-      t: r.fetchedAt.toISOString(),
-      rate: r.rate,
-    });
-    map.set(name, list);
+  // Keep one point per supplier per scrape. A supplier can publish multiple
+  // offers in the same scrape; the chart represents its cheapest rate rather
+  // than drawing a misleading vertical line between simultaneous offers.
+  const map = new Map<
+    string,
+    { active: boolean; pointsByTime: Map<string, number> }
+  >();
+  for (const row of rows) {
+    const time = row.fetchedAt.toISOString();
+    const supplier = map.get(row.supplier) ?? {
+      active: false,
+      pointsByTime: new Map<string, number>(),
+    };
+    const existingRate = supplier.pointsByTime.get(time);
+    supplier.pointsByTime.set(
+      time,
+      existingRate === undefined ? row.rate : Math.min(existingRate, row.rate),
+    );
+    supplier.active ||= row.isActive;
+    map.set(row.supplier, supplier);
   }
 
   const suppliers = Array.from(map.entries())
-    .map(([name, points]) => ({ name, points }))
+    .map(([name, supplier]) => ({
+      name,
+      active: supplier.active,
+      points: Array.from(supplier.pointsByTime, ([t, rate]) => ({ t, rate })),
+    }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
   return NextResponse.json(

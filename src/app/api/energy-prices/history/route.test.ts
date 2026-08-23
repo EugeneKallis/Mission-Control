@@ -77,6 +77,23 @@ describe("GET /api/energy-prices/history", () => {
     expect(body.suppliers[1].points[1].rate).toBe(12.3);
   });
 
+  test("collapses simultaneous offers to each supplier's cheapest rate", async () => {
+    const fetchedAt = isoDaysAgo(2);
+    await testDB.db.energyPrice.createMany({
+      data: [
+        { supplier: "Acme", rate: 11, monthlyCost: 82.5, plan: "12 month", fetchedAt },
+        { supplier: "Acme", rate: 9.5, monthlyCost: 71.25, plan: "6 month", fetchedAt },
+      ],
+    });
+    const { GET } = await loadRoute();
+    const res = await GET(getRequest("/api/energy-prices/history?days=30"));
+    const body = (await jsonBody(res)) as {
+      suppliers: { active: boolean; points: { t: string; rate: number }[] }[];
+    };
+    expect(body.suppliers[0].active).toBe(true);
+    expect(body.suppliers[0].points).toEqual([{ t: fetchedAt.toISOString(), rate: 9.5 }]);
+  });
+
   test("filters out rows older than the requested days", async () => {
     await testDB.db.energyPrice.createMany({
       data: [
@@ -146,6 +163,16 @@ describe("GET /api/energy-prices/history", () => {
     expect(body.targetRate).toBe(11.5);
   });
 
+  test("returns null for an invalid stored target rate", async () => {
+    await testDB.db.setting.create({
+      data: { key: "energy_price:target_rate", value: "not-a-rate" },
+    });
+    const { GET } = await loadRoute();
+    const res = await GET(getRequest("/api/energy-prices/history"));
+    const body = (await jsonBody(res)) as { targetRate: number | null };
+    expect(body.targetRate).toBeNull();
+  });
+
   test("targetRate is null when not set", async () => {
     const { GET } = await loadRoute();
     const res = await GET(getRequest("/api/energy-prices/history"));
@@ -163,7 +190,7 @@ describe("GET /api/energy-prices/history", () => {
     expect(Math.abs(cutoffMs - expectedMs)).toBeLessThan(5000);
   });
 
-  test("isActive is ignored — every historical row is returned", async () => {
+  test("returns historical rows while marking the active snapshot", async () => {
     await testDB.db.energyPrice.createMany({
       data: [
         { supplier: "Old", rate: 14.0, monthlyCost: 105, plan: "", isActive: false, fetchedAt: isoDaysAgo(3) },
@@ -172,8 +199,12 @@ describe("GET /api/energy-prices/history", () => {
     });
     const { GET } = await loadRoute();
     const res = await GET(getRequest("/api/energy-prices/history?days=30"));
-    const body = (await jsonBody(res)) as { suppliers: { name: string }[] };
-    const names = body.suppliers.map((s) => s.name).sort();
-    expect(names).toEqual(["New", "Old"]);
+    const body = (await jsonBody(res)) as {
+      suppliers: { name: string; active: boolean }[];
+    };
+    expect(body.suppliers).toEqual([
+      expect.objectContaining({ name: "New", active: true }),
+      expect.objectContaining({ name: "Old", active: false }),
+    ]);
   });
 });
