@@ -44,6 +44,10 @@ When a Part is finished, mark it ✅ here so any agent can see progress at a gla
 | Part 20 — Docker Logs | Configurable multi-Dozzle container/log viewer with native Mission Control UI | ✅ Done |
 | Part 21 — Energy-price History | Time-series line chart at bottom of `/energy-prices` with 7/30/60/120/365-day range toggle and target-rate reference line. Reuses the existing `energy_prices` rows (every scrape stores a snapshot; old rows are kept with `isActive=false`) — no separate history table needed. New endpoint `GET /api/energy-prices/history?days=N`, new chart component `PriceHistoryChart`, composite `(supplier, fetched_at)` index for query speed. | ✅ Done |
 | Part 25 — Operations | `/operations`: verified Mission Control backups, deployment ledger, release radar, AdGuard health, TLS expiry checks, and scoped maintenance windows. | ✅ Done |
+| Part 26 — Integration Health | `/integrations`: concurrent credential/connectivity matrix for configured external integrations. | ✅ Done |
+| Part 27 — Action Audit Trail | Sanitized records for destructive actions and configuration changes. | ⏳ In progress |
+
+Expansion Parts 26 onward are specified in `docs/EXPANSION_PLAN.md`.
 
 ---
 

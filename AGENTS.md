@@ -319,6 +319,10 @@ This tells the next agent exactly where to pick up.
 | Phase 16 — Docker Logs | Configurable multi-Dozzle container/log viewer with client-side instance grouping and MC SSE/JSONL pass-through routes | ✅ Done |
 | Phase 17 — Energy-price history graph | 24 (time-series chart of supplier rates at bottom of `/energy-prices` with 7/30/60/120/365-day toggle and target-rate reference line; reuses the existing `energy_prices` rows instead of a parallel table) | ✅ Done |
 | Phase 18 — Operations | 25 (verified MC backups, deploy ledger, release radar, AdGuard health, TLS expiry, maintenance windows) | ✅ Done |
+| Phase 19 — Integration Health | 26 (concurrent health matrix for configured external integrations) | ✅ Done |
+| Phase 20 — Action Audit Trail | 27 (sanitized records for destructive and configuration actions) | ⏳ In progress |
+
+Expansion phases 19–33 are specified in `docs/EXPANSION_PLAN.md`.
 
 **Convention:** After completing a phase, update:
 1. This table (set Status to ✅ Done, add next phase as ⏳ In progress)
