@@ -15,6 +15,7 @@ import {
   arrConfigDbKey,
   ARR_INSTANCE_DEFINITIONS,
 } from "./arr-config";
+import { CONFIG_FIELDS, defaultConfigValues, type ConfigKey } from "./config-fields";
 
 // ── Schema ────────────────────────────────────────────────────────────────
 
@@ -146,11 +147,30 @@ export class AppConfig {
  * Only string-valued fields are supported (no ports, paths, booleans).
  */
 const DB_ENV_KEY_MAP: Record<string, keyof EnvConfig> = {
+  decypharr_url: "DECYPHARR_URL",
   plex_token: "PLEX_TOKEN",
   plex_url: "PLEX_URL",
   real_debrid_api_key: "REAL_DEBRID_API_KEY",
   pulse_api_key: "PULSE_API_KEY",
 };
+
+/** Resolve every Config-page value with environment > database > default precedence. */
+export async function resolveGlobalConfigValues(): Promise<Record<ConfigKey, string>> {
+  const values = defaultConfigValues();
+  try {
+    const { db } = await import("@/lib/db");
+    const row = await db.config.findUnique({ where: { id: 1 } });
+    const stored = row?.configJson ? JSON.parse(row.configJson) as Record<string, string> : {};
+    for (const field of CONFIG_FIELDS) {
+      values[field.key] = process.env[field.envKey]?.trim() || stored[field.key] || ("defaultValue" in field ? field.defaultValue : "");
+    }
+  } catch {
+    for (const field of CONFIG_FIELDS) {
+      values[field.key] = process.env[field.envKey]?.trim() || ("defaultValue" in field ? field.defaultValue : "");
+    }
+  }
+  return values;
+}
 
 // ── Singleton (env-only) ─────────────────────────────────────────────────
 
@@ -189,9 +209,9 @@ export async function resolveConfig(): Promise<AppConfig> {
       const values = JSON.parse(row.configJson) as Record<string, string>;
       const overrides: Partial<Record<keyof EnvConfig, string>> = {};
 
-      // Existing Plex/RD keys
+      // Config-page values use environment > database > built-in default.
       for (const [dbKey, envKey] of Object.entries(DB_ENV_KEY_MAP)) {
-        const envVal = env[envKey] as string | undefined;
+        const envVal = process.env[envKey];
         const dbVal = values[dbKey];
         if ((!envVal || envVal.length === 0) && dbVal && dbVal.length > 0) {
           overrides[envKey as keyof EnvConfig] = dbVal;

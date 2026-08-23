@@ -1,13 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/toast-provider";
 import { ArrConfigSection } from "@/components/config/arr-config-section";
 import { ARR_INSTANCE_DEFINITIONS, arrConfigDbKey } from "@/lib/arr-config";
-
-// ── Style helpers (consistent with existing page) ─────────────────────────
+import {
+  configSections,
+  defaultConfigValues,
+  type ConfigFieldDefinition,
+  type ConfigKey,
+} from "@/lib/config-fields";
 
 const cardStyle = {
   background: "var(--color-surface-container)",
@@ -16,16 +21,39 @@ const cardStyle = {
 
 const inputClass =
   "w-full bg-surface border border-outline-variant/40 rounded-[var(--radius-button)] px-3 py-2 text-sm font-mono text-on-surface outline-none focus:border-primary transition-colors";
-
 const labelClass = "block text-sm font-medium text-on-surface mb-2";
+const sections = configSections();
 
-// ── Page component ────────────────────────────────────────────────────────
+function ConfigField({ field, value, onChange }: { field: ConfigFieldDefinition; value: string; onChange: (value: string) => void }) {
+  const id = `config-${field.key}`;
+  const common = { id, className: inputClass, value, onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => onChange(event.target.value) };
+
+  return (
+    <div>
+      <label htmlFor={id} className={labelClass}>{field.label}</label>
+      {field.kind === "textarea" ? (
+        <textarea {...common} rows={3} placeholder={field.placeholder} />
+      ) : field.kind === "boolean" ? (
+        <select {...common}>
+          <option value="false">Disabled</option>
+          <option value="true">Enabled</option>
+        </select>
+      ) : (
+        <input
+          {...common}
+          type={field.kind === "secret" ? "password" : field.kind === "url" ? "url" : field.kind === "date" ? "date" : field.kind === "integer" || field.kind === "number" ? "number" : "text"}
+          step={field.kind === "number" ? "any" : undefined}
+          min={field.kind === "integer" ? "1" : undefined}
+          placeholder={field.placeholder}
+        />
+      )}
+      <p className="mt-2 text-xs text-on-surface-variant">{field.description}</p>
+    </div>
+  );
+}
 
 export default function ConfigPage() {
-  const [apiKey, setApiKey] = useState("");
-  const [pulseApiKey, setPulseApiKey] = useState("");
-  const [plexToken, setPlexToken] = useState("");
-  const [plexUrl, setPlexUrl] = useState("");
+  const [values, setValues] = useState<Record<ConfigKey, string>>(defaultConfigValues);
   const [arrValues, setArrValues] = useState<Record<string, { url: string; apiKey: string }>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -35,17 +63,13 @@ export default function ConfigPage() {
 
   useEffect(() => {
     fetch("/api/config")
-      .then((r) => {
-        if (!r.ok) throw new Error("Failed to load config");
-        return r.json();
+      .then((response) => {
+        if (!response.ok) throw new Error("Failed to load config");
+        return response.json() as Promise<Record<string, string>>;
       })
       .then((data) => {
-        setApiKey(data.real_debrid_api_key || "");
-        setPulseApiKey(data.pulse_api_key || "");
-        setPlexToken(data.plex_token || "");
-        setPlexUrl(data.plex_url || "");
+        setValues((current) => Object.fromEntries(Object.keys(current).map((key) => [key, data[key] ?? current[key as ConfigKey]])) as Record<ConfigKey, string>);
 
-        // Load arr instance values from DB
         const arr: Record<string, { url: string; apiKey: string }> = {};
         for (const def of ARR_INSTANCE_DEFINITIONS) {
           arr[def.name] = {
@@ -55,199 +79,105 @@ export default function ConfigPage() {
         }
         setArrValues(arr);
         setHasChanges(false);
-
-        setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => showToast("Failed to load config", "error"))
+      .finally(() => setLoading(false));
 
     fetch("/api/real-debrid/status")
-      .then((r) => {
-        if (!r.ok) return null;
-        return r.json();
-      })
-      .then((data) => {
-        if (data) setRdStatus(data);
-      })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => { if (data) setRdStatus(data); })
       .catch(() => setRdStatus({ label: "Offline", ok: false }));
+  }, [showToast]);
+
+  const setField = useCallback((key: ConfigKey, value: string) => {
+    setValues((current) => ({ ...current, [key]: value }));
+    setHasChanges(true);
   }, []);
 
-  const handleArrFieldChange = useCallback(
-    (name: string, field: "url" | "apiKey", value: string) => {
-      setArrValues((prev) => ({
-        ...prev,
-        [name]: { ...prev[name], [field]: value },
-      }));
-      setHasChanges(true);
-    },
-    [],
-  );
+  const handleArrFieldChange = useCallback((name: string, field: "url" | "apiKey", value: string) => {
+    setArrValues((current) => ({ ...current, [name]: { ...current[name], [field]: value } }));
+    setHasChanges(true);
+  }, []);
 
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
-      const payload: Record<string, string> = {
-        real_debrid_api_key: apiKey,
-        pulse_api_key: pulseApiKey,
-        plex_token: plexToken,
-        plex_url: plexUrl,
-      };
-
+      const payload: Record<string, string> = { ...values };
       for (const def of ARR_INSTANCE_DEFINITIONS) {
         payload[arrConfigDbKey(def.slug, "url")] = arrValues[def.name]?.url ?? "";
         payload[arrConfigDbKey(def.slug, "api_key")] = arrValues[def.name]?.apiKey ?? "";
       }
 
-      const res = await fetch("/api/config", {
+      const response = await fetch("/api/config", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Save failed");
+      if (!response.ok) throw new Error("Save failed");
       setHasChanges(false);
       showToast("Config saved", "success");
 
-      // Refresh status
-      const statusRes = await fetch("/api/real-debrid/status");
-      if (statusRes.ok) {
-        const statusData = await statusRes.json();
-        setRdStatus(statusData);
-      }
+      const statusResponse = await fetch("/api/real-debrid/status");
+      if (statusResponse.ok) setRdStatus(await statusResponse.json());
     } catch {
       showToast("Failed to save config", "error");
     } finally {
       setSaving(false);
     }
-  }, [apiKey, pulseApiKey, plexToken, plexUrl, arrValues, showToast]);
-
-  // ── Render ────────────────────────────────────────────────────────────
+  }, [arrValues, showToast, values]);
 
   return (
     <AppShell>
-      <div className="p-4 md:p-6 max-w-4xl mx-auto stagger-1">
-        <h1
-          className="text-2xl font-bold mb-1 tracking-tight text-[var(--color-on-surface)]"
-          style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
-        >
-          Config
-        </h1>
-        <p className="text-sm text-[var(--color-on-surface-variant)] mb-8">Global application configuration</p>
+      <div className="mx-auto max-w-4xl p-4 stagger-1 md:p-6">
+        <h1 className="mb-1 text-2xl font-bold tracking-tight text-on-surface" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>Config</h1>
+        <p className="mb-8 text-sm text-on-surface-variant">Global application configuration for current and planned Mission Control features.</p>
 
         {loading ? (
-          <div className="text-center py-16 text-[var(--color-on-surface-variant)]">Loading...</div>
+          <div className="py-16 text-center text-on-surface-variant">Loading...</div>
         ) : (
           <div className="space-y-6">
-            {/* ── Pulse ─────────────────────────────────────────────────── */}
-            <div className="p-4 md:p-6 rounded-lg" style={cardStyle}>
-              <h2 className="text-sm font-semibold text-[var(--color-on-surface)] mb-4">Pulse</h2>
-              <label htmlFor="pulse-api-key" className={labelClass}>Pulse API Key</label>
-              <input
-                id="pulse-api-key"
-                type="password"
-                className={inputClass}
-                placeholder="Enter your Pulse API key"
-                value={pulseApiKey}
-                onChange={(e) => {
-                  setPulseApiKey(e.target.value);
-                  setHasChanges(true);
-                }}
-              />
-              <p className="text-xs text-[var(--color-on-surface-variant)] mt-2">
-                Generate a read-only token in Pulse&apos;s API Access settings. Mission Control sends it through Pulse&apos;s <code className="text-primary">X-API-Token</code> header.
-              </p>
-            </div>
+            {sections.map((section, index) => (
+              <details key={section.name} open={index === 0} className="rounded-lg" style={cardStyle}>
+                <summary className="cursor-pointer list-none px-4 py-4 md:px-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-sm font-semibold text-on-surface">{section.name}</h2>
+                    <span className="material-symbols-outlined text-on-surface-variant">expand_more</span>
+                  </div>
+                </summary>
+                <div className="grid gap-5 border-t border-outline-variant/30 px-4 py-5 md:grid-cols-2 md:px-6">
+                  {section.fields.map((field) => (
+                    <ConfigField key={field.key} field={field} value={values[field.key as ConfigKey]} onChange={(value) => setField(field.key as ConfigKey, value)} />
+                  ))}
+                </div>
+              </details>
+            ))}
 
-            {/* ── Plex ──────────────────────────────────────────────────── */}
-            <div className="p-4 md:p-6 rounded-lg" style={cardStyle}>
-              <h2 className="text-sm font-semibold text-[var(--color-on-surface)] mb-4">Plex</h2>
-
-              <label className={labelClass}>Plex Token</label>
-              <input
-                type="password"
-                className={inputClass}
-                placeholder="Enter your Plex authentication token"
-                value={plexToken}
-                onChange={(e) => {
-                  setPlexToken(e.target.value);
-                  setHasChanges(true);
-                }}
-              />
-              <p className="text-xs text-[var(--color-on-surface-variant)] mt-3">
-                Can be obtained via the token extractor script:&nbsp;
-                <code className="text-primary">just script scripts/plex/plex-token-extractor.ts</code>
-              </p>
-
-              <label className={`${labelClass} mt-4`}>Plex Server URL</label>
-              <input
-                type="url"
-                className={inputClass}
-                placeholder="http://192.168.1.x:32400"
-                value={plexUrl}
-                onChange={(e) => {
-                  setPlexUrl(e.target.value);
-                  setHasChanges(true);
-                }}
-              />
-              <p className="text-xs text-[var(--color-on-surface-variant)] mt-2">
-                Local Plex server address including port (e.g. http://192.168.1.100:32400).
-              </p>
-            </div>
-
-            {/* ── Real-Debrid ───────────────────────────────────────────── */}
-            <div className="p-4 md:p-6 rounded-lg" style={cardStyle}>
-              <label className={labelClass}>Real Debrid API Key</label>
-              <input
-                type="password"
-                className={inputClass}
-                placeholder="Enter your Real-Debrid API key"
-                value={apiKey}
-                onChange={(e) => {
-                  setApiKey(e.target.value);
-                  setHasChanges(true);
-                }}
-              />
-              <p className="text-xs text-[var(--color-on-surface-variant)] mt-2">
-                Found in your Real-Debrid account under &quot;API Token&quot;.
-              </p>
-            </div>
-
-            {/* ── Status Badge ──────────────────────────────────────────── */}
             {rdStatus && (
-              <div
-                className="flex items-center gap-3 p-3 rounded-lg text-sm"
-                style={{
-                  background: "rgba(32, 31, 31, 0.8)",
-                  border: `1px solid ${rdStatus.ok ? "var(--status-success-border)" : "var(--status-failed-border)"}`,
-                }}
-              >
-                <div
-                  className={`w-2 h-2 rounded-full shrink-0 ${rdStatus.ok ? "bg-success" : "bg-error"}`}
-                />
-                <span className={rdStatus.ok ? "text-success" : "text-error"}>
-                  Real-Debrid: {rdStatus.label}
-                </span>
+              <div className="flex items-center gap-3 rounded-lg p-3 text-sm" style={{ background: "rgba(32, 31, 31, 0.8)", border: `1px solid ${rdStatus.ok ? "var(--status-success-border)" : "var(--status-failed-border)"}` }}>
+                <div className={`h-2 w-2 shrink-0 rounded-full ${rdStatus.ok ? "bg-success" : "bg-error"}`} />
+                <span className={rdStatus.ok ? "text-success" : "text-error"}>Real-Debrid: {rdStatus.label}</span>
               </div>
             )}
 
-            {/* ── Arr Instances ─────────────────────────────────────────── */}
-            <ArrConfigSection
-              values={arrValues}
-              onChange={handleArrFieldChange}
-            />
+            <ArrConfigSection values={arrValues} onChange={handleArrFieldChange} />
 
+            <section className="rounded-lg p-4 md:p-6" style={cardStyle}>
+              <h2 className="mb-2 text-sm font-semibold text-on-surface">Managed configuration</h2>
+              <p className="mb-4 text-xs text-on-surface-variant">Repeatable records and security-sensitive controls stay with the feature that owns them.</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Link href="/pve" className="rounded-[var(--radius-button)] border border-outline-variant/30 p-3 text-sm text-primary hover:bg-surface">Proxmox endpoints and SSH maps</Link>
+                <Link href="/operations" className="rounded-[var(--radius-button)] border border-outline-variant/30 p-3 text-sm text-primary hover:bg-surface">Backups, AdGuard, TLS and maintenance</Link>
+                <Link href="/pi-settings" className="rounded-[var(--radius-button)] border border-outline-variant/30 p-3 text-sm text-primary hover:bg-surface">Pi tools, skills and providers</Link>
+                <Link href="/schedules" className="rounded-[var(--radius-button)] border border-outline-variant/30 p-3 text-sm text-primary hover:bg-surface">Schedules and worker timers</Link>
+              </div>
+            </section>
           </div>
         )}
       </div>
 
       {hasChanges && !loading && (
         <div className="fixed bottom-5 right-5 z-50">
-          <Button
-            variant="primary"
-            onClick={handleSave}
-            disabled={saving}
-            className="shadow-lg"
-          >
-            {saving ? "Saving..." : "Save changes"}
-          </Button>
+          <Button variant="primary" onClick={handleSave} disabled={saving} className="shadow-lg">{saving ? "Saving..." : "Save changes"}</Button>
         </div>
       )}
     </AppShell>

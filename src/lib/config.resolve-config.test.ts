@@ -168,6 +168,31 @@ describe("resolveConfig — DB fallback", () => {
   });
 });
 
+describe("resolveGlobalConfigValues", () => {
+  test("resolves planned feature values from DB with defaults", async () => {
+    await seedConfig({ telegram_chat_id: "12345", prowlarr_url: "http://prowlarr:9696" });
+    const mod = await loadFreshConfig("global-values-db");
+    const values = await mod.resolveGlobalConfigValues();
+    expect(values.telegram_chat_id).toBe("12345");
+    expect(values.prowlarr_url).toBe("http://prowlarr:9696");
+    expect(values.audit_retention_days).toBe("365");
+  });
+
+  test("environment values override planned feature DB values", async () => {
+    process.env.TELEGRAM_CHAT_ID = "env-chat";
+    await seedConfig({ telegram_chat_id: "db-chat" });
+    const mod = await loadFreshConfig("global-values-env");
+    expect((await mod.resolveGlobalConfigValues()).telegram_chat_id).toBe("env-chat");
+  });
+
+  test("Config page Decypharr URL reaches existing AppConfig consumers", async () => {
+    delete process.env.DECYPHARR_URL;
+    await seedConfig({ decypharr_url: "http://db-decypharr:8282" });
+    const mod = await loadFreshConfig("decypharr-db");
+    expect((await mod.resolveConfig()).decypharrUrl).toBe("http://db-decypharr:8282");
+  });
+});
+
 describe("resolveConfig — env wins over DB", () => {
   test("env PLEX_TOKEN takes precedence over DB value", async () => {
     process.env.PLEX_TOKEN = "env-token";

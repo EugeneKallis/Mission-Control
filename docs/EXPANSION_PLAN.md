@@ -22,6 +22,15 @@ This program implements the feature set approved after Phase 18. Ship one vertic
 | 32 | Customizable Home Dashboard | Planned |
 | 33 | Energy Contract Assistant | Planned |
 
+## Shared configuration foundation
+
+`/admin/config` exposes the static credentials, endpoints, thresholds, retention values,
+location, power, and energy inputs required by this roadmap. The canonical field registry
+is `src/lib/config-fields.ts`; runtime consumers use `resolveGlobalConfigValues()` for
+environment > database > default precedence. Repeatable records stay in feature-owned
+interfaces (for example Proxmox endpoints, notification rules, runbooks, and synthetic
+journeys).
+
 ## Phase 19 — Integration Health Matrix
 
 One read-only surface checks configured Arr, Plex, Real-Debrid, Decypharr, Pulse, Dozzle, Proxmox, and AdGuard integrations. It reports healthy, unreachable/auth failure, or unconfigured without returning credentials or upstream response bodies.

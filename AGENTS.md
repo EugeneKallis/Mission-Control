@@ -206,14 +206,26 @@ env > DB > default precedence:
 Consumers that only need media paths (e.g. `src/workers/file-scanner.ts`) use
 env-only `getConfig()` and are unaffected.
 
-### Config API (`/api/config`)
+### Global Config registry and API
 
-- `GET /api/config` — Returns all stored config values (including Arr keys).
-  Response has `Cache-Control: no-store`.
-- `PUT /api/config` — Accepts any of the Arr DB keys plus `real_debrid_api_key`,
-  `plex_token`, `plex_url`. Arr URL values are validated to start with `http://`
-  or `https://`; empty strings clear the stored override. Unknown keys are
-  silently ignored. API key values never appear in validation error details.
+`CONFIG_FIELDS` in `src/lib/config-fields.ts` is the canonical registry for
+non-repeatable global settings shown at `/admin/config`. It defines each DB key,
+environment override, section, input kind, label, description, and default. The
+registry covers current integrations plus credentials and defaults required by
+the expansion roadmap. Add global fields there; repeatable records such as
+Proxmox endpoints, notification rules, runbooks, and synthetic journeys remain
+owned by their feature-specific tables and settings pages.
+
+Effective values use environment > Config-page DB > registry default precedence.
+Future consumers should call `resolveGlobalConfigValues()` from `@/lib/config`.
+Existing typed `AppConfig` consumers continue to call `resolveConfig()`.
+
+- `GET /api/config` — Returns all stored config values, including registry and Arr
+  keys, with `Cache-Control: no-store`.
+- `PUT /api/config` — Accepts canonical registry keys and Arr DB keys. Values are
+  trimmed and validated by input kind; URL values require `http://` or `https://`.
+  Empty strings clear stored overrides, unknown keys are ignored, and secrets never
+  appear in validation details.
 
 ## Key Conventions
 
