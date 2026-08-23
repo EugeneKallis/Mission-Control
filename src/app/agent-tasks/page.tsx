@@ -33,6 +33,7 @@ export default async function AgentTasks() {
           appendSystem: t.appendSystem,
           persistSession: t.persistSession,
           timeoutSec: t.timeoutSec,
+          concurrencyPolicy: t.concurrencyPolicy as "skip" | "queue-one" | "allow",
           lastRunAt: t.lastRunAt?.toISOString() ?? null,
           lastStatus: t.lastStatus,
           createdAt: t.createdAt?.toISOString() ?? null,

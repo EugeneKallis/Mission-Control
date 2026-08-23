@@ -13,10 +13,12 @@ import {
   isInternalMacro,
 } from "@/lib/db/queries";
 import { cronScheduler } from "@/lib/cron-scheduler";
+import { CONCURRENCY_POLICIES } from "@/lib/scheduled-run-controller";
 
 const updateSchema = z.object({
   macroId: z.number().int().positive().optional(),
   cronExpression: z.string().min(1).optional(),
+  concurrencyPolicy: z.enum(CONCURRENCY_POLICIES).optional(),
   enabled: z.boolean().optional(),
 });
 
@@ -86,6 +88,7 @@ export async function PUT(
       updated.macroId,
       updated.cronExpression,
       updated.enabled,
+      updated.concurrencyPolicy as (typeof CONCURRENCY_POLICIES)[number],
     );
 
     return NextResponse.json(updated);

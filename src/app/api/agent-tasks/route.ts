@@ -10,6 +10,7 @@ import { agentTaskScheduler } from "@/lib/agent-task-scheduler";
 import { validateCronExpression } from "@/lib/cron";
 import { getAllTools, discoverSkills } from "@/lib/pi/pi-settings";
 import { agentTaskRowToSpawnConfig } from "@/lib/pi/headless-prompt";
+import { CONCURRENCY_POLICIES } from "@/lib/scheduled-run-controller";
 
 // ── Create Schema ─────────────────────────────────────────────────────────
 
@@ -28,6 +29,7 @@ const createSchema = z.object({
   appendSystem: z.string().nullable().optional().default(null),
   persistSession: z.boolean().optional().default(false),
   timeoutSec: z.number().int().min(1).optional().default(300),
+  concurrencyPolicy: z.enum(CONCURRENCY_POLICIES).optional().default("skip"),
 });
 
 // ── GET /api/agent-tasks ──────────────────────────────────────────────────

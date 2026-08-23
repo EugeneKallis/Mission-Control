@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSchedule, isInternalMacro, toggleSchedule } from "@/lib/db/queries";
 import { cronScheduler } from "@/lib/cron-scheduler";
+import type { ConcurrencyPolicy } from "@/lib/scheduled-run-controller";
 
 export async function POST(
   _request: NextRequest,
@@ -26,7 +27,12 @@ export async function POST(
     const updated = await toggleSchedule(sid);
 
     if (updated.enabled) {
-      await cronScheduler.addSchedule(updated.id, updated.macroId, updated.cronExpression);
+      await cronScheduler.addSchedule(
+        updated.id,
+        updated.macroId,
+        updated.cronExpression,
+        updated.concurrencyPolicy as ConcurrencyPolicy,
+      );
     } else {
       await cronScheduler.removeSchedule(updated.id);
     }

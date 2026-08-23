@@ -7,11 +7,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { listWorkerTimers, createWorkerTimer } from "@/lib/db/queries";
 import { workerTimerScheduler, WORKER_REGISTRY } from "@/lib/worker-timer-scheduler";
+import { CONCURRENCY_POLICIES } from "@/lib/scheduled-run-controller";
 
 const createSchema = z.object({
   name: z.string().min(1, "name is required"),
   workerPath: z.string().min(1, "workerPath is required"),
   cronExpression: z.string().min(1, "cronExpression is required"),
+  concurrencyPolicy: z.enum(CONCURRENCY_POLICIES).optional().default("skip"),
   enabled: z.boolean().optional().default(true),
 });
 
@@ -46,7 +48,12 @@ export async function POST(request: NextRequest) {
 
     // Register with scheduler if enabled
     if (timer.enabled) {
-      await workerTimerScheduler.addTimer(timer.id, timer.workerPath, timer.cronExpression);
+      await workerTimerScheduler.addTimer(
+        timer.id,
+        timer.workerPath,
+        timer.cronExpression,
+        timer.concurrencyPolicy as (typeof CONCURRENCY_POLICIES)[number],
+      );
     }
 
     return NextResponse.json(timer, { status: 201 });

@@ -273,7 +273,7 @@ function TaskCard({ task, onToggle, onEdit, onDelete, onRunNow, isRunning }: Tas
               )}
             </div>
             <div className="text-xs text-on-surface-variant mt-0.5 flex flex-wrap gap-x-3">
-              <span>{formatCronHuman(task.cronExpression)}</span>
+              <span>{formatCronHuman(task.cronExpression)} · {task.concurrencyPolicy}</span>
               {task.lastRunAt && (
                 <span>Last: {new Date(task.lastRunAt).toLocaleString()}</span>
               )}

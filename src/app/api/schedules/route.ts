@@ -11,10 +11,12 @@ import {
   isInternalMacro,
 } from "@/lib/db/queries";
 import { cronScheduler } from "@/lib/cron-scheduler";
+import { CONCURRENCY_POLICIES } from "@/lib/scheduled-run-controller";
 
 const createSchema = z.object({
   macroId: z.number().int().positive("macroId must be a positive integer"),
   cronExpression: z.string().min(1, "cronExpression is required"),
+  concurrencyPolicy: z.enum(CONCURRENCY_POLICIES).optional().default("skip"),
   enabled: z.boolean().optional().default(true),
 });
 
@@ -63,6 +65,7 @@ export async function POST(request: NextRequest) {
         schedule.id,
         schedule.macroId,
         schedule.cronExpression,
+        schedule.concurrencyPolicy as (typeof CONCURRENCY_POLICIES)[number],
       );
     }
 

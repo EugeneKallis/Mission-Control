@@ -9,6 +9,7 @@ import { z } from "zod";
 import { getAgentTask, updateAgentTask, deleteAgentTask } from "@/lib/db/queries";
 import { agentTaskScheduler } from "@/lib/agent-task-scheduler";
 import { agentTaskRowToSpawnConfig } from "@/lib/pi/headless-prompt";
+import { CONCURRENCY_POLICIES } from "@/lib/scheduled-run-controller";
 
 // ── Update Schema ─────────────────────────────────────────────────────────
 
@@ -27,6 +28,7 @@ const updateSchema = z.object({
   appendSystem: z.string().nullable().optional(),
   persistSession: z.boolean().optional(),
   timeoutSec: z.number().int().min(1).optional(),
+  concurrencyPolicy: z.enum(CONCURRENCY_POLICIES).optional(),
 });
 
 // ── GET ───────────────────────────────────────────────────────────────────
@@ -101,6 +103,7 @@ export async function PUT(
     if (parsed.data.appendSystem !== undefined) updateData.appendSystem = parsed.data.appendSystem;
     if (parsed.data.persistSession !== undefined) updateData.persistSession = parsed.data.persistSession;
     if (parsed.data.timeoutSec !== undefined) updateData.timeoutSec = parsed.data.timeoutSec;
+    if (parsed.data.concurrencyPolicy !== undefined) updateData.concurrencyPolicy = parsed.data.concurrencyPolicy;
 
     const updated = await updateAgentTask(taskId, updateData);
 

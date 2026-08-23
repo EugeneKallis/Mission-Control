@@ -12,6 +12,7 @@ import {
   type DayOfWeek,
   type ScheduleFormValues,
 } from "@/lib/cron";
+import type { ConcurrencyPolicy } from "@/lib/scheduled-run-controller";
 
 interface EditTimerFormProps {
   timerId: number;
@@ -19,6 +20,7 @@ interface EditTimerFormProps {
   workerPath: string;
   initialEnabled: boolean;
   initialValues: ScheduleFormValues;
+  initialConcurrencyPolicy: ConcurrencyPolicy;
 }
 
 const labelCls = "text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant";
@@ -34,6 +36,7 @@ export function EditTimerForm({
   workerPath,
   initialEnabled,
   initialValues,
+  initialConcurrencyPolicy,
 }: EditTimerFormProps) {
   const toast = useToast();
   const router = useRouter();
@@ -46,6 +49,7 @@ export function EditTimerForm({
   const [dayOfWeek, setDayOfWeek] = useState<DayOfWeek>(
     (initialValues.dayOfWeek as DayOfWeek) ?? "1"
   );
+  const [concurrencyPolicy, setConcurrencyPolicy] = useState(initialConcurrencyPolicy);
   const [submitting, setSubmitting] = useState(false);
 
   const currentValues = { frequency, intervalValue, intervalUnit, time, dayOfWeek };
@@ -66,7 +70,7 @@ export function EditTimerForm({
       const res = await fetch(`/api/schedules/timers/${timerId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cronExpression }),
+        body: JSON.stringify({ cronExpression, concurrencyPolicy }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -210,6 +214,20 @@ export function EditTimerForm({
                 )}
               </>
             )}
+          </div>
+
+          <div className="grid grid-cols-1 gap-1.5">
+            <label htmlFor="t_concurrency_policy" className={labelCls}>Overlap policy</label>
+            <select
+              id="t_concurrency_policy"
+              value={concurrencyPolicy}
+              onChange={(e) => setConcurrencyPolicy(e.target.value as ConcurrencyPolicy)}
+              className={inputCls}
+            >
+              <option value="skip">Skip overlapping triggers</option>
+              <option value="queue-one">Queue one overlapping trigger</option>
+              <option value="allow">Allow concurrent runs</option>
+            </select>
           </div>
 
           <div className="h-px w-full bg-outline-variant/30" />

@@ -11,6 +11,7 @@
 import { homedir } from "os";
 import { join } from "path";
 import type { AgentTask } from "@prisma/client";
+import type { ConcurrencyPolicy } from "@/lib/scheduled-run-controller";
 
 /**
  * System prompt appended (via --append-system-prompt) to tell the agent
@@ -56,6 +57,8 @@ export interface AgentTaskSpawnConfig {
   cronExpression?: string;
   /** Timeout in seconds for the run. */
   timeoutSec?: number;
+  /** Scheduler overlap behavior. */
+  concurrencyPolicy?: ConcurrencyPolicy;
 }
 
 /**
@@ -177,5 +180,6 @@ export function agentTaskRowToSpawnConfig(
       : undefined,
     cronExpression: task.cronExpression,
     timeoutSec: task.timeoutSec,
+    concurrencyPolicy: task.concurrencyPolicy as ConcurrencyPolicy,
   };
 }

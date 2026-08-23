@@ -133,6 +133,7 @@ export async function createHistory(data: {
   workerTimerId?: number;
   agentTaskId?: number;
   startTime?: Date;
+  endTime?: Date;
   status?: string;
   output?: string;
   triggeredBy?: string;
@@ -143,6 +144,7 @@ export async function createHistory(data: {
       workerTimerId: data.workerTimerId,
       agentTaskId: data.agentTaskId,
       startTime: data.startTime ?? new Date(),
+      endTime: data.endTime,
       status: data.status ?? "running",
       output: data.output,
       triggeredBy: data.triggeredBy ?? "user",
@@ -217,12 +219,14 @@ export async function deleteAllHistory() {
 export async function createSchedule(data: {
   macroId: number;
   cronExpression: string;
+  concurrencyPolicy?: string;
   enabled?: boolean;
 }) {
   return db.schedule.create({
     data: {
       macroId: data.macroId,
       cronExpression: data.cronExpression,
+      concurrencyPolicy: data.concurrencyPolicy ?? "skip",
       enabled: data.enabled ?? true,
     },
   });
@@ -286,6 +290,7 @@ export async function createWorkerTimer(data: {
   name: string;
   workerPath: string;
   cronExpression: string;
+  concurrencyPolicy?: string;
   enabled?: boolean;
 }) {
   return db.workerTimer.create({
@@ -293,6 +298,7 @@ export async function createWorkerTimer(data: {
       name: data.name,
       workerPath: data.workerPath,
       cronExpression: data.cronExpression,
+      concurrencyPolicy: data.concurrencyPolicy ?? "skip",
       enabled: data.enabled ?? true,
     },
   });
@@ -354,6 +360,7 @@ export async function createAgentTask(data: {
   appendSystem?: string | null;
   persistSession?: boolean;
   timeoutSec?: number;
+  concurrencyPolicy?: string;
 }) {
   return db.agentTask.create({
     data: {
@@ -371,6 +378,7 @@ export async function createAgentTask(data: {
       appendSystem: data.appendSystem ?? null,
       persistSession: data.persistSession ?? false,
       timeoutSec: data.timeoutSec ?? 300,
+      concurrencyPolicy: data.concurrencyPolicy ?? "skip",
     },
   });
 }

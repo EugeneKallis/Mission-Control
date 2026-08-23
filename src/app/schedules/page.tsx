@@ -34,6 +34,7 @@ export default async function SchedulesPage() {
           macroId: s.macroId,
           macroName: s.macro?.name ?? "(deleted macro)",
           cronExpression: s.cronExpression,
+          concurrencyPolicy: s.concurrencyPolicy as "skip" | "queue-one" | "allow",
           enabled: s.enabled,
           createdAt: s.createdAt?.toISOString() ?? null,
         }))}
@@ -42,6 +43,7 @@ export default async function SchedulesPage() {
           name: t.name,
           workerPath: t.workerPath,
           cronExpression: t.cronExpression,
+          concurrencyPolicy: t.concurrencyPolicy as "skip" | "queue-one" | "allow",
           enabled: t.enabled,
           lastRunAt: t.lastRunAt?.toISOString() ?? null,
           lastStatus: t.lastStatus,

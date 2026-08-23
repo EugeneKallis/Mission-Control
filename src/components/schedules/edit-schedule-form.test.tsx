@@ -105,6 +105,7 @@ function renderForm(props: {
           }
         }
         initialMacroId={props.initialMacroId ?? 1}
+        initialConcurrencyPolicy="skip"
       />
     </ToastProvider>,
   );

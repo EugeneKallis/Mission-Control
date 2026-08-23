@@ -50,6 +50,7 @@ model Schedule {
   id             Int      @id @default(autoincrement())
   macroId        Int      @map("macro_id")
   cronExpression String   @map("cron_expression")
+  concurrencyPolicy String @default("skip") @map("concurrency_policy")
   enabled        Boolean  @default(true)
   createdAt      DateTime @default(now()) @map("created_at")
   macro          Macro    @relation(fields: [macroId], references: [id])
@@ -168,6 +169,7 @@ model WorkerTimer {
   name           String
   workerPath     String    @map("worker_path")
   cronExpression String    @map("cron_expression")
+  concurrencyPolicy String @default("skip") @map("concurrency_policy")
   enabled        Boolean   @default(true)
   lastRunAt      DateTime? @map("last_run_at")
   lastStatus     String?   @map("last_status")
@@ -182,6 +184,7 @@ model AgentTask {
   name            String
   prompt          String
   cronExpression  String    @map("cron_expression")
+  concurrencyPolicy String  @default("skip") @map("concurrency_policy")
   enabled         Boolean   @default(false)
   provider        String?
   model           String?

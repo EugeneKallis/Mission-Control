@@ -7,6 +7,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import { Button } from "@/components/ui/button";
 import { NewScheduleForm } from "./new-schedule-form";
+import type { ConcurrencyPolicy } from "@/lib/scheduled-run-controller";
 
 export interface MacroOption {
   id: number;
@@ -19,6 +20,7 @@ export interface ScheduleRow {
   macroId: number;
   macroName: string;
   cronExpression: string;
+  concurrencyPolicy: ConcurrencyPolicy;
   enabled: boolean;
   createdAt: string | null;
 }
@@ -28,6 +30,7 @@ export interface WorkerTimerRow {
   name: string;
   workerPath: string;
   cronExpression: string;
+  concurrencyPolicy: ConcurrencyPolicy;
   enabled: boolean;
   lastRunAt: string | null;
   lastStatus: string | null;
@@ -76,7 +79,11 @@ export function SchedulesList({ macros, initialSchedules, initialTimers }: Sched
 
   // ── Schedule handlers ────────────────────────────────────────────
   const handleCreateSchedule = useCallback(
-    async (params: { macroId: number; cronExpression: string }) => {
+    async (params: {
+      macroId: number;
+      cronExpression: string;
+      concurrencyPolicy: ConcurrencyPolicy;
+    }) => {
       try {
         const res = await fetch("/api/schedules", {
           method: "POST",
@@ -283,7 +290,7 @@ export function SchedulesList({ macros, initialSchedules, initialTimers }: Sched
                           {s.cronExpression}
                         </code>
                         <span className="text-[10px] text-on-surface-variant/60">
-                          {formatCronHuman(s.cronExpression)}
+                          {formatCronHuman(s.cronExpression)} · {s.concurrencyPolicy}
                         </span>
                       </div>
                     </div>
@@ -371,7 +378,7 @@ export function SchedulesList({ macros, initialSchedules, initialTimers }: Sched
                           {t.cronExpression}
                         </code>
                         <span className="text-[10px] text-on-surface-variant/60">
-                          {formatCronHuman(t.cronExpression)}
+                          {formatCronHuman(t.cronExpression)} · {t.concurrencyPolicy}
                         </span>
                         <code className="font-mono text-[10px] px-1.5 py-0.5 rounded-[var(--radius-button)] text-on-surface-variant/60 bg-surface-container-lowest border border-outline-variant/20">
                           {t.workerPath.split("/").pop()}

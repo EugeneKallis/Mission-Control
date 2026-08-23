@@ -69,6 +69,7 @@ const baseSchedule = (over: Partial<ScheduleRow> = {}): ScheduleRow => ({
   macroId: 1,
   macroName: "Sync Library",
   cronExpression: "*/15 * * * *",
+  concurrencyPolicy: "skip",
   enabled: true,
   createdAt: "2026-01-15T10:00:00.000Z",
   ...over,
