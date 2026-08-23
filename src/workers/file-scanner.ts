@@ -28,6 +28,7 @@ import {
   deleteDebridFilesOlderThan,
 } from "@/lib/db/queries";
 import { getConfig } from "@/lib/config";
+import { checkMediaDependencies } from "@/lib/media-dependency-breaker";
 import { pMap } from "@/lib/p-map";
 
 // ── Constants (mirror scanner.go) ─────────────────────────────────────────
@@ -258,6 +259,12 @@ async function main() {
 
   console.log(`[file-scanner] start at ${startedAt.toISOString()}${dryRun ? " (DRY RUN)" : ""}`);
 
+  const dependencyGuard = await checkMediaDependencies();
+  if (!dependencyGuard.allowed) {
+    console.warn(`[file-scanner] paused for upstream incident: ${dependencyGuard.incident?.failures.map((failure) => failure.name).join(", ") || "recovering"}`);
+    return;
+  }
+
   // Resolve media base path. fullMediaPaths returns one entry per configured media
   // directory; the walk should happen from the base so relative paths are consistent
   // (e.g. "movies/Foo.nzb" not "Foo.nzb").
@@ -317,16 +324,23 @@ async function main() {
     `[file-scanner] upsert complete in ${upsertMs}ms — nzb=${nzbOk}, debrid=${debridOk}`
   );
 
-  // Cleanup stale rows (those not seen this run, i.e. files removed from disk)
+  // Cleanup stale rows (those not seen this run, i.e. files removed from disk).
+  // Re-check after the walk so an outage that began mid-scan cannot turn a
+  // partial result into mass deletion.
   if (cleanup && !dryRun) {
-    try {
-      const nzbDeleted = await deleteNzbFilesOlderThan(scanTime);
-      const debridDeleted = await deleteDebridFilesOlderThan(scanTime);
-      console.log(
-        `[file-scanner] cleanup — removed nzb=${nzbDeleted.count}, debrid=${debridDeleted.count}`
-      );
-    } catch (err) {
-      console.error("[file-scanner] cleanup failed:", err);
+    const cleanupGuard = await checkMediaDependencies();
+    if (!cleanupGuard.allowed) {
+      console.warn("[file-scanner] cleanup paused for upstream incident");
+    } else {
+      try {
+        const nzbDeleted = await deleteNzbFilesOlderThan(scanTime);
+        const debridDeleted = await deleteDebridFilesOlderThan(scanTime);
+        console.log(
+          `[file-scanner] cleanup — removed nzb=${nzbDeleted.count}, debrid=${debridDeleted.count}`
+        );
+      } catch (err) {
+        console.error("[file-scanner] cleanup failed:", err);
+      }
     }
   } else if (!cleanup) {
     console.log("[file-scanner] cleanup skipped (set CLEANUP_OLD=true to enable)");

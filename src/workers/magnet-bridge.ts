@@ -25,6 +25,7 @@ import { mkdir, readdir, rename, rm, stat, lstat } from "fs/promises";
 import { basename, dirname, join } from "path";
 import { DecypharrClient } from "@/lib/clients/decypharr";
 import { getConfig } from "@/lib/config";
+import { checkMediaDependencies } from "@/lib/media-dependency-breaker";
 import { parseArgs } from "../../scripts/_lib/cli";
 import { banner, info, warn } from "../../scripts/_lib/log";
 
@@ -81,7 +82,14 @@ export async function pollOnce(
   client: DecypharrClient,
   category: string,
   destDir: string,
+  dependencyCheck = checkMediaDependencies,
 ): Promise<void> {
+  const dependencyGuard = await dependencyCheck();
+  if (!dependencyGuard.allowed) {
+    warn(`Paused for upstream incident: ${dependencyGuard.incident?.failures.map((failure) => failure.name).join(", ") || "recovering"}`);
+    return;
+  }
+
   let resp;
   try {
     resp = await client.listTorrents();
