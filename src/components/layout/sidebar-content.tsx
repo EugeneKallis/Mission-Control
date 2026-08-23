@@ -326,6 +326,7 @@ export function SidebarContent({
         </div>
         <NavItem label="Proxmox" icon="dns" href="/pve" color="green" badge={suppressedSources.includes("pve") ? undefined : pveAlertCount ?? undefined} badgeTitle="alerts" />
         <NavItem label="Local Arrs" icon="video_library" href="/local-arrs" color="teal" />
+        <NavItem label="Arr Drift" icon="difference" href="/arr-drift" color="teal" />
         <NavItem label="Pulse" icon="monitor_heart" href="/pulse" color="cyan" />
         <NavItem label="Integrations" icon="lan" href="/integrations" color="cyan" />
         <NavItem label="Operations" icon="hub" href="/operations" color="amber" badge={operationsAlertCount ?? undefined} badgeTitle="alerts" />

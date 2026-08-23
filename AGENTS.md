@@ -333,6 +333,7 @@ This tells the next agent exactly where to pick up.
 | Phase 18 — Operations | 25 (verified MC backups, deploy ledger, release radar, AdGuard health, TLS expiry, maintenance windows) | ✅ Done |
 | Phase 19 — Integration Health | 26 (concurrent health matrix for configured external integrations) | ✅ Done |
 | Phase 20 — Action Audit Trail | 27 (sanitized records for destructive and configuration actions) | ⏳ In progress |
+| Phase 29 — Arr Configuration Drift | Read-only cross-instance comparison with selectable same-type baseline and native Arr settings links | ✅ Done |
 
 Expansion phases 19–33 are specified in `docs/EXPANSION_PLAN.md`.
 
