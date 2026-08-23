@@ -136,20 +136,24 @@ export function ArrConfigSection({ values, onChange }: ArrConfigSectionProps) {
   const sonarrInstances = ARR_INSTANCE_DEFINITIONS.filter((d) => d.type === "sonarr");
 
   return (
-    <div
-      className="p-4 md:p-6 rounded-lg"
+    <details
+      className="rounded-lg"
       style={{ background: "var(--color-surface-container)", border: "1px solid var(--color-border)" }}
     >
-      <h2 className="text-sm font-semibold text-[var(--color-on-surface)] mb-4">
-        Arr Instances
-      </h2>
-      <p className="text-xs text-[var(--color-on-surface-variant)] mb-4">
-        Configure API keys and URLs for all Sonarr / Radarr instances.
-        Values set here are stored in the database. Environment variables
-        (<code className="text-[var(--color-success)]">ARR__&lt;NAME&gt;__URL</code>,{" "}
-        <code className="text-[var(--color-success)]">ARR__&lt;NAME&gt;__API_KEY</code>)
-        take precedence over stored values.
-      </p>
+      <summary className="cursor-pointer list-none px-4 py-4 md:px-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-[var(--color-on-surface)]">Arr Instances</h2>
+          <span className="material-symbols-outlined text-[var(--color-on-surface-variant)]">expand_more</span>
+        </div>
+      </summary>
+      <div className="border-t border-[var(--color-outline-variant)]/30 px-4 py-5 md:px-6">
+        <p className="text-xs text-[var(--color-on-surface-variant)] mb-4">
+          Configure API keys and URLs for all Sonarr / Radarr instances.
+          Values set here are stored in the database. Environment variables
+          (<code className="text-[var(--color-success)]">ARR__&lt;NAME&gt;__URL</code>,{" "}
+          <code className="text-[var(--color-success)]">ARR__&lt;NAME&gt;__API_KEY</code>)
+          take precedence over stored values.
+        </p>
 
       {/* Bulk import */}
       <label className={`${labelClass} text-[var(--color-on-surface-variant)]`}>
@@ -221,6 +225,7 @@ export function ArrConfigSection({ values, onChange }: ArrConfigSectionProps) {
           />
         ))}
       </div>
-    </div>
+      </div>
+    </details>
   );
 }

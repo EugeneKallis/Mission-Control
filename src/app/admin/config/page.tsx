@@ -136,8 +136,8 @@ export default function ConfigPage() {
           <div className="py-16 text-center text-on-surface-variant">Loading...</div>
         ) : (
           <div className="space-y-6">
-            {sections.map((section, index) => (
-              <details key={section.name} open={index === 0} className="rounded-lg" style={cardStyle}>
+            {sections.map((section) => (
+              <details key={section.name} className="rounded-lg" style={cardStyle}>
                 <summary className="cursor-pointer list-none px-4 py-4 md:px-6">
                   <div className="flex items-center justify-between">
                     <h2 className="text-sm font-semibold text-on-surface">{section.name}</h2>
@@ -161,16 +161,23 @@ export default function ConfigPage() {
 
             <ArrConfigSection values={arrValues} onChange={handleArrFieldChange} />
 
-            <section className="rounded-lg p-4 md:p-6" style={cardStyle}>
-              <h2 className="mb-2 text-sm font-semibold text-on-surface">Managed configuration</h2>
-              <p className="mb-4 text-xs text-on-surface-variant">Repeatable records and security-sensitive controls stay with the feature that owns them.</p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Link href="/pve" className="rounded-[var(--radius-button)] border border-outline-variant/30 p-3 text-sm text-primary hover:bg-surface">Proxmox endpoints and SSH maps</Link>
-                <Link href="/operations" className="rounded-[var(--radius-button)] border border-outline-variant/30 p-3 text-sm text-primary hover:bg-surface">Backups, AdGuard, TLS and maintenance</Link>
-                <Link href="/pi-settings" className="rounded-[var(--radius-button)] border border-outline-variant/30 p-3 text-sm text-primary hover:bg-surface">Pi tools, skills and providers</Link>
-                <Link href="/schedules" className="rounded-[var(--radius-button)] border border-outline-variant/30 p-3 text-sm text-primary hover:bg-surface">Schedules and worker timers</Link>
+            <details className="rounded-lg" style={cardStyle}>
+              <summary className="cursor-pointer list-none px-4 py-4 md:px-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold text-on-surface">Managed configuration</h2>
+                  <span className="material-symbols-outlined text-on-surface-variant">expand_more</span>
+                </div>
+              </summary>
+              <div className="border-t border-outline-variant/30 px-4 py-5 md:px-6">
+                <p className="mb-4 text-xs text-on-surface-variant">Repeatable records and security-sensitive controls stay with the feature that owns them.</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Link href="/pve" className="rounded-[var(--radius-button)] border border-outline-variant/30 p-3 text-sm text-primary hover:bg-surface">Proxmox endpoints and SSH maps</Link>
+                  <Link href="/operations" className="rounded-[var(--radius-button)] border border-outline-variant/30 p-3 text-sm text-primary hover:bg-surface">Backups, AdGuard, TLS and maintenance</Link>
+                  <Link href="/pi-settings" className="rounded-[var(--radius-button)] border border-outline-variant/30 p-3 text-sm text-primary hover:bg-surface">Pi tools, skills and providers</Link>
+                  <Link href="/schedules" className="rounded-[var(--radius-button)] border border-outline-variant/30 p-3 text-sm text-primary hover:bg-surface">Schedules and worker timers</Link>
+                </div>
               </div>
-            </section>
+            </details>
           </div>
         )}
       </div>

@@ -34,6 +34,7 @@ import { ARR_INSTANCE_DEFINITIONS } from "@/lib/arr-config";
 
 function renderSection(
   props: Partial<React.ComponentProps<typeof ArrConfigSection>> = {},
+  expand = true,
 ) {
   const onChange = mock(() => {});
   const defaultValues: Record<string, ArrFieldValues> = {};
@@ -48,6 +49,7 @@ function renderSection(
       />
     </ToastProvider>,
   );
+  if (expand) fireEvent.click(screen.getByText("Arr Instances"));
   return { ...utils, onChange };
 }
 
@@ -76,6 +78,11 @@ afterEach(() => {
 // ── Rendering ─────────────────────────────────────────────────────────────
 
 describe("ArrConfigSection — rendering", () => {
+  test("defaults to collapsed", () => {
+    renderSection({}, false);
+    expect(screen.getByText("Arr Instances").closest("details")).not.toHaveAttribute("open");
+  });
+
   test("renders the section header and description", () => {
     renderSection();
     expect(screen.getByText("Arr Instances")).toBeInTheDocument();

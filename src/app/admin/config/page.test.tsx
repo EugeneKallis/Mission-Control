@@ -32,9 +32,12 @@ describe("ConfigPage", () => {
     render(<ConfigPage />);
     await screen.findByText("Current integrations", { exact: true });
 
+    expect([...document.querySelectorAll("details")].every((section) => !section.open)).toBe(true);
+
     for (const field of CONFIG_FIELDS) {
       expect(document.getElementById(`config-${field.key}`)).toBeInTheDocument();
     }
+    fireEvent.click(screen.getByText("Managed configuration"));
     expect(screen.getByRole("link", { name: "Proxmox endpoints and SSH maps" })).toHaveAttribute("href", "/pve");
 
     fireEvent.change(document.getElementById("config-telegram_chat_id")!, { target: { value: "new-chat" } });
