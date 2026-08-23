@@ -287,6 +287,12 @@ that overrides all Tailwind `--color-*` variables plus derived tokens:
 
 - **pi.dev SDK integration** — SDK will be added to `src/lib/pi/` when available; the project is structured to import it cleanly from there
 
+## Operations dashboard (`/operations`)
+
+For backup storage and verification, deploy records, release polling, AdGuard/TLS checks,
+maintenance suppression, API actions, and the CLI-only restore procedure, read
+`docs/OPERATIONS.md` before changing the operations subsystem.
+
 ## Phase Tracker
 
 When you complete a phase, update this table and mark completed Parts in `docs/SERVERTOOL_MIRROR_PLAN.md`.
@@ -312,6 +318,7 @@ This tells the next agent exactly where to pick up.
 | Phase 15 — Proxmox VE Monitoring | Proxmox cluster dashboard: multi-endpoint config, live CPU/RAM/disk/guest snapshot, expandable node→VM/LXC/Storage drill-down | ✅ Done |
 | Phase 16 — Docker Logs | Configurable multi-Dozzle container/log viewer with client-side instance grouping and MC SSE/JSONL pass-through routes | ✅ Done |
 | Phase 17 — Energy-price history graph | 24 (time-series chart of supplier rates at bottom of `/energy-prices` with 7/30/60/120/365-day toggle and target-rate reference line; reuses the existing `energy_prices` rows instead of a parallel table) | ✅ Done |
+| Phase 18 — Operations | 25 (verified MC backups, deploy ledger, release radar, AdGuard health, TLS expiry, maintenance windows) | ✅ Done |
 
 **Convention:** After completing a phase, update:
 1. This table (set Status to ✅ Done, add next phase as ⏳ In progress)

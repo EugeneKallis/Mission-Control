@@ -45,6 +45,10 @@ next-env.d.ts
 # scripts build output
 /dist/scripts
 
+# local Mission Control operational state
+.mission-control/
+.operations-backup-test-*/
+
 # pi-subagents artifacts
 .pi-subagents
 

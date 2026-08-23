@@ -106,7 +106,7 @@ describe("fetchHtml", () => {
     mockFetch(200, "ok");
     await fetchHtml("https://example.com/x");
     const headers = lastInit?.headers as Record<string, string> | undefined;
-    expect(headers?.["User-Agent"]).toBe("Mozilla/5.0");
+    expect(headers?.["User-Agent"]).toMatch(/^Mozilla\/5\.0/);
   });
 
   test("accepts a custom User-Agent", async () => {

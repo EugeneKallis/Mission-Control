@@ -47,6 +47,8 @@ export function SidebarContent({
   const [logErrorCount, setLogErrorCount] = useState<number | null>(null);
   const [energyBetterCount, setEnergyBetterCount] = useState<number | null>(null);
   const [pveAlertCount, setPveAlertCount] = useState<number | null>(null);
+  const [operationsAlertCount, setOperationsAlertCount] = useState<number | null>(null);
+  const [suppressedSources, setSuppressedSources] = useState<string[]>([]);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -180,6 +182,29 @@ export function SidebarContent({
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    const fetchOperations = () => {
+      fetch("/api/operations")
+        .then((response) => response.json())
+        .then((data: { alertCount?: number; activeSuppressedSources?: string[] }) => {
+          if (cancelled) return;
+          if (typeof data.alertCount === "number") setOperationsAlertCount(data.alertCount);
+          if (Array.isArray(data.activeSuppressedSources)) setSuppressedSources(data.activeSuppressedSources);
+        })
+        .catch(() => { /* leave previous value */ });
+    };
+    fetchOperations();
+    const interval = setInterval(fetchOperations, 60_000);
+    const onVis = () => { if (!document.hidden) fetchOperations(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
+
   const handleMacroClick = useCallback((macro: Macro) => {
     runMacroFromSidebar(macro, pathname, router.push);
   }, [pathname, router]);
@@ -299,15 +324,16 @@ export function SidebarContent({
             Monitoring
           </span>
         </div>
-        <NavItem label="Proxmox" icon="dns" href="/pve" color="green" badge={pveAlertCount ?? undefined} badgeTitle="alerts" />
+        <NavItem label="Proxmox" icon="dns" href="/pve" color="green" badge={suppressedSources.includes("pve") ? undefined : pveAlertCount ?? undefined} badgeTitle="alerts" />
         <NavItem label="Local Arrs" icon="video_library" href="/local-arrs" color="teal" />
         <NavItem label="Pulse" icon="monitor_heart" href="/pulse" color="cyan" />
+        <NavItem label="Operations" icon="hub" href="/operations" color="amber" badge={operationsAlertCount ?? undefined} badgeTitle="alerts" />
         <NavItem
           label="Log Viewer"
           icon="terminal"
           href="/logs"
           color="primary"
-          badge={logErrorCount ?? undefined}
+          badge={suppressedSources.includes("logs") ? undefined : logErrorCount ?? undefined}
           badgeTitle="errors"
         />
         <NavItem
@@ -315,7 +341,7 @@ export function SidebarContent({
           icon="broken_image"
           href="/database/bl-finder"
           color="amber"
-          badge={brokenCount ?? undefined}
+          badge={suppressedSources.includes("blfinder") ? undefined : brokenCount ?? undefined}
         />
         {/* Settings section */}
         <div className="my-2 mx-5 mt-3">
@@ -328,7 +354,7 @@ export function SidebarContent({
           icon="bolt"
           href="/energy-prices"
           color="lime"
-          badge={energyBetterCount ?? undefined}
+          badge={suppressedSources.includes("energy") ? undefined : energyBetterCount ?? undefined}
           badgeTitle="better rates"
         />
         <NavItem label="Admin" icon="admin_panel_settings" href="/admin" color="violet" />

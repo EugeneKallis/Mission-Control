@@ -30,6 +30,11 @@ export const WORKER_REGISTRY: Record<string, { path: string; description: string
     description: "Scrapes EnergizeCT.com for supplier rates using Playwright",
     defaultCron: "0 8 * * *",
   },
+  operations: {
+    path: "src/workers/operations-worker.ts",
+    description: "Creates a verified database backup and refreshes release, DNS, and TLS checks",
+    defaultCron: "0 3 * * *",
+  },
 };
 
 /** Ensure the default worker timers exist in the DB (disabled by default). */
@@ -44,7 +49,7 @@ async function ensureDefaultTimers() {
         name: worker.path.split("/").pop()?.replace(".ts", "") ?? key,
         workerPath: worker.path,
         cronExpression: worker.defaultCron,
-        enabled: false, // Start disabled
+        enabled: key === "operations", // Backups and read-only checks run automatically.
       });
     }
   }

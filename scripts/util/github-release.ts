@@ -12,16 +12,7 @@
 
 import { parseArgs } from "../_lib/cli";
 import { banner, info, warn } from "../_lib/log";
-
-const REPOS = [
-  "homebridge/homebridge",
-  "moghtech/komodo",
-  "n8n-io/n8n",
-  "timothymiller/cloudflare-ddns",
-  "NginxProxyManager/nginx-proxy-manager",
-  "gethomepage/homepage",
-  "dmunozv04/iSponsorBlockTV",
-];
+import { RELEASE_RADAR_REPOS } from "@/lib/release-radar";
 
 interface GitHubRelease {
   repo: string;
@@ -57,7 +48,7 @@ export async function main(argv?: string[]): Promise<void> {
   const cutoffMs = Date.now() - args.hours * 3600 * 1000;
   const results: GitHubRelease[] = [];
 
-  for (const repo of REPOS) {
+  for (const repo of RELEASE_RADAR_REPOS) {
     const result = await fetchLatestRelease(repo);
     if (!result) continue;
     if (result.date) {
