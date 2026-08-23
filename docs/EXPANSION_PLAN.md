@@ -16,7 +16,7 @@ This program implements the feature set approved after Phase 18. Ship one vertic
 | 26 | Storage Cleanup Advisor | Planned |
 | 27 | Plex/Tautulli Activity | Planned |
 | 28 | Global Command Palette | Planned |
-| 29 | Arr Configuration Drift | Planned |
+| 29 | Arr Configuration Drift | ✅ Done |
 | 30 | Runbook Library | Planned |
 | 31 | Synthetic Journey Monitor | Planned |
 | 32 | Customizable Home Dashboard | Planned |
@@ -72,7 +72,9 @@ Show active streams, transcodes, buffering, recently added media, and library he
 Keyboard search across navigation, macros, guests, containers, history, and safe actions.
 
 ### Phase 29 — Arr Configuration Drift
-Compare profiles, folders, tags, clients, and naming settings across the canonical Arr registry and display actionable differences.
+The read-only `/arr-drift` report compares quality profiles, custom formats, delay profiles, root folders, tags, naming settings, and download-client assignments across the canonical Arr registry. The user selects a baseline; only instances of the same Arr type are compared because Sonarr and Radarr schemas differ. Each difference links to the corresponding native Arr settings page. Requests run concurrently with a 10-second bound, failures remain isolated per instance, and API keys and download-client credentials are never returned.
+
+Automatic synchronization is intentionally out of scope. Plex-to-Arr coverage reconciliation remains a later feature.
 
 ### Phase 30 — Runbook Library
 Store Markdown runbooks and associate them with alerts, integrations, and safe macros.
