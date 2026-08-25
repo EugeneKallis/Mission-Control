@@ -7,7 +7,25 @@
  */
 
 import { describe, test, expect } from "bun:test";
-import { parse141JavListing } from "./141jav";
+import { is141JavFilteredItem, parse141JavListing } from "./141jav";
+
+describe("is141JavFilteredItem", () => {
+  test("filters the exact tag", () => {
+    expect(is141JavFilteredItem(["big tits", "Image Video"])).toBe(true);
+  });
+
+  test("trims whitespace and ignores case", () => {
+    expect(is141JavFilteredItem(["big tits", "  iMaGe ViDeO  "])).toBe(true);
+  });
+
+  test("keeps unrelated tags eligible", () => {
+    expect(is141JavFilteredItem(["big tits"])).toBe(false);
+  });
+
+  test("does not match similarly prefixed tags", () => {
+    expect(is141JavFilteredItem(["image video extra"])).toBe(false);
+  });
+});
 
 describe("parse141JavListing", () => {
   test("returns an empty array when there are no cards", () => {
