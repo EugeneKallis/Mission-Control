@@ -9,6 +9,8 @@ interface ModalProps {
   icon?: string;
   children: ReactNode;
   actions?: ReactNode;
+  className?: string;
+  contentClassName?: string;
 }
 
 /**
@@ -19,7 +21,7 @@ interface ModalProps {
  * - Focus trap: Tab cycles through focusable elements inside the dialog
  * - Focus restored to previous element on close
  */
-export function Modal({ open, onClose, title, icon, children, actions }: ModalProps) {
+export function Modal({ open, onClose, title, icon, children, actions, className = "", contentClassName = "" }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -96,7 +98,7 @@ export function Modal({ open, onClose, title, icon, children, actions }: ModalPr
         aria-modal="true"
         aria-labelledby={titleId}
         onKeyDown={handleKeyDown}
-        className="max-w-lg w-full flex flex-col glass-modal"
+        className={`max-w-lg w-full flex flex-col glass-modal ${className}`}
       >
         {/* Header */}
         <div className="p-6 flex justify-between items-center border-b border-outline-variant/30">
@@ -114,7 +116,7 @@ export function Modal({ open, onClose, title, icon, children, actions }: ModalPr
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto flex-1 max-h-[60vh]">{children}</div>
+        <div className={`p-6 overflow-y-auto flex-1 max-h-[60vh] ${contentClassName}`}>{children}</div>
 
         {/* Actions */}
         {actions && (

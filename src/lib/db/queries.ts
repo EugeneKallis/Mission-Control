@@ -1171,6 +1171,41 @@ export async function deleteProxmoxEndpoint(id: number) {
   return db.proxmoxEndpoint.delete({ where: { id } });
 }
 
+// ── Dozzle Endpoints ────────────────────────────────────────────────────────
+
+export async function listDozzleEndpoints() {
+  return db.dozzleEndpoint.findMany({ orderBy: { order: "asc" } });
+}
+
+export async function getDozzleEndpoint(id: number) {
+  return db.dozzleEndpoint.findUnique({ where: { id } });
+}
+
+export async function createDozzleEndpoint(data: {
+  name: string;
+  apiUrl: string;
+  enabled?: boolean;
+  order?: number;
+}) {
+  return db.dozzleEndpoint.create({ data });
+}
+
+export async function updateDozzleEndpoint(
+  id: number,
+  data: {
+    name?: string;
+    apiUrl?: string;
+    enabled?: boolean;
+    order?: number;
+  },
+) {
+  return db.dozzleEndpoint.update({ where: { id }, data });
+}
+
+export async function deleteDozzleEndpoint(id: number) {
+  return db.dozzleEndpoint.delete({ where: { id } });
+}
+
 export async function queryTable(
   tableName: string,
   filters: Record<string, string>,
