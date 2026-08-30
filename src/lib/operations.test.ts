@@ -51,9 +51,36 @@ describe("operations config", () => {
     expect(normalizeTlsTarget({ name: "Plex", host: "plex.test", port: 70_000 })).toBeNull();
   });
 
-  test("preserves a stored password when the form submits blank", () => {
-    const current = { ...defaultOperationsConfig(), adguardPassword: "secret" };
-    expect(normalizeOperationsConfig({ adguardPassword: "" }, current).adguardPassword).toBe("secret");
+  test("preserves omitted AdGuard fields during partial updates", () => {
+    const current = {
+      ...defaultOperationsConfig(),
+      adguardUrl: "https://adguard.example.test",
+      adguardUsername: "admin",
+      adguardPassword: "secret",
+    };
+    const value = normalizeOperationsConfig({ backupRetention: 30 }, current);
+
+    expect(value.adguardUrl).toBe("https://adguard.example.test");
+    expect(value.adguardUsername).toBe("admin");
+    expect(value.adguardPassword).toBe("secret");
+  });
+
+  test("clears explicit empty AdGuard fields but preserves a blank password", () => {
+    const current = {
+      ...defaultOperationsConfig(),
+      adguardUrl: "https://adguard.example.test",
+      adguardUsername: "admin",
+      adguardPassword: "secret",
+    };
+    const value = normalizeOperationsConfig({
+      adguardUrl: "",
+      adguardUsername: "",
+      adguardPassword: "",
+    }, current);
+
+    expect(value.adguardUrl).toBe("");
+    expect(value.adguardUsername).toBe("");
+    expect(value.adguardPassword).toBe("secret");
   });
 
   test("deduplicates repositories and clamps retention", () => {

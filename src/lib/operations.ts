@@ -178,8 +178,12 @@ export function normalizeOperationsConfig(
     backupDir: stringValue(input.backupDir) || current.backupDir,
     backupRetention: Number.isInteger(retention) ? Math.min(90, Math.max(2, retention)) : current.backupRetention,
     githubRepos: repos,
-    adguardUrl: stringValue(input.adguardUrl).replace(/\/+$/, ""),
-    adguardUsername: stringValue(input.adguardUsername),
+    adguardUrl: Object.hasOwn(input, "adguardUrl")
+      ? stringValue(input.adguardUrl).replace(/\/+$/, "")
+      : current.adguardUrl,
+    adguardUsername: Object.hasOwn(input, "adguardUsername")
+      ? stringValue(input.adguardUsername)
+      : current.adguardUsername,
     adguardPassword: password || current.adguardPassword,
     tlsTargets,
   };
