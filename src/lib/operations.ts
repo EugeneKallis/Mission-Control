@@ -381,9 +381,19 @@ export async function refreshReleases(): Promise<ReleaseStatus[]> {
   return releases;
 }
 
+function isPendingRelease(release: ReleaseStatus): boolean {
+  return !release.acknowledged && !release.error && release.tag !== "unknown";
+}
+
 export async function acknowledgeRelease(repo: string, tag: string): Promise<void> {
   const state = await getOperationsState();
   state.releases = state.releases.map((item) => item.repo === repo && item.tag === tag ? { ...item, acknowledged: true } : item);
+  await saveOperationsState(state);
+}
+
+export async function acknowledgeAllReleases(): Promise<void> {
+  const state = await getOperationsState();
+  state.releases = state.releases.map((item) => isPendingRelease(item) ? { ...item, acknowledged: true } : item);
   await saveOperationsState(state);
 }
 
@@ -531,7 +541,7 @@ export function countOperationsAlerts(input: Pick<OperationsSnapshot, "backup" |
     if (!input.backup.createdAt || input.backup.integrity === "failed" || (input.backup.foreignKeyErrors ?? 0) > 0 || age > 48 * 3_600_000) count += 1;
   }
   if (!sourceSuppressed(input.maintenance, "deployments", now) && input.deployments[0]?.status === "failed") count += 1;
-  if (!sourceSuppressed(input.maintenance, "releases", now)) count += input.releases.filter((item) => !item.acknowledged && !item.error && item.tag !== "unknown").length;
+  if (!sourceSuppressed(input.maintenance, "releases", now)) count += input.releases.filter(isPendingRelease).length;
   if (!sourceSuppressed(input.maintenance, "adguard", now) && input.adguard.configured && (!input.adguard.ok || input.adguard.protectionEnabled === false)) count += 1;
   if (!sourceSuppressed(input.maintenance, "tls", now)) count += input.tls.filter((item) => tlsSeverity(item) !== "ok").length;
   return count;

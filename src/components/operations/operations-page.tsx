@@ -6,6 +6,7 @@ import type {
   OperationsSnapshot,
   OperationsSource,
   PublicOperationsConfig,
+  ReleaseStatus,
   TlsTarget,
 } from "@/lib/operations";
 
@@ -34,6 +35,14 @@ function formatBytes(value: number | null): string {
 
 function statusClass(ok: boolean): string {
   return ok ? "text-success" : "text-error";
+}
+function buildReleaseUpdatePrompt(releases: ReleaseStatus[]): string {
+  const copyableReleases = releases.filter((release) => !release.error && release.tag !== "unknown");
+  if (copyableReleases.length === 0) return "";
+  return [
+    "Update the LXCs associated with these GitHub releases, then verify each service is healthy:",
+    ...copyableReleases.map((release) => `- ${release.repo} (${release.tag})`),
+  ].join("\n");
 }
 
 function Card({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
@@ -169,6 +178,16 @@ export function OperationsPage() {
   const maintenanceStart = Date.parse(maintenance.startsAt);
   const maintenanceEnd = Date.parse(maintenance.endsAt);
   const maintenanceValid = Boolean(maintenance.reason.trim()) && maintenance.sources.length > 0 && Number.isFinite(maintenanceStart) && maintenanceEnd > maintenanceStart;
+  const copyableReleases = snapshot.releases.filter((release) => !release.error && release.tag !== "unknown");
+  const hasPendingReleases = snapshot.releases.some((release) => !release.acknowledged && !release.error && release.tag !== "unknown");
+  const copyReleasePrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(buildReleaseUpdatePrompt(snapshot.releases));
+      showToast("Release update prompt copied", "success");
+    } catch {
+      showToast("Could not copy release update prompt", "error");
+    }
+  };
 
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6">
@@ -229,13 +248,19 @@ export function OperationsPage() {
 
           <Card title="Release radar" icon="new_releases">
             {snapshot.releases.length === 0 ? <p className="text-sm text-on-surface-variant">Run Refresh checks to load releases.</p> : (
-              <div className="space-y-2">
-                {snapshot.releases.map((release) => (
-                  <div key={release.repo} className="flex items-center justify-between gap-3 rounded-lg bg-surface-container px-3 py-2 text-xs">
-                    <div className="min-w-0"><a className="truncate font-medium text-primary hover:underline" href={release.url} target="_blank" rel="noreferrer">{release.repo}</a><div className="text-on-surface-variant">{release.tag} · {formatDate(release.publishedAt)}</div>{release.error && <div className="text-error">{release.error}</div>}</div>
-                    {!release.acknowledged && !release.error && release.tag !== "unknown" ? <button type="button" disabled={busy !== null} onClick={() => action({ action: "ack-release", repo: release.repo, tag: release.tag }, "Acknowledge release")} className="shrink-0 rounded border border-outline-variant px-2 py-1">Acknowledge</button> : <span className="shrink-0 text-success">{release.acknowledged ? "Seen" : "—"}</span>}
-                  </div>
-                ))}
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" disabled={copyableReleases.length === 0} onClick={copyReleasePrompt} className="rounded border border-outline-variant px-2 py-1 text-xs text-on-surface disabled:opacity-50">Copy agent prompt</button>
+                  <button type="button" disabled={busy !== null || !hasPendingReleases} onClick={() => action({ action: "ack-all-releases" }, "Acknowledge all releases")} className="rounded border border-outline-variant px-2 py-1 text-xs text-on-surface disabled:opacity-50">Acknowledge all</button>
+                </div>
+                <div className="space-y-2">
+                  {snapshot.releases.map((release) => (
+                    <div key={release.repo} className="flex items-center justify-between gap-3 rounded-lg bg-surface-container px-3 py-2 text-xs">
+                      <div className="min-w-0"><a className="truncate font-medium text-primary hover:underline" href={release.url} target="_blank" rel="noreferrer">{release.repo}</a><div className="text-on-surface-variant">{release.tag} · {formatDate(release.publishedAt)}</div>{release.error && <div className="text-error">{release.error}</div>}</div>
+                      {!release.acknowledged && !release.error && release.tag !== "unknown" ? <button type="button" disabled={busy !== null} onClick={() => action({ action: "ack-release", repo: release.repo, tag: release.tag }, "Acknowledge release")} className="shrink-0 rounded border border-outline-variant px-2 py-1">Acknowledge</button> : <span className="shrink-0 text-success">{release.acknowledged ? "Seen" : "—"}</span>}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </Card>

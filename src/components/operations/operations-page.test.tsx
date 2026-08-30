@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { ToastProvider } from "@/components/toast-provider";
 import { render, screen, userEvent } from "@/test-utils/render";
 import { OperationsPage } from "./operations-page";
-import type { OperationsSnapshot } from "@/lib/operations";
+import type { OperationsSnapshot, ReleaseStatus } from "@/lib/operations";
 
 const originalFetch = globalThis.fetch;
+const originalClipboard = navigator.clipboard;
 
 function snapshot(overrides: Partial<OperationsSnapshot> = {}): OperationsSnapshot {
   return {
@@ -29,6 +31,18 @@ function snapshot(overrides: Partial<OperationsSnapshot> = {}): OperationsSnapsh
     ...overrides,
   };
 }
+function mixedReleases(): ReleaseStatus[] {
+  return [
+    { repo: "n8n-io/n8n", tag: "v2", url: "https://github.com/n8n-io/n8n/releases/v2", publishedAt: "2026-08-22T10:00:00Z", acknowledged: false },
+    { repo: "gethomepage/homepage", tag: "v1.4.0", url: "https://github.com/gethomepage/homepage/releases/v1.4.0", publishedAt: "2026-08-21T10:00:00Z", acknowledged: true },
+    { repo: "broken/repo", tag: "v3", url: "https://github.com/broken/repo/releases/v3", publishedAt: "2026-08-20T10:00:00Z", acknowledged: false, error: "GitHub returned 500" },
+    { repo: "unknown/repo", tag: "unknown", url: "https://github.com/unknown/repo/releases", publishedAt: "", acknowledged: false },
+  ];
+}
+
+function mixedSnapshot(overrides: Partial<OperationsSnapshot> = {}): OperationsSnapshot {
+  return snapshot({ releases: mixedReleases(), ...overrides });
+}
 
 beforeEach(() => {
   globalThis.fetch = mock(async () => Response.json(snapshot())) as unknown as typeof fetch;
@@ -36,6 +50,7 @@ beforeEach(() => {
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: originalClipboard });
 });
 
 describe("OperationsPage", () => {
@@ -65,5 +80,68 @@ describe("OperationsPage", () => {
     render(<OperationsPage />);
     await userEvent.click(await screen.findByRole("button", { name: "Acknowledge" }));
     expect(calls.some((call) => call.body?.includes('"action":"ack-release"'))).toBeTrue();
+  });
+  test("copies known release prompt in display order", async () => {
+    const writeText = mock(async () => {});
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    globalThis.fetch = mock(async () => Response.json(mixedSnapshot())) as unknown as typeof fetch;
+    render(<ToastProvider><OperationsPage /></ToastProvider>);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Copy agent prompt" }));
+
+    expect(writeText).toHaveBeenCalledWith([
+      "Update the LXCs associated with these GitHub releases, then verify each service is healthy:",
+      "- n8n-io/n8n (v2)",
+      "- gethomepage/homepage (v1.4.0)",
+    ].join("\n"));
+    expect(await screen.findByText("Release update prompt copied", { exact: true })).toBeInTheDocument();
+  });
+
+  test("shows an error when the release prompt cannot be copied", async () => {
+    const writeText = mock(async () => { throw new Error("Clipboard unavailable"); });
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    globalThis.fetch = mock(async () => Response.json(mixedSnapshot())) as unknown as typeof fetch;
+    render(<ToastProvider><OperationsPage /></ToastProvider>);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Copy agent prompt" }));
+
+    expect(await screen.findByText("Could not copy release update prompt", { exact: true })).toBeInTheDocument();
+  });
+
+  test("acknowledges all pending releases and disables the bulk action", async () => {
+    const initial = mixedSnapshot();
+    const acknowledged = mixedSnapshot({
+      releases: mixedReleases().map((release) => release.error || release.tag === "unknown" ? release : { ...release, acknowledged: true }),
+      alertCount: 0,
+    });
+    const calls: Array<{ method?: string; body?: string }> = [];
+    globalThis.fetch = mock(async (_input, init) => {
+      calls.push({ method: init?.method, body: init?.body?.toString() });
+      return Response.json(init?.method === "POST" ? acknowledged : initial);
+    }) as unknown as typeof fetch;
+    render(<ToastProvider><OperationsPage /></ToastProvider>);
+
+    const button = await screen.findByRole("button", { name: "Acknowledge all" });
+    expect(button).not.toBeDisabled();
+    await userEvent.click(button);
+
+    expect(calls.some((call) => call.method === "POST" && call.body === JSON.stringify({ action: "ack-all-releases" }))).toBeTrue();
+    expect(await screen.findAllByText("Seen")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Acknowledge all" })).toBeDisabled();
+    expect(screen.getByText("GitHub returned 500")).toBeInTheDocument();
+    expect(screen.getByText(/unknown ·/)).toBeInTheDocument();
+  });
+
+  test("disables copying when no known releases are available", async () => {
+    globalThis.fetch = mock(async () => Response.json(snapshot({
+      releases: [
+        { repo: "broken/repo", tag: "v3", url: "https://github.com/broken/repo/releases/v3", publishedAt: "", acknowledged: false, error: "GitHub returned 500" },
+        { repo: "unknown/repo", tag: "unknown", url: "https://github.com/unknown/repo/releases", publishedAt: "", acknowledged: false },
+      ],
+      alertCount: 0,
+    }))) as unknown as typeof fetch;
+    render(<OperationsPage />);
+
+    expect(await screen.findByRole("button", { name: "Copy agent prompt" })).toBeDisabled();
   });
 });

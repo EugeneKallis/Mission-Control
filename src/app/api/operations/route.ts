@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
+  acknowledgeAllReleases,
   acknowledgeRelease,
   addMaintenanceWindow,
   createDatabaseBackup,
@@ -34,6 +35,7 @@ const actionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("refresh") }),
   z.object({ action: z.literal("restore-verified") }),
   z.object({ action: z.literal("ack-release"), repo: z.string().min(1), tag: z.string().min(1) }),
+  z.object({ action: z.literal("ack-all-releases") }),
   z.object({
     action: z.literal("add-maintenance"),
     startsAt: z.string().datetime(),
@@ -89,6 +91,9 @@ export async function POST(request: Request) {
         break;
       case "ack-release":
         await acknowledgeRelease(data.repo, data.tag);
+        break;
+      case "ack-all-releases":
+        await acknowledgeAllReleases();
         break;
       case "add-maintenance":
         await addMaintenanceWindow({

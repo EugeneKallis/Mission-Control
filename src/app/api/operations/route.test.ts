@@ -7,6 +7,7 @@ const backup = mock(async () => ({}));
 const refresh = mock(async () => {});
 const restore = mock(async () => "2026-08-23T12:00:00Z");
 const acknowledge = mock(async () => {});
+const acknowledgeAll = mock(async () => {});
 const addMaintenance = mock(async () => ({}));
 const deleteMaintenance = mock(async () => {});
 
@@ -20,6 +21,7 @@ beforeAll(async () => {
     refreshOperationsChecks: refresh,
     markRestoreVerified: restore,
     acknowledgeRelease: acknowledge,
+    acknowledgeAllReleases: acknowledgeAll,
     addMaintenanceWindow: addMaintenance,
     deleteMaintenanceWindow: deleteMaintenance,
   }));
@@ -27,7 +29,7 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  for (const fn of [getSnapshot, saveConfig, backup, refresh, restore, acknowledge, addMaintenance, deleteMaintenance]) fn.mockClear();
+  for (const fn of [getSnapshot, saveConfig, backup, refresh, restore, acknowledge, acknowledgeAll, addMaintenance, deleteMaintenance]) fn.mockClear();
 });
 
 function jsonRequest(method: string, body: unknown): Request {
@@ -69,6 +71,12 @@ describe("operations route", () => {
     expect(response.status).toBe(200);
     expect(addMaintenance).toHaveBeenCalledWith(expect.objectContaining({ reason: "Upgrade", sources: ["backup", "tls"] }));
   });
+  test("POST acknowledges all releases", async () => {
+    const response = await route.POST(jsonRequest("POST", { action: "ack-all-releases" }));
+    expect(response.status).toBe(200);
+    expect(acknowledgeAll).toHaveBeenCalledTimes(1);
+  });
+
 
   test("POST rejects unknown actions", async () => {
     const response = await route.POST(jsonRequest("POST", { action: "destroy-everything" }));
