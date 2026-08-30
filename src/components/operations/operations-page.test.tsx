@@ -6,6 +6,7 @@ import type { OperationsSnapshot, ReleaseStatus } from "@/lib/operations";
 
 const originalFetch = globalThis.fetch;
 const originalClipboard = navigator.clipboard;
+const originalExecCommand = document.execCommand;
 
 function snapshot(overrides: Partial<OperationsSnapshot> = {}): OperationsSnapshot {
   return {
@@ -51,6 +52,7 @@ beforeEach(() => {
 afterEach(() => {
   globalThis.fetch = originalFetch;
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: originalClipboard });
+  Object.defineProperty(document, "execCommand", { configurable: true, value: originalExecCommand });
 });
 
 describe("OperationsPage", () => {
@@ -94,6 +96,18 @@ describe("OperationsPage", () => {
       "- n8n-io/n8n (v2)",
       "- gethomepage/homepage (v1.4.0)",
     ].join("\n"));
+    expect(await screen.findByText("Release update prompt copied", { exact: true })).toBeInTheDocument();
+  });
+  test("copies the prompt when the browser lacks the Clipboard API", async () => {
+    const execCommand = mock(() => true);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
+    Object.defineProperty(document, "execCommand", { configurable: true, value: execCommand });
+    globalThis.fetch = mock(async () => Response.json(mixedSnapshot())) as unknown as typeof fetch;
+    render(<ToastProvider><OperationsPage /></ToastProvider>);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Copy agent prompt" }));
+
+    expect(execCommand).toHaveBeenCalledWith("copy");
     expect(await screen.findByText("Release update prompt copied", { exact: true })).toBeInTheDocument();
   });
 

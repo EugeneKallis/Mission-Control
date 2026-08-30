@@ -181,8 +181,33 @@ export function OperationsPage() {
   const copyableReleases = snapshot.releases.filter((release) => !release.error && release.tag !== "unknown");
   const hasPendingReleases = snapshot.releases.some((release) => !release.acknowledged && !release.error && release.tag !== "unknown");
   const copyReleasePrompt = async () => {
+    const prompt = buildReleaseUpdatePrompt(snapshot.releases);
     try {
-      await navigator.clipboard.writeText(buildReleaseUpdatePrompt(snapshot.releases));
+      let copied = false;
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(prompt);
+          copied = true;
+        }
+      } catch {
+        // Fall through to the insecure-origin fallback.
+      }
+      if (!copied) {
+        // ponytail: execCommand is the only available copy path on insecure LAN origins.
+        const textarea = document.createElement("textarea");
+        textarea.value = prompt;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        try {
+          textarea.focus();
+          textarea.select();
+          if (!document.execCommand("copy")) throw new Error("Copy command failed");
+        } finally {
+          textarea.remove();
+        }
+      }
       showToast("Release update prompt copied", "success");
     } catch {
       showToast("Could not copy release update prompt", "error");
