@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { ToastProvider } from "@/components/toast-provider";
-import { render, screen, userEvent } from "@/test-utils/render";
+import { fireEvent, render, screen, userEvent, waitFor } from "@/test-utils/render";
 import { OperationsPage } from "./operations-page";
 import type { OperationsSnapshot, ReleaseStatus } from "@/lib/operations";
 
@@ -44,6 +44,9 @@ function mixedReleases(): ReleaseStatus[] {
 function mixedSnapshot(overrides: Partial<OperationsSnapshot> = {}): OperationsSnapshot {
   return snapshot({ releases: mixedReleases(), ...overrides });
 }
+function renderOperationsPage() {
+  render(<ToastProvider><OperationsPage /></ToastProvider>);
+}
 
 beforeEach(() => {
   globalThis.fetch = mock(async () => Response.json(snapshot())) as unknown as typeof fetch;
@@ -66,7 +69,8 @@ describe("OperationsPage", () => {
   });
 
   test("never renders the stored AdGuard password", async () => {
-    render(<OperationsPage />);
+    renderOperationsPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Configure AdGuard DNS" }));
     const password = await screen.findByLabelText("AdGuard password") as HTMLInputElement;
     expect(password.value).toBe("");
     expect(password.placeholder).toContain("Stored");
@@ -157,5 +161,155 @@ describe("OperationsPage", () => {
     render(<OperationsPage />);
 
     expect(await screen.findByRole("button", { name: "Copy agent prompt" })).toBeDisabled();
+  });
+  test("shows settings gears only on configurable cards", async () => {
+    renderOperationsPage();
+    for (const title of ["Disaster recovery", "Release radar", "AdGuard DNS", "TLS certificates", "Maintenance windows"]) {
+      expect(await screen.findByRole("button", { name: `Configure ${title}` })).toBeInTheDocument();
+    }
+    expect(screen.queryByRole("button", { name: "Configure Deployment ledger" })).not.toBeInTheDocument();
+  });
+
+  test("shows only the active section controls in one dialog", async () => {
+    renderOperationsPage();
+    const sections = [
+      { title: "Disaster recovery", field: "Backup directory", absent: ["GitHub repositories", "AdGuard URL", "TLS targets"] },
+      { title: "Release radar", field: "GitHub repositories", absent: ["Backup directory", "AdGuard URL", "TLS targets"] },
+      { title: "AdGuard DNS", field: "AdGuard URL", absent: ["Backup directory", "GitHub repositories", "TLS targets"] },
+      { title: "TLS certificates", field: "TLS targets", absent: ["Backup directory", "GitHub repositories", "AdGuard URL"] },
+      { title: "Maintenance windows", field: "Maintenance reason", absent: ["Backup directory", "GitHub repositories", "AdGuard URL", "TLS targets"] },
+    ];
+
+    for (const section of sections) {
+      await userEvent.click(await screen.findByRole("button", { name: `Configure ${section.title}` }));
+      expect(screen.getAllByRole("dialog")).toHaveLength(1);
+      expect(screen.getByRole("dialog", { name: `${section.title} settings` })).toBeInTheDocument();
+      expect(screen.getByLabelText(section.field)).toBeInTheDocument();
+      for (const label of section.absent) {
+        expect(screen.queryByLabelText(label)).not.toBeInTheDocument();
+      }
+      await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    }
+  });
+
+  test("discards edits when a settings modal closes", async () => {
+    renderOperationsPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Configure Release radar" }));
+    const repositories = screen.getByLabelText("GitHub repositories") as HTMLTextAreaElement;
+    await userEvent.clear(repositories);
+    await userEvent.type(repositories, "changed/repo");
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "Release radar settings" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Configure Release radar" }));
+    expect((screen.getByLabelText("GitHub repositories") as HTMLTextAreaElement).value).toBe("n8n-io/n8n");
+  });
+
+  test("saves only the active configuration section", async () => {
+    const payloads: Array<Record<string, unknown>> = [];
+    globalThis.fetch = mock(async (_input, init) => {
+      if (init?.method === "PUT") payloads.push(JSON.parse(String(init.body)) as Record<string, unknown>);
+      return Response.json(snapshot());
+    }) as unknown as typeof fetch;
+    renderOperationsPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Configure Disaster recovery" }));
+    fireEvent.change(screen.getByLabelText("Backup directory"), { target: { value: "/tmp/backups" } });
+    fireEvent.change(screen.getByLabelText("Backup retention"), { target: { value: "30" } });
+    await userEvent.click(screen.getByRole("button", { name: "Save backup settings" }));
+    await waitFor(() => expect(payloads).toHaveLength(1));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole("button", { name: "Configure Release radar" }));
+    fireEvent.change(screen.getByLabelText("GitHub repositories"), { target: { value: "owner/one\n\n owner/two " } });
+    await userEvent.click(screen.getByRole("button", { name: "Save release settings" }));
+    await waitFor(() => expect(payloads).toHaveLength(2));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole("button", { name: "Configure AdGuard DNS" }));
+    fireEvent.change(screen.getByLabelText("AdGuard URL"), { target: { value: "http://new-adguard.test" } });
+    await userEvent.click(screen.getByRole("button", { name: "Save AdGuard settings" }));
+    await waitFor(() => expect(payloads).toHaveLength(3));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole("button", { name: "Configure TLS certificates" }));
+    fireEvent.change(screen.getByLabelText("TLS targets"), { target: { value: "Site,site.test,8443\n" } });
+    await userEvent.click(screen.getByRole("button", { name: "Save TLS settings" }));
+    await waitFor(() => expect(payloads).toHaveLength(4));
+
+    expect(payloads).toEqual([
+      { backupDir: "/tmp/backups", backupRetention: 30 },
+      { githubRepos: ["owner/one", "owner/two"] },
+      { adguardUrl: "http://new-adguard.test", adguardUsername: "admin" },
+      { tlsTargets: [{ name: "Site", host: "site.test", port: 8443 }] },
+    ]);
+  });
+
+  test("omits a blank AdGuard password from the save payload", async () => {
+    let payload: Record<string, unknown> | undefined;
+    globalThis.fetch = mock(async (_input, init) => {
+      if (init?.method === "PUT") payload = JSON.parse(String(init.body)) as Record<string, unknown>;
+      return Response.json(snapshot());
+    }) as unknown as typeof fetch;
+    renderOperationsPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Configure AdGuard DNS" }));
+    expect((screen.getByLabelText("AdGuard password") as HTMLInputElement).value).toBe("");
+    fireEvent.change(screen.getByLabelText("AdGuard username"), { target: { value: "operator" } });
+    await userEvent.click(screen.getByRole("button", { name: "Save AdGuard settings" }));
+    await waitFor(() => expect(payload).toBeDefined());
+
+    expect(payload).toEqual({ adguardUrl: "http://adguard.test", adguardUsername: "operator" });
+    expect(screen.queryByText("secret")).not.toBeInTheDocument();
+  });
+
+  test("keeps a settings modal open when saving fails", async () => {
+    globalThis.fetch = mock(async (_input, init) => {
+      if (init?.method === "PUT") return Response.json({ error: "Invalid settings" }, { status: 400 });
+      return Response.json(snapshot());
+    }) as unknown as typeof fetch;
+    renderOperationsPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Configure Disaster recovery" }));
+    fireEvent.change(screen.getByLabelText("Backup directory"), { target: { value: "/invalid" } });
+    await userEvent.click(screen.getByRole("button", { name: "Save backup settings" }));
+
+    expect(await screen.findByText("Invalid settings", { exact: true })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Disaster recovery settings" })).toBeInTheDocument();
+    expect((screen.getByLabelText("Backup directory") as HTMLInputElement).value).toBe("/invalid");
+  });
+
+  test("creates and deletes maintenance windows from its settings modal", async () => {
+    const created = {
+      id: "11111111-1111-4111-8111-111111111111",
+      startsAt: "2026-08-23T11:00:00.000Z",
+      endsAt: "2026-08-23T12:00:00.000Z",
+      reason: "Database upgrade",
+      sources: ["backup" as const],
+    };
+    let current = snapshot();
+    const actions: Array<Record<string, unknown>> = [];
+    globalThis.fetch = mock(async (_input, init) => {
+      const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
+      if (body.action) {
+        actions.push(body);
+        if (body.action === "add-maintenance") current = snapshot({ maintenance: [created] });
+        if (body.action === "delete-maintenance") current = snapshot({ maintenance: [] });
+      }
+      return Response.json(current);
+    }) as unknown as typeof fetch;
+    renderOperationsPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Configure Maintenance windows" }));
+    fireEvent.change(screen.getByLabelText("Maintenance reason"), { target: { value: "Database upgrade" } });
+    await userEvent.click(screen.getByRole("button", { name: "Create window" }));
+    expect(await screen.findByText("Database upgrade", { exact: true })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Maintenance windows settings" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Configure Maintenance windows" }));
+    await userEvent.click(screen.getByRole("button", { name: "Delete maintenance window Database upgrade" }));
+    await waitFor(() => expect(actions.some((body) => body.action === "delete-maintenance")).toBeTrue());
+    expect(screen.getByRole("dialog", { name: "Maintenance windows settings" })).toBeInTheDocument();
+    expect(screen.queryByText("Database upgrade", { exact: true })).not.toBeInTheDocument();
   });
 });

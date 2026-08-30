@@ -39,7 +39,9 @@ describe("ConfigPage", () => {
     }
     fireEvent.click(screen.getByText("Managed configuration"));
     expect(screen.getByRole("link", { name: "Proxmox endpoints and SSH maps" })).toHaveAttribute("href", "/pve");
-
+    expect(screen.getByRole("link", { name: "Pi tools, skills and providers" })).toHaveAttribute("href", "/pi-settings");
+    expect(screen.getByRole("link", { name: "Schedules and worker timers" })).toHaveAttribute("href", "/schedules");
+    expect(screen.queryByRole("link", { name: "Backups, AdGuard, TLS and maintenance" })).not.toBeInTheDocument();
     fireEvent.change(document.getElementById("config-telegram_chat_id")!, { target: { value: "new-chat" } });
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 

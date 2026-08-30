@@ -172,7 +172,6 @@ export default function ConfigPage() {
                 <p className="mb-4 text-xs text-on-surface-variant">Repeatable records and security-sensitive controls stay with the feature that owns them.</p>
                 <div className="grid gap-2 sm:grid-cols-2">
                   <Link href="/pve" className="rounded-[var(--radius-button)] border border-outline-variant/30 p-3 text-sm text-primary hover:bg-surface">Proxmox endpoints and SSH maps</Link>
-                  <Link href="/operations" className="rounded-[var(--radius-button)] border border-outline-variant/30 p-3 text-sm text-primary hover:bg-surface">Backups, AdGuard, TLS and maintenance</Link>
                   <Link href="/pi-settings" className="rounded-[var(--radius-button)] border border-outline-variant/30 p-3 text-sm text-primary hover:bg-surface">Pi tools, skills and providers</Link>
                   <Link href="/schedules" className="rounded-[var(--radius-button)] border border-outline-variant/30 p-3 text-sm text-primary hover:bg-surface">Schedules and worker timers</Link>
                 </div>
