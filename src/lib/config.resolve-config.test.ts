@@ -135,6 +135,16 @@ describe("resolveConfig — DB fallback", () => {
     expect(cfg.pulseApiKey).toBe("db-pulse");
   });
 
+  test("fills decypharrUrl from DB when env is empty", async () => {
+    delete process.env.DECYPHARR_URL;
+    await seedConfig({ decypharr_url: "http://db-decypharr:8282" });
+
+    const mod = await loadFreshConfig("fallback-decypharr");
+    const cfg = await mod.resolveConfig();
+
+    expect(cfg.decypharrUrl).toBe("http://db-decypharr:8282");
+  });
+
   test("fills all three fields from DB when env is completely empty", async () => {
     await seedConfig({
       plex_token: "db-token",
@@ -165,31 +175,6 @@ describe("resolveConfig — DB fallback", () => {
     expect(cfg.plexToken).toBe("db-token");
     expect(cfg.plexUrl).toBe("http://env-plex:32400");
     expect(cfg.realDebridApiKey).toBe("db-rd");
-  });
-});
-
-describe("resolveGlobalConfigValues", () => {
-  test("resolves planned feature values from DB with defaults", async () => {
-    await seedConfig({ telegram_chat_id: "12345", prowlarr_url: "http://prowlarr:9696" });
-    const mod = await loadFreshConfig("global-values-db");
-    const values = await mod.resolveGlobalConfigValues();
-    expect(values.telegram_chat_id).toBe("12345");
-    expect(values.prowlarr_url).toBe("http://prowlarr:9696");
-    expect(values.audit_retention_days).toBe("365");
-  });
-
-  test("environment values override planned feature DB values", async () => {
-    process.env.TELEGRAM_CHAT_ID = "env-chat";
-    await seedConfig({ telegram_chat_id: "db-chat" });
-    const mod = await loadFreshConfig("global-values-env");
-    expect((await mod.resolveGlobalConfigValues()).telegram_chat_id).toBe("env-chat");
-  });
-
-  test("Config page Decypharr URL reaches existing AppConfig consumers", async () => {
-    delete process.env.DECYPHARR_URL;
-    await seedConfig({ decypharr_url: "http://db-decypharr:8282" });
-    const mod = await loadFreshConfig("decypharr-db");
-    expect((await mod.resolveConfig()).decypharrUrl).toBe("http://db-decypharr:8282");
   });
 });
 
@@ -270,6 +255,8 @@ describe("resolveConfig — edge cases", () => {
 
 describe("resolveConfig — arr keys from DB", () => {
   test("fills arr_radarr_api_key from DB when env is empty", async () => {
+    // .env may carry real ARR__* overrides; drop them so the DB path is exercised.
+    for (const k of Object.keys(process.env)) if (k.startsWith("ARR__")) delete process.env[k];
     await seedConfig({ arr_radarr_api_key: "db-radarr-key" });
 
     const mod = await loadFreshConfig("arr-api");
@@ -292,6 +279,7 @@ describe("resolveConfig — arr keys from DB", () => {
   });
 
   test("fills both apiKey and url for all Radarr instances from DB", async () => {
+    for (const k of Object.keys(process.env)) if (k.startsWith("ARR__")) delete process.env[k];
     await seedConfig({
       arr_radarr_api_key: "radarr-key",
       arr_radarr_url: "http://radarr:7878",

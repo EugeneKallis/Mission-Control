@@ -116,6 +116,11 @@ describe("SlashAutocomplete keyboard navigation", () => {
     await waitFor(() => {
       expect(screen.getByTestId("dropdown")).toBeTruthy();
     });
+    // Wait for the skills fetch to settle so the fetched list is stable
+    // before navigating (the filter effect resets activeIndex to 0 on load).
+    await waitFor(() => {
+      expect(screen.getByText("code-review")).toBeTruthy();
+    });
 
     // First item should be active by default
     const items = screen.getAllByRole("listitem");
@@ -133,6 +138,12 @@ describe("SlashAutocomplete keyboard navigation", () => {
 
   test("ArrowUp wraps to last item from first", async () => {
     render(<Harness initialValue="/" />);
+    // Wait for the skills fetch to settle: the filter effect resets the
+    // active index to 0 when the fetched command list lands, so keyDown
+    // must fire only after the list is stable.
+    await waitFor(() => {
+      expect(screen.getByText("code-review")).toBeTruthy();
+    });
     await waitFor(() => {
       expect(screen.getByTestId("dropdown")).toBeTruthy();
     });

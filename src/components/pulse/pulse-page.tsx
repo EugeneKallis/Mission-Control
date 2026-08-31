@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { PULSE_URL } from "@/lib/pulse";
+import { fieldsForGroup } from "@/lib/config-fields";
+import { ConfigFieldsModal } from "@/components/config/config-fields-modal";
 
 interface PulseHealth {
   status?: string;
@@ -350,6 +352,7 @@ export function PulsePage() {
   const [resourceGroupFilter, setResourceGroupFilter] = useState("All");
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const [groupSorts, setGroupSorts] = useState<Record<string, { column: ResourceSortColumn; direction: SortDirection }>>({});
+  const [showSettings, setShowSettings] = useState(false);
 
   const fetchStatus = useCallback(async (manual = false) => {
     if (manual) setRefreshing(true);
@@ -478,6 +481,14 @@ export function PulsePage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setShowSettings(true)}
+            aria-label="Pulse settings"
+            className="inline-flex items-center gap-2 rounded-[var(--radius-button)] border border-outline-variant/40 px-3 py-2 text-xs font-semibold text-on-surface transition-colors hover:bg-surface-container"
+          >
+            <span aria-hidden="true" className="material-symbols-outlined text-base">settings</span>
+          </button>
           <button
             type="button"
             onClick={() => fetchStatus(true)}
@@ -680,6 +691,15 @@ export function PulsePage() {
           </div>
         )}
       </div>
+
+      {showSettings && (
+        <ConfigFieldsModal
+          fields={fieldsForGroup("monitoring")}
+          title="Pulse settings"
+          icon="monitor_heart"
+          onClose={() => setShowSettings(false)}
+        />
+      )}
     </section>
   );
 }

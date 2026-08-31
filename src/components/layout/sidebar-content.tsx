@@ -361,7 +361,6 @@ export function SidebarContent({
           badgeTitle="better rates"
         />
         <NavItem label="Admin" icon="admin_panel_settings" href="/admin" color="violet" />
-        <NavItem label="Config" icon="settings" href="/admin/config" color="violet" />
 
         {/* Archive section (collapsible, collapsed by default) */}
         <details className="group">

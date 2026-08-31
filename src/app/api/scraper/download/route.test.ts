@@ -152,6 +152,34 @@ describe("POST /api/scraper/download", () => {
     expect(after?.hiddenAt).toBeInstanceOf(Date);
   });
 
+  test("magnet path: uses DB-stored decypharr_url when env is unset", async () => {
+    // The route must resolve the Decypharr URL through env > DB > default,
+    // so a value configured via /api/config reaches the client.
+    const envUrl = process.env.DECYPHARR_URL;
+    delete process.env.DECYPHARR_URL;
+    try {
+      await testDB.db.config.upsert({
+        where: { id: 1 },
+        update: { configJson: JSON.stringify({ decypharr_url: "http://db-decypharr:8282" }) },
+        create: { id: 1, configJson: JSON.stringify({ decypharr_url: "http://db-decypharr:8282" }) },
+      });
+      const row = await seed({
+        source: "141jav",
+        title: "db url item",
+        magnetLink: "magnet:?xt=urn:btih:CAFEBABE",
+      });
+      const { POST } = await loadRoute();
+      const res = await POST(jsonRequest("/api/scraper/download", { id: row.id }));
+      expect(status(res)).toBe(200);
+      expect(decypharrCtorMock).toHaveBeenCalledWith("http://db-decypharr:8282");
+      expect(addMagnetMock).toHaveBeenCalledTimes(1);
+    } finally {
+      if (envUrl === undefined) delete process.env.DECYPHARR_URL;
+      else process.env.DECYPHARR_URL = envUrl;
+      await testDB.db.config.deleteMany({ where: { id: 1 } });
+    }
+  });
+
   test("torrent path: fetches the .torrent, then calls addTorrent with sanitized filename", async () => {
     const row = await seed({
       source: "pornrips",

@@ -26,7 +26,7 @@ describe("ArrDriftPage", () => {
         },
         { slug: "sonarr", name: "Sonarr", type: "sonarr", url: "http://sonarr", status: "incompatible", differences: [] },
       ],
-    }))) as typeof fetch;
+    }))) as unknown as typeof fetch;
 
     render(<ArrDriftPage />);
 

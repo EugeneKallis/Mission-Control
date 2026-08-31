@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { checkHttpIntegration, parseNamedEndpoints, summarizeIntegrationHealth, type IntegrationHealthItem } from "./integration-health";
+import { checkHttpIntegration, summarizeIntegrationHealth, type IntegrationHealthItem } from "./integration-health";
 
 const originalFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = originalFetch; });
@@ -15,13 +15,6 @@ describe("integration health", () => {
       { ...base, id: "four", state: "healthy" },
     ];
     expect(summarizeIntegrationHealth(items)).toEqual({ healthy: 2, error: 1, unconfigured: 1 });
-  });
-
-  test("parses valid named endpoints and ignores malformed lines", () => {
-    expect(parseNamedEndpoints("One=http://one:8080/\nbad\nTwo=https://two:8080\nNo=ftp://no")).toEqual([
-      { id: "config-0", name: "One", apiUrl: "http://one:8080" },
-      { id: "config-2", name: "Two", apiUrl: "https://two:8080" },
-    ]);
   });
 
   test("does not fetch an unconfigured integration", async () => {

@@ -15,7 +15,6 @@ import {
   arrConfigDbKey,
   ARR_INSTANCE_DEFINITIONS,
 } from "./arr-config";
-import { CONFIG_FIELDS, defaultConfigValues, type ConfigKey } from "./config-fields";
 
 // ── Schema ────────────────────────────────────────────────────────────────
 
@@ -153,24 +152,6 @@ const DB_ENV_KEY_MAP: Record<string, keyof EnvConfig> = {
   real_debrid_api_key: "REAL_DEBRID_API_KEY",
   pulse_api_key: "PULSE_API_KEY",
 };
-
-/** Resolve every Config-page value with environment > database > default precedence. */
-export async function resolveGlobalConfigValues(): Promise<Record<ConfigKey, string>> {
-  const values = defaultConfigValues();
-  try {
-    const { db } = await import("@/lib/db");
-    const row = await db.config.findUnique({ where: { id: 1 } });
-    const stored = row?.configJson ? JSON.parse(row.configJson) as Record<string, string> : {};
-    for (const field of CONFIG_FIELDS) {
-      values[field.key] = process.env[field.envKey]?.trim() || stored[field.key] || ("defaultValue" in field ? field.defaultValue : "");
-    }
-  } catch {
-    for (const field of CONFIG_FIELDS) {
-      values[field.key] = process.env[field.envKey]?.trim() || ("defaultValue" in field ? field.defaultValue : "");
-    }
-  }
-  return values;
-}
 
 // ── Singleton (env-only) ─────────────────────────────────────────────────
 

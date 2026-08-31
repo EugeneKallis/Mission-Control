@@ -123,6 +123,7 @@ describe("POST /api/schedules/[id]/toggle", () => {
       seededScheduleId,
       seededMacroId,
       "*/5 * * * *",
+      "skip",
     ]);
     expect(removeScheduleMock).not.toHaveBeenCalled();
   });

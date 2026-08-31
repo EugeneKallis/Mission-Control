@@ -12,7 +12,7 @@ import {
   markScrapeResultDownloaded,
 } from "@/lib/db/queries";
 import { DecypharrClient } from "@/lib/clients/decypharr";
-import { getConfig } from "@/lib/config";
+import { resolveConfig } from "@/lib/config";
 
 const schema = z.object({ id: z.number().int().positive() });
 
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const cfg = getConfig();
+    const cfg = await resolveConfig();
     const decypharr = new DecypharrClient(cfg.decypharrUrl);
 
     // Determine how to submit. Real magnets start with "magnet:".

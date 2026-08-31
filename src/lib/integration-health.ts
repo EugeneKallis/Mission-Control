@@ -1,4 +1,4 @@
-import { resolveConfig, resolveGlobalConfigValues } from "@/lib/config";
+import { resolveConfig } from "@/lib/config";
 import { db } from "@/lib/db";
 import { getOperationsConfig, checkAdguard } from "@/lib/operations";
 import { getClusterSnapshot } from "@/lib/pve-status";
@@ -67,17 +67,6 @@ export async function checkHttpIntegration(input: {
   }
 }
 
-export function parseNamedEndpoints(value: string): { id: string; name: string; apiUrl: string }[] {
-  return value.split(/\r?\n/).flatMap((line, index) => {
-    const separator = line.indexOf("=");
-    if (separator < 1) return [];
-    const name = line.slice(0, separator).trim();
-    const apiUrl = line.slice(separator + 1).trim().replace(/\/+$/, "");
-    if (!name || !/^https?:\/\//.test(apiUrl)) return [];
-    return [{ id: `config-${index}`, name, apiUrl }];
-  });
-}
-
 export function clearIntegrationHealthCache(): void {
   cache = null;
 }
@@ -86,19 +75,13 @@ export async function getIntegrationHealth(refresh = false): Promise<Integration
   const now = Date.now();
   if (!refresh && cache && now - cache.at < CACHE_TTL_MS) return cache.value;
 
-  const [config, globalConfig, storedDozzleEndpoints, pve, operationsConfig] = await Promise.all([
+  const [config, storedDozzleEndpoints, pve, operationsConfig] = await Promise.all([
     resolveConfig(),
-    resolveGlobalConfigValues(),
     db.dozzleEndpoint.findMany({ where: { enabled: true }, orderBy: [{ order: "asc" }, { id: "asc" }] }).catch(() => []),
     getClusterSnapshot(),
     getOperationsConfig(),
   ]);
-  const configuredDozzleEndpoints = parseNamedEndpoints(globalConfig.dozzle_endpoints);
-  const storedUrls = new Set(storedDozzleEndpoints.map((endpoint) => endpoint.apiUrl.replace(/\/+$/, "")));
-  const dozzleEndpoints = [
-    ...storedDozzleEndpoints,
-    ...configuredDozzleEndpoints.filter((endpoint) => !storedUrls.has(endpoint.apiUrl)),
-  ];
+  const dozzleEndpoints = storedDozzleEndpoints;
 
   const checks: Promise<IntegrationHealthItem>[] = config.arrInstances.map((instance) =>
     checkHttpIntegration({

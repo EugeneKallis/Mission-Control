@@ -24,7 +24,7 @@
 import { mkdir, readdir, rename, rm, stat, lstat } from "fs/promises";
 import { basename, dirname, join } from "path";
 import { DecypharrClient } from "@/lib/clients/decypharr";
-import { getConfig } from "@/lib/config";
+import { resolveConfig } from "@/lib/config";
 import { checkMediaDependencies } from "@/lib/media-dependency-breaker";
 import { parseArgs } from "../../scripts/_lib/cli";
 import { banner, info, warn } from "../../scripts/_lib/log";
@@ -44,7 +44,7 @@ export async function main() {
 
   banner("magnet-bridge");
 
-  const cfg = getConfig();
+  const cfg = await resolveConfig();
   const client = new DecypharrClient(cfg.decypharrUrl);
   const destDir = args.destDir || join(cfg.mediaBasePath, SPECIAL_CATEGORY);
 

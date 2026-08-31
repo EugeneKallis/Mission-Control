@@ -375,41 +375,34 @@ describe("PUT /api/config", () => {
     expect(body.arr_sonarr_url).toBe("");
   });
 
-  test("saves planned feature configuration from the canonical registry", async () => {
+  test("saves the five active fields from the canonical registry", async () => {
     const { PUT, GET } = await loadRoute();
     const values = {
       decypharr_url: "http://decypharr:8282",
-      prowlarr_url: "http://prowlarr:9696",
-      prowlarr_api_key: "prowlarr-secret",
-      tautulli_url: "http://tautulli:8181",
-      telegram_bot_token: "telegram-secret",
-      internet_check_interval_minutes: "10",
-      audit_retention_days: "365",
-      cleanup_paths: "/data/one\n/data/two",
-      energy_contract_end: "2027-05-01",
+      real_debrid_api_key: "rd-secret",
+      pulse_api_key: "pulse-secret",
+      plex_token: "plex-secret",
+      plex_url: "http://plex:32400",
     };
     expect(status(await PUT(jsonRequest("/api/config", values, "PUT")))).toBe(200);
     expect(await jsonBody(await GET())).toMatchObject(values);
   });
 
-  test("validates planned feature URLs, numbers, dates, and booleans", async () => {
+  test("rejects invalid URLs", async () => {
     const { PUT } = await loadRoute();
     for (const body of [
-      { prowlarr_url: "ftp://bad" },
-      { audit_retention_days: "0" },
-      { energy_monthly_kwh: "many" },
-      { energy_contract_end: "tomorrow" },
-      { internet_speedtest_enabled: "sometimes" },
+      { decypharr_url: "ftp://bad" },
+      { plex_url: "not-a-url" },
     ]) {
       expect(status(await PUT(jsonRequest("/api/config", body, "PUT")))).toBe(400);
     }
   });
 
-  test("ignores unknown config keys", async () => {
+  test("ignores unknown and retired config keys", async () => {
     const { PUT } = await loadRoute();
     const body = await jsonBody(await PUT(jsonRequest("/api/config", { unknown_secret: "nope", telegram_chat_id: "123" }, "PUT"))) as Record<string, string>;
-    expect(body.telegram_chat_id).toBe("123");
     expect(body.unknown_secret).toBeUndefined();
+    expect(body.telegram_chat_id).toBeUndefined();
   });
 
   test("returns 500 on upsert failure", async () => {

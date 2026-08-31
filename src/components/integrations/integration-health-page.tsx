@@ -2,11 +2,25 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { IntegrationHealthItem, IntegrationHealthSnapshot, IntegrationState } from "@/lib/integration-health";
+import { ConfigFieldsModal } from "@/components/config/config-fields-modal";
+import { ArrConfigModal } from "@/components/config/arr-config-modal";
+import { fieldsForGroup, type ConfigFieldGroup } from "@/lib/config-fields";
 
 const STATE_STYLE: Record<IntegrationState, string> = {
   healthy: "border-green-500/30 bg-green-500/10 text-green-400",
   error: "border-error/30 bg-error/10 text-error",
   unconfigured: "border-outline-variant/40 bg-surface-container text-on-surface-variant",
+};
+
+type ConfigModalSpec =
+  | { kind: "arr" }
+  | { kind: "fields"; group: ConfigFieldGroup; title: string; icon: string };
+
+const CONFIGURABLE: Record<string, ConfigModalSpec> = {
+  Arr: { kind: "arr" },
+  Media: { kind: "fields", group: "media", title: "Plex settings", icon: "video_library" },
+  Downloads: { kind: "fields", group: "downloads", title: "Download integrations", icon: "cloud_download" },
+  Monitoring: { kind: "fields", group: "monitoring", title: "Pulse settings", icon: "monitor_heart" },
 };
 
 function SummaryCard({ label, count, icon, className }: { label: string; count: number; icon: string; className: string }) {
@@ -41,6 +55,7 @@ export function IntegrationHealthPage() {
   const [snapshot, setSnapshot] = useState<IntegrationHealthSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [openModal, setOpenModal] = useState<ConfigModalSpec | null>(null);
 
   const load = useCallback(async (refresh = false) => {
     setLoading(true);
@@ -102,7 +117,19 @@ export function IntegrationHealthPage() {
                 <section key={category} className="overflow-hidden rounded-[var(--radius-card)] border border-outline-variant/30 bg-surface-container-low">
                   <div className="flex items-center justify-between bg-surface-container px-4 py-3">
                     <h2 className="text-sm font-semibold text-on-surface">{category}</h2>
-                    <span className="text-xs text-on-surface-variant">{items.length}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-on-surface-variant">{items.length}</span>
+                      {CONFIGURABLE[category] && (
+                        <button
+                          type="button"
+                          onClick={() => setOpenModal(CONFIGURABLE[category]!)}
+                          aria-label={`${category} settings`}
+                          className="rounded p-1 text-on-surface-variant transition-colors hover:bg-surface hover:text-on-surface"
+                        >
+                          <span className="material-symbols-outlined text-base" aria-hidden="true">settings</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {items.map((item) => <HealthRow key={item.id} item={item} />)}
                 </section>
@@ -117,6 +144,17 @@ export function IntegrationHealthPage() {
 
         {!snapshot && loading && <div className="py-16 text-center text-sm text-on-surface-variant">Checking integrations…</div>}
       </div>
+      {openModal?.kind === "arr" && (
+        <ArrConfigModal onClose={() => setOpenModal(null)} />
+      )}
+      {openModal?.kind === "fields" && (
+        <ConfigFieldsModal
+          fields={fieldsForGroup(openModal.group)}
+          title={openModal.title}
+          icon={openModal.icon}
+          onClose={() => setOpenModal(null)}
+        />
+      )}
     </main>
   );
 }

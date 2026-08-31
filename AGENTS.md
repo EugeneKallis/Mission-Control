@@ -152,20 +152,21 @@ maintaining its own copy.
 For both URL and API key, effective values follow:
 
 ```text
-environment variable > Config page (website DB) > built-in default
+environment variable > settings modals (website DB) > built-in default
 ```
 
 - **Environment variables:** `ARR__<NAME>__URL` and `ARR__<NAME>__API_KEY` (e.g.
   `ARR__RADARR__URL=http://192.168.1.111:7878`). These always win if set.
-- **Config page:** Values stored via `/admin/config` in the `configs` DB table under
-  keys like `arr_radarr_url`, `arr_radarr_api_key`, etc. Used at runtime when no
-  env override exists.
+- **Settings modals:** Values stored via the Arr settings modal (gear on Arr Drift
+  and Integration Health) in the `configs` DB table under keys like
+  `arr_radarr_url`, `arr_radarr_api_key`, etc. Used at runtime when no env
+  override exists.
 - **Built-in defaults:** Hardcoded in `ARR_INSTANCE_DEFINITIONS` for URLs; API keys
   default to empty.
 
 ### Import format
 
-The Config page includes a bulk-import textarea that accepts records in a
+The Arr settings modal includes a bulk-import textarea that accepts records in a
 three-line format (name / URL / API key), with optional blank-line separators.
 
 ```text
@@ -208,17 +209,24 @@ env-only `getConfig()` and are unaffected.
 
 ### Global Config registry and API
 
-`CONFIG_FIELDS` in `src/lib/config-fields.ts` is the canonical registry for
-non-repeatable global settings shown at `/admin/config`. It defines each DB key,
-environment override, section, input kind, label, description, and default. The
-registry covers current integrations plus credentials and defaults required by
-the expansion roadmap. Add global fields there; repeatable records such as
-Proxmox endpoints, notification rules, runbooks, and synthetic journeys remain
-owned by their feature-specific tables and settings pages.
+`CONFIG_FIELDS` in `src/lib/config-fields.ts` is the canonical registry for the
+five active global settings (`pulse_api_key`, `plex_token`, `plex_url`,
+`real_debrid_api_key`, `decypharr_url`). Each entry carries a `group`
+(`"media"` / `"downloads"` / `"monitoring"`), label, description, kind, and
+default; `fieldsForGroup(group)` selects the fields for a scoped modal. The
+retired `/admin/config` page is gone — the fields are edited from gear buttons
+on Pulse (monitoring), Scraper (downloads), and Integration Health (Media /
+Downloads / Monitoring); Arr URLs/API keys are edited from the Arr settings
+modal on Arr Drift and Integration Health. Repeatable records such as Proxmox
+endpoints, notification rules, runbooks, and synthetic journeys remain owned by
+their feature-specific tables and settings pages.
 
-Effective values use environment > Config-page DB > registry default precedence.
-Future consumers should call `resolveGlobalConfigValues()` from `@/lib/config`.
-Existing typed `AppConfig` consumers continue to call `resolveConfig()`.
+Effective values use environment > settings-modals DB > registry default
+precedence. Typed `AppConfig` consumers call `resolveConfig()` (env > DB >
+default); `getConfig()` is env-only. The three Decypharr consumers
+(`/api/scraper/download`, `src/workers/magnet-bridge.ts`,
+`src/workers/torrent-watch.ts`) use `resolveConfig()` so a DB-stored
+`decypharr_url` reaches them.
 
 - `GET /api/config` — Returns all stored config values, including registry and Arr
   keys, with `Cache-Control: no-store`.
@@ -1291,7 +1299,7 @@ Returns `{ instance, label, itemLabel, items: [{ id, title, sizeOnDisk, fileCoun
 - Deep links are `{configuredUrl}/series/{titleSlug}` (Sonarr) or
   `{configuredUrl}/movie/{titleSlug}` (Radarr) — built from the **configured**
   instance URL, so links and API calls always point at the host you set in
-  `/admin/config`.
+  the Arr settings modal.
 - Status codes: `400` unknown slug, `503` no API key configured for the
   instance, `502` upstream Arr fetch failure.
 

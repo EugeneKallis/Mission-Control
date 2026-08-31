@@ -1,10 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { CONFIG_FIELDS, configSections, defaultConfigValues } from "./config-fields";
+import { CONFIG_FIELDS, defaultConfigValues, fieldsForGroup } from "./config-fields";
 
 describe("global config field registry", () => {
-  test("has unique database and environment keys", () => {
+  test("has unique database keys", () => {
     expect(new Set(CONFIG_FIELDS.map((field) => field.key)).size).toBe(CONFIG_FIELDS.length);
-    expect(new Set(CONFIG_FIELDS.map((field) => field.envKey)).size).toBe(CONFIG_FIELDS.length);
   });
 
   test("provides a default string for every field", () => {
@@ -13,7 +12,13 @@ describe("global config field registry", () => {
     for (const field of CONFIG_FIELDS) expect(typeof values[field.key]).toBe("string");
   });
 
-  test("groups every field into one Config page section", () => {
-    expect(configSections().flatMap((section) => section.fields)).toHaveLength(CONFIG_FIELDS.length);
+  test("fieldsForGroup partitions the five fields into the three groups", () => {
+    const media = fieldsForGroup("media").map((field) => field.key);
+    const downloads = fieldsForGroup("downloads").map((field) => field.key);
+    const monitoring = fieldsForGroup("monitoring").map((field) => field.key);
+    expect(media).toEqual(["plex_token", "plex_url"]);
+    expect(downloads).toEqual(["real_debrid_api_key", "decypharr_url"]);
+    expect(monitoring).toEqual(["pulse_api_key"]);
+    expect([...media, ...downloads, ...monitoring].sort()).toEqual(CONFIG_FIELDS.map((field) => field.key).sort());
   });
 });

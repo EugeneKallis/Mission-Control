@@ -5,6 +5,8 @@ import { useToast } from "@/components/toast-provider";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AccessGate } from "./access-gate";
 import { ScraperCard } from "./scraper-card";
+import { ConfigFieldsModal } from "@/components/config/config-fields-modal";
+import { fieldsForGroup } from "@/lib/config-fields";
 import {
   SOURCES,
   type ScraperSource,
@@ -42,6 +44,7 @@ export function ScraperPage({
   const [anyScraping, setAnyScraping] = useState(false);
   const [hideAllConfirmOpen, setHideAllConfirmOpen] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const fetchResultsRef = useRef<() => Promise<void>>(async () => {});
@@ -498,6 +501,18 @@ export function ScraperPage({
                   Clear &amp; Rescrape
                 </button>
               </div>
+              <div className="inline">
+                <button
+                  type="button"
+                  onClick={() => setShowSettings(true)}
+                  aria-label="Download integrations settings"
+                  className="flex items-center gap-2 py-2 px-4 text-sm font-semibold rounded-[var(--radius-button)] transition-all hover:bg-surface-container active:scale-[0.98] bg-surface text-on-surface border border-outline-variant/30"
+                >
+                  <span className="material-symbols-outlined text-lg">
+                    settings
+                  </span>
+                </button>
+              </div>
             </div>
 
             {/* Source tabs */}
@@ -581,6 +596,14 @@ export function ScraperPage({
           This will hide every visible {source} card. You can undo the most recent hide.
         </p>
       </ConfirmDialog>
+      {showSettings && (
+        <ConfigFieldsModal
+          fields={fieldsForGroup("downloads")}
+          title="Download integrations"
+          icon="cloud_download"
+          onClose={() => setShowSettings(false)}
+        />
+      )}
     </>
   );
 }

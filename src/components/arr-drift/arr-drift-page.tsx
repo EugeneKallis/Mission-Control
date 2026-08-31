@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { ArrDriftInstanceResult, ArrDriftReport } from "@/lib/arr-drift";
+import { ArrConfigModal } from "@/components/config/arr-config-modal";
 
 const STATUS_STYLE: Record<ArrDriftInstanceResult["status"], string> = {
   baseline: "border-primary/30 bg-primary/10 text-primary",
@@ -26,6 +27,7 @@ export function ArrDriftPage() {
   const [baseline, setBaseline] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showSettings, setShowSettings] = useState(false);
 
   const load = useCallback(async (slug?: string) => {
     setLoading(true);
@@ -61,6 +63,14 @@ export function ArrDriftPage() {
         </div>
         <div className="flex items-center gap-2">
           <label htmlFor="arr-drift-baseline" className="text-sm text-on-surface-variant">Baseline</label>
+          <button
+            type="button"
+            onClick={() => setShowSettings(true)}
+            aria-label="Arr instances settings"
+            className="inline-flex items-center justify-center rounded-[var(--radius-button)] border border-outline-variant/50 bg-surface-container px-3 py-2 text-on-surface transition-colors hover:bg-surface"
+          >
+            <span className="material-symbols-outlined text-lg">settings</span>
+          </button>
           <select
             id="arr-drift-baseline"
             value={baseline}
@@ -124,6 +134,7 @@ export function ArrDriftPage() {
         )}
         {loading && !report && <div className="py-16 text-center text-sm text-on-surface-variant">Comparing Arr settings…</div>}
       </div>
+      {showSettings && <ArrConfigModal onClose={() => setShowSettings(false)} />}
     </main>
   );
 }

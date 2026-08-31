@@ -20,7 +20,7 @@
 import { readdir, readFile, stat, unlink, watch } from "fs/promises";
 import { basename, extname, join } from "path";
 import { DecypharrClient } from "@/lib/clients/decypharr";
-import { getConfig } from "@/lib/config";
+import { resolveConfig } from "@/lib/config";
 import { parseArgs } from "../../scripts/_lib/cli";
 import { info, warn } from "../../scripts/_lib/log";
 
@@ -35,7 +35,7 @@ async function main() {
     watchDir: { type: "string", default: "/watch" },
   });
 
-  const cfg = getConfig();
+  const cfg = await resolveConfig();
   const client = new DecypharrClient(
     cfg.decypharrUrl,
     process.env.DECYPHARR_ARR || DECYPHARR_ARR_DEFAULT,
