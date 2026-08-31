@@ -170,7 +170,16 @@ describe("SidebarContent — navigation layout", () => {
     fireEvent.click(screen.getByText("Agent"));
     expect(screen.getByText("Pi Agent")).toBeInTheDocument();
   });
+  test("a group marked defaultCollapsed starts collapsed in the sidebar", async () => {
+    const layout = defaultSidebarLayout();
+    layout.groups[0].defaultCollapsed = true;
+    mockFetch((url) => url.includes("/api/sidebar/layout") ? layout : []);
+    render(<SidebarContent />);
+    await waitFor(() => expect(screen.getByText("Agent")).toBeInTheDocument());
+    expect(screen.queryByText("Pi Agent")).not.toBeInTheDocument();
+  });
 });
+
 
 describe("SidebarContent — macro click", () => {
   test("clicking a local macro on / dispatches a macro:run event", async () => {

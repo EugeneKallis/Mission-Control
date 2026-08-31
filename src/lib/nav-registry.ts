@@ -16,7 +16,7 @@ export interface NavEntry {
 export interface NavGroup {
   id: string;
   name: string;
-  collapsed: boolean;
+  defaultCollapsed: boolean;
   items: string[];
 }
 
@@ -52,12 +52,12 @@ export const NAV_ENTRIES: readonly NavEntry[] = [
 export const NAV_BY_KEY: Record<string, NavEntry> = Object.fromEntries(NAV_ENTRIES.map((entry) => [entry.key, entry]));
 
 export const DEFAULT_NAV_GROUPS: NavGroup[] = [
-  { id: "agent", name: "Agent", collapsed: false, items: ["chat", "pi-settings", "agent-tasks"] },
-  { id: "activity", name: "Activity", collapsed: false, items: ["history", "schedules"] },
-  { id: "monitoring", name: "Monitoring", collapsed: false, items: ["pve", "local-arrs", "arr-drift", "docker-logs", "pulse", "integrations", "operations", "logs", "bl-finder"] },
-  { id: "settings", name: "Settings", collapsed: false, items: ["energy-prices", "admin"] },
-  { id: "archive", name: "Archive", collapsed: true, items: ["nzb", "debrid", "database"] },
-  { id: "ungrouped", name: "Ungrouped", collapsed: false, items: ["scraper"] },
+  { id: "agent", name: "Agent", defaultCollapsed: false, items: ["chat", "pi-settings", "agent-tasks"] },
+  { id: "activity", name: "Activity", defaultCollapsed: false, items: ["history", "schedules"] },
+  { id: "monitoring", name: "Monitoring", defaultCollapsed: false, items: ["pve", "local-arrs", "arr-drift", "docker-logs", "pulse", "integrations", "operations", "logs", "bl-finder"] },
+  { id: "settings", name: "Settings", defaultCollapsed: false, items: ["energy-prices", "admin"] },
+  { id: "archive", name: "Archive", defaultCollapsed: true, items: ["nzb", "debrid", "database"] },
+  { id: "ungrouped", name: "Ungrouped", defaultCollapsed: false, items: ["scraper"] },
 ];
 
 export function defaultSidebarLayout(): SidebarLayout {

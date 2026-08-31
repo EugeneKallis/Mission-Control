@@ -20,7 +20,10 @@ export function normalizeSidebarLayout(input: unknown): SidebarLayout {
     const name = typeof group.name === "string" ? group.name.trim() : "";
     if (!id || groupIds.has(id)) throw new Error("group ids must be unique non-empty strings");
     if (!name) throw new Error("group names must be non-empty");
-    if (typeof group.collapsed !== "boolean") throw new Error(`group ${id} collapsed must be boolean`);
+    const defaultCollapsed =
+      typeof group.defaultCollapsed === "boolean" ? group.defaultCollapsed :
+      typeof group.collapsed === "boolean" ? group.collapsed : undefined;
+    if (typeof defaultCollapsed !== "boolean") throw new Error(`group ${id} defaultCollapsed must be boolean`);
     if (!Array.isArray(group.items) || group.items.some((key) => typeof key !== "string")) throw new Error(`group ${id} items must be strings`);
     groupIds.add(id);
     const items = group.items.map((key) => key.trim());
@@ -29,7 +32,7 @@ export function normalizeSidebarLayout(input: unknown): SidebarLayout {
       if (seen.has(key)) throw new Error(`Navigation key appears more than once: ${key}`);
       seen.add(key);
     }
-    return { id, name, collapsed: group.collapsed, items };
+    return { id, name, defaultCollapsed, items };
   });
 
   const hidden = value.hidden.map((key) => key.trim());
@@ -39,7 +42,7 @@ export function normalizeSidebarLayout(input: unknown): SidebarLayout {
     seen.add(key);
   }
   for (const key of configurableKeys) if (!seen.has(key)) throw new Error(`Missing navigation key: ${key}`);
-  if (!groupIds.has("ungrouped")) groups.push({ id: "ungrouped", name: "Ungrouped", collapsed: false, items: [] });
+  if (!groupIds.has("ungrouped")) groups.push({ id: "ungrouped", name: "Ungrouped", defaultCollapsed: false, items: [] });
   return { groups, hidden };
 }
 

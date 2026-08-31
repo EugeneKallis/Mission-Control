@@ -55,6 +55,17 @@ describe("sidebar layout", () => {
     expect(normalizeSidebarLayout(layout).groups.at(-1)?.id).toBe("ungrouped");
   });
 
+  test("coerces legacy collapsed into defaultCollapsed", async () => {
+    const { normalizeSidebarLayout } = await load();
+    const legacy = defaultSidebarLayout();
+    const raw = {
+      groups: legacy.groups.map((group) => ({ id: group.id, name: group.name, collapsed: group.defaultCollapsed, items: group.items })),
+      hidden: legacy.hidden,
+    };
+    const normalized = normalizeSidebarLayout(raw);
+    expect(normalized.groups.find((group: { id: string }) => group.id === "archive")?.defaultCollapsed).toBe(true);
+  });
+
   test("falls back from malformed stored JSON", async () => {
     const { getSidebarLayout } = await load();
     await testDB.db.setting.create({ data: { key: "sidebar:layout", value: "not-json" } });

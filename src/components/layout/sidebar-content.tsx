@@ -51,6 +51,7 @@ export function SidebarContent({
   const [operationsAlertCount, setOperationsAlertCount] = useState<number | null>(null);
   const [suppressedSources, setSuppressedSources] = useState<string[]>([]);
   const [sidebarLayout, setSidebarLayout] = useState<SidebarLayout | null>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean> | null>(null);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -81,6 +82,7 @@ export function SidebarContent({
       .then((data: unknown) => {
         if (data && typeof data === "object" && Array.isArray((data as SidebarLayout).groups)) {
           setSidebarLayout(data as SidebarLayout);
+          setCollapsedGroups(Object.fromEntries((data as SidebarLayout).groups.map((group) => [group.id, group.defaultCollapsed])));
         }
       })
       .catch(() => { /* keep default layout */ });
@@ -238,16 +240,7 @@ export function SidebarContent({
     energy: "energy",
   };
   const toggleGroup = (groupId: string) => {
-    const next = {
-      ...layout,
-      groups: layout.groups.map((group) => group.id === groupId ? { ...group, collapsed: !group.collapsed } : group),
-    };
-    setSidebarLayout(next);
-    fetch("/api/sidebar/layout", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(next),
-    }).catch(() => {});
+    setCollapsedGroups((prev) => prev ? { ...prev, [groupId]: !prev[groupId] } : prev);
   };
   const renderEntry = (key: string) => {
     const entry = NAV_BY_KEY[key];
@@ -362,24 +355,25 @@ export function SidebarContent({
           if (group.id === "ungrouped") {
             return <div key={group.id}><div className="my-3 mx-5 h-px bg-outline-variant/30" />{group.items.map(renderEntry)}</div>;
           }
+          const collapsed = collapsedGroups?.[group.id] ?? group.defaultCollapsed;
           return (
             <div key={group.id}>
               <button
                 type="button"
                 onClick={() => toggleGroup(group.id)}
                 className="w-full flex items-center gap-3 px-5 py-2 text-on-surface hover:bg-surface-container/60 transition-colors mx-2 rounded-[var(--radius-button)]"
-                aria-expanded={!group.collapsed}
+                aria-expanded={!collapsed}
               >
                 <span className="flex-1 text-left text-sm font-semibold">{group.name}</span>
                 <span
                   className="material-symbols-outlined text-on-surface-variant text-base transition-transform duration-200"
-                  style={{ transform: group.collapsed ? undefined : "rotate(90deg)" }}
+                  style={{ transform: collapsed ? undefined : "rotate(90deg)" }}
                   aria-hidden="true"
                 >
                   expand_more
                 </span>
               </button>
-              {!group.collapsed && <div className="pl-1">{group.items.map(renderEntry)}</div>}
+              {!collapsed && <div className="pl-1">{group.items.map(renderEntry)}</div>}
             </div>
           );
         })}
