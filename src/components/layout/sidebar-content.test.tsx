@@ -12,6 +12,7 @@
  */
 import { describe, test, expect, mock, afterEach, beforeEach } from "bun:test";
 import { act, cleanup, render, screen, fireEvent, waitFor } from "@/test-utils/render";
+import { defaultSidebarLayout } from "@/lib/nav-registry";
 
 const mockUsePathname = mock(() => "/");
 const mockPush = mock(() => {});
@@ -141,25 +142,33 @@ describe("SidebarContent — macros list", () => {
   });
 });
 
-describe("SidebarContent — static nav items", () => {
-  test("renders all the static nav items", () => {
-    mockFetch(() => ({}));
-    mockUsePathname.mockReturnValue("/other");
+describe("SidebarContent — navigation layout", () => {
+  test("renders group headers, fixed Navigation, and visible default items", async () => {
+    mockFetch((url) => url.includes("/api/sidebar/layout") ? defaultSidebarLayout() : []);
     render(<SidebarContent />);
-    for (const label of ["History", "Schedules", "Pulse", "Local Arrs", "Arr Drift", "NZB Viewer", "Debrid Viewer", "Log Viewer", "Database", "Admin", "Scraper"]) {
-      expect(screen.getByText(label)).toBeInTheDocument();
-    }
+    await waitFor(() => expect(screen.getByText("Agent")).toBeInTheDocument());
+    expect(screen.getByText("Pi Agent")).toBeInTheDocument();
+    expect(screen.getByText("Navigation")).toBeInTheDocument();
   });
 
-  test("keeps Archive collapsed by default and toggles its viewers", () => {
-    mockFetch(() => ({}));
+  test("hides items listed in the saved layout", async () => {
+    const layout = defaultSidebarLayout();
+    layout.hidden = ["chat"];
+    layout.groups[0].items = layout.groups[0].items.filter((key) => key !== "chat");
+    mockFetch((url) => url.includes("/api/sidebar/layout") ? layout : []);
     render(<SidebarContent />);
+    await waitFor(() => expect(screen.getByText("Agent")).toBeInTheDocument());
+    expect(screen.queryByText("Pi Agent")).not.toBeInTheDocument();
+  });
 
-    const archive = screen.getByText("Archive").closest("details") as HTMLDetailsElement;
-    expect(archive.open).toBe(false);
-
-    fireEvent.click(screen.getByText("Archive"));
-    expect(archive.open).toBe(true);
+  test("collapses and expands a group", async () => {
+    mockFetch((url) => url.includes("/api/sidebar/layout") ? defaultSidebarLayout() : []);
+    render(<SidebarContent />);
+    await waitFor(() => expect(screen.getByText("Agent")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Agent"));
+    expect(screen.queryByText("Pi Agent")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Agent"));
+    expect(screen.getByText("Pi Agent")).toBeInTheDocument();
   });
 });
 

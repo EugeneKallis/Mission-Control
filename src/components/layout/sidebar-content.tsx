@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { NavItem } from "./nav-item";
 import { ThemeSwitcher } from "@/components/theme/theme-switcher";
+import { NAV_ENTRIES, NAV_BY_KEY, defaultSidebarLayout, type SidebarLayout, type NavBadgeKey } from "@/lib/nav-registry";
 import type { GroupWithMacros, Macro } from "@/types";
 
 interface SidebarContentProps {
@@ -49,6 +50,7 @@ export function SidebarContent({
   const [pveAlertCount, setPveAlertCount] = useState<number | null>(null);
   const [operationsAlertCount, setOperationsAlertCount] = useState<number | null>(null);
   const [suppressedSources, setSuppressedSources] = useState<string[]>([]);
+  const [sidebarLayout, setSidebarLayout] = useState<SidebarLayout | null>(null);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -71,6 +73,17 @@ export function SidebarContent({
       .catch(() => {
         setMacrosLoading(false);
       });
+  }, []);
+  // Load the user's page organization; the built-in layout remains the safe fallback.
+  useEffect(() => {
+    fetch("/api/sidebar/layout")
+      .then((r) => r.json())
+      .then((data: unknown) => {
+        if (data && typeof data === "object" && Array.isArray((data as SidebarLayout).groups)) {
+          setSidebarLayout(data as SidebarLayout);
+        }
+      })
+      .catch(() => { /* keep default layout */ });
   }, []);
 
   // Poll the BL Finder broken count so the nav badge stays fresh.
@@ -209,6 +222,52 @@ export function SidebarContent({
     runMacroFromSidebar(macro, pathname, router.push);
   }, [pathname, router]);
 
+  const layout = sidebarLayout ?? defaultSidebarLayout();
+  const badgeCounts: Record<NavBadgeKey, number | null> = {
+    pve: pveAlertCount,
+    operations: operationsAlertCount,
+    logs: logErrorCount,
+    "bl-finder": brokenCount,
+    energy: energyBetterCount,
+  };
+  const badgeSuppress: Record<NavBadgeKey, string> = {
+    pve: "pve",
+    operations: "",
+    logs: "logs",
+    "bl-finder": "blfinder",
+    energy: "energy",
+  };
+  const toggleGroup = (groupId: string) => {
+    const next = {
+      ...layout,
+      groups: layout.groups.map((group) => group.id === groupId ? { ...group, collapsed: !group.collapsed } : group),
+    };
+    setSidebarLayout(next);
+    fetch("/api/sidebar/layout", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(next),
+    }).catch(() => {});
+  };
+  const renderEntry = (key: string) => {
+    const entry = NAV_BY_KEY[key];
+    if (!entry) return null;
+    const badge = entry.badge;
+    const count = badge ? badgeCounts[badge] : null;
+    const suppressed = badge ? suppressedSources.includes(badgeSuppress[badge]) : false;
+    return (
+      <NavItem
+        key={entry.key}
+        label={entry.label}
+        icon={entry.icon}
+        href={entry.href}
+        color={entry.color}
+        badge={suppressed ? undefined : count ?? undefined}
+        {...(entry.badgeTitle ? { badgeTitle: entry.badgeTitle } : {})}
+      />
+    );
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Brand header */}
@@ -298,93 +357,36 @@ export function SidebarContent({
         </details>
 
         <div className="my-3 mx-5 h-px bg-outline-variant/30" />
-
-        {/* Agent section */}
-        <div className="my-2 mx-5 mt-3">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant/50">
-            Agent
-          </span>
-        </div>
-        <NavItem label="Pi Agent" icon="smart_toy" href="/chat" color="primary" />
-        <NavItem label="Pi Settings" icon="settings" href="/pi-settings" color="primary" />
-        <NavItem label="Scheduled Tasks" icon="schedule_send" href="/agent-tasks" color="primary" />
-
-        {/* Activity section */}
-        <div className="my-2 mx-5 mt-3">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant/50">
-            Activity
-          </span>
-        </div>
-        <NavItem label="History" icon="history" href="/history" color="amber" />
-        <NavItem label="Schedules" icon="schedule" href="/schedules" color="cyan" />
-
-        {/* Monitoring section */}
-        <div className="my-2 mx-5 mt-3">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant/50">
-            Monitoring
-          </span>
-        </div>
-        <NavItem label="Proxmox" icon="dns" href="/pve" color="green" badge={suppressedSources.includes("pve") ? undefined : pveAlertCount ?? undefined} badgeTitle="alerts" />
-        <NavItem label="Local Arrs" icon="video_library" href="/local-arrs" color="teal" />
-        <NavItem label="Arr Drift" icon="difference" href="/arr-drift" color="teal" />
-        <NavItem label="Docker Logs" icon="terminal" href="/docker-logs" color="primary" />
-        <NavItem label="Pulse" icon="monitor_heart" href="/pulse" color="cyan" />
-        <NavItem label="Integrations" icon="lan" href="/integrations" color="cyan" />
-        <NavItem label="Operations" icon="hub" href="/operations" color="amber" badge={operationsAlertCount ?? undefined} badgeTitle="alerts" />
-        <NavItem
-          label="Log Viewer"
-          icon="terminal"
-          href="/logs"
-          color="primary"
-          badge={suppressedSources.includes("logs") ? undefined : logErrorCount ?? undefined}
-          badgeTitle="errors"
-        />
-        <NavItem
-          label="BL Finder"
-          icon="broken_image"
-          href="/database/bl-finder"
-          color="amber"
-          badge={suppressedSources.includes("blfinder") ? undefined : brokenCount ?? undefined}
-        />
-        {/* Settings section */}
-        <div className="my-2 mx-5 mt-3">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant/50">
-            Settings
-          </span>
-        </div>
-        <NavItem
-          label="Energy Prices"
-          icon="bolt"
-          href="/energy-prices"
-          color="lime"
-          badge={suppressedSources.includes("energy") ? undefined : energyBetterCount ?? undefined}
-          badgeTitle="better rates"
-        />
-        <NavItem label="Admin" icon="admin_panel_settings" href="/admin" color="violet" />
-
-        {/* Archive section (collapsible, collapsed by default) */}
-        <details className="group">
-          <summary className="list-none cursor-pointer outline-none">
-            <div className="flex items-center gap-3 px-5 py-2 text-on-surface hover:bg-surface-container/60 transition-colors mx-2 rounded-[var(--radius-button)]">
-              <span className="material-symbols-outlined text-teal-500 text-xl">
-                perm_media
-              </span>
-              <span className="flex-1 text-sm font-semibold">Archive</span>
-              <span className="material-symbols-outlined text-on-surface-variant text-base transition-transform duration-200 expand-icon">
-                expand_more
-              </span>
+        {layout.groups.map((group) => {
+          if (group.items.length === 0) return null;
+          if (group.id === "ungrouped") {
+            return <div key={group.id}><div className="my-3 mx-5 h-px bg-outline-variant/30" />{group.items.map(renderEntry)}</div>;
+          }
+          return (
+            <div key={group.id}>
+              <button
+                type="button"
+                onClick={() => toggleGroup(group.id)}
+                className="w-full flex items-center gap-3 px-5 py-2 text-on-surface hover:bg-surface-container/60 transition-colors mx-2 rounded-[var(--radius-button)]"
+                aria-expanded={!group.collapsed}
+              >
+                <span className="flex-1 text-left text-sm font-semibold">{group.name}</span>
+                <span
+                  className="material-symbols-outlined text-on-surface-variant text-base transition-transform duration-200"
+                  style={{ transform: group.collapsed ? undefined : "rotate(90deg)" }}
+                  aria-hidden="true"
+                >
+                  expand_more
+                </span>
+              </button>
+              {!group.collapsed && <div className="pl-1">{group.items.map(renderEntry)}</div>}
             </div>
-          </summary>
-          <div className="pl-1">
-            <NavItem label="NZB Viewer" icon="folder_open" href="/nzb" color="teal" />
-            <NavItem label="Debrid Viewer" icon="cloud" href="/debrid" color="teal" />
-            <NavItem label="Database" icon="table_chart" href="/database" color="violet" />
-          </div>
-        </details>
-
-        {/* Scraper stays as the final navbar item. */}
+          );
+        })}
         <div className="my-3 mx-5 h-px bg-outline-variant/30" />
-        <NavItem label="Scraper" icon="download" href="/scraper" color="rose" />
+        {NAV_ENTRIES.filter((entry) => entry.fixed).map((entry) => (
+          <NavItem key={entry.key} label={entry.label} icon={entry.icon} href={entry.href} color={entry.color} />
+        ))}
       </nav>
 
       {/* Appearance — theme switcher */}
