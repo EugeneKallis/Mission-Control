@@ -49,7 +49,7 @@ describe("DecypharrClient", () => {
     expect(form.get("arr")).toBe("sonarr");
     expect(form.get("downloadFolder")).toBe("/downloads");
     expect(form.get("action")).toBe("symlink");
-    expect(form.get("downloadUncached")).toBe("false");
+    expect(form.get("downloadUncached")).toBe("true");
     expect(form.get("rmTrackerUrls")).toBe("false");
   });
 
@@ -78,6 +78,9 @@ describe("DecypharrClient", () => {
     expect(file).toBeInstanceOf(Blob);
     expect(form.get("arr")).toBe("radarr");
     expect(form.get("downloadFolder")).toBe("/data");
+    expect(form.get("action")).toBe("symlink");
+    expect(form.get("downloadUncached")).toBe("true");
+    expect(form.get("rmTrackerUrls")).toBe("false");
   });
 
   test("addTorrent throws on non-2xx", async () => {

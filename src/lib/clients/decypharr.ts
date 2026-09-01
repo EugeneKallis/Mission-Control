@@ -62,7 +62,7 @@ export class DecypharrClient {
     form.append("arr", this.arrName);
     form.append("downloadFolder", this.downloadFolder);
     form.append("action", "symlink");
-    form.append("downloadUncached", "false");
+    form.append("downloadUncached", "true");
     form.append("rmTrackerUrls", "false");
 
     const res = await fetch(`${this.baseUrl}/api/add`, {
@@ -109,7 +109,7 @@ export class DecypharrClient {
     form.append("arr", this.arrName);
     form.append("downloadFolder", this.downloadFolder);
     form.append("action", "symlink");
-    form.append("downloadUncached", "false");
+    form.append("downloadUncached", "true");
     form.append("rmTrackerUrls", "false");
 
     const res = await fetch(`${this.baseUrl}/api/add`, {
