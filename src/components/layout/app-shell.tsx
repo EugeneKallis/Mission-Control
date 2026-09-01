@@ -13,18 +13,9 @@ interface AppShellProps {
    * Some pages (like Home) manage their own scroll container.
    */
   noScroll?: boolean;
-  /**
-   * Show the right "Macros" rail on the home page (xl+ only).
-   */
-  showRightRail?: boolean;
-  /**
-   * Content to render inside the right rail (e.g. MacroRightRail).
-   * Only rendered when showRightRail is true.
-   */
-  rightRailSlot?: ReactNode;
 }
 
-export function AppShell({ children, noScroll = false, showRightRail = false, rightRailSlot }: AppShellProps) {
+export function AppShell({ children, noScroll = false }: AppShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [uptime, setUptime] = useState<string | undefined>();
   const drawerRef = useRef<HTMLDivElement>(null);
@@ -112,23 +103,6 @@ export function AppShell({ children, noScroll = false, showRightRail = false, ri
           </div>
         </main>
 
-        {/* Right macros rail (home page only, xl+) */}
-        {showRightRail && (
-          <aside className="hidden xl:flex w-[240px] bg-surface flex-col z-20 shrink-0 border-l border-outline-variant/30">
-            <div className="h-12 flex items-center px-4 shrink-0 border-b border-outline-variant/30">
-              <span className="text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider font-display">
-                Macros
-              </span>
-            </div>
-            {rightRailSlot ?? (
-              <nav className="flex-1 overflow-y-auto py-2">
-                <div className="px-5 py-4 text-[11px] text-on-surface-variant italic">
-                  No macros loaded.
-                </div>
-              </nav>
-            )}
-          </aside>
-        )}
       </div>
     </ToastProvider>
   );

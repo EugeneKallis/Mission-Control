@@ -7,8 +7,6 @@
  *  - Renders the MobileHeader with a menu button
  *  - Clicking the mobile menu opens the drawer (visible backdrop)
  *  - Clicking the backdrop closes the drawer
- *  - showRightRail + rightRailSlot renders the right rail
- *  - showRightRail without rightRailSlot renders the default placeholder
  *  - noScroll=false (default) gives the scroll container overflow-y-auto
  *  - noScroll=true removes the overflow-y-auto class
  *
@@ -142,53 +140,3 @@ describe("AppShell — mobile drawer", () => {
   });
 });
 
-describe("AppShell — right rail", () => {
-  test("does not render the right rail by default", () => {
-    const { container } = render(
-      <AppShell>
-        <div>child</div>
-      </AppShell>,
-    );
-    // The right rail is the aside with the xl:flex class. The
-    // SidebarContent also contains the word "Macros", so we cannot
-    // assert on the text — use the class selector instead.
-    expect(container.querySelector("aside.xl\\:flex")).toBeNull();
-  });
-
-  test("renders the right rail when showRightRail is true", () => {
-    const { container } = render(
-      <AppShell showRightRail>
-        <div>child</div>
-      </AppShell>,
-    );
-    // The right rail is the aside with the xl:flex class.
-    const rail = container.querySelector("aside.xl\\:flex");
-    expect(rail).not.toBeNull();
-    // The right rail shows the "No macros loaded." placeholder by default.
-    expect(rail?.textContent).toMatch(/No macros loaded/);
-  });
-
-  test("renders the right rail with the default placeholder when no slot is provided", () => {
-    const { container } = render(
-      <AppShell showRightRail>
-        <div>child</div>
-      </AppShell>,
-    );
-    const rail = container.querySelector("aside.xl\\:flex");
-    expect(rail?.textContent).toMatch(/No macros loaded/);
-  });
-
-  test("renders the right rail with the rightRailSlot when provided", () => {
-    const { container } = render(
-      <AppShell showRightRail rightRailSlot={<div data-testid="right-rail-content">slot</div>}>
-        <div>child</div>
-      </AppShell>,
-    );
-    const rail = container.querySelector("aside.xl\\:flex");
-    expect(rail).not.toBeNull();
-    // The slot content is rendered inside the right rail.
-    const slot = rail?.querySelector('[data-testid="right-rail-content"]');
-    expect(slot).not.toBeNull();
-    expect(rail?.textContent).not.toMatch(/No macros loaded/);
-  });
-});
