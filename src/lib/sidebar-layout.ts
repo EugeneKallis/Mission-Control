@@ -1,5 +1,5 @@
 import { getSetting, updateSetting } from "@/lib/db/queries";
-import { defaultSidebarLayout, NAV_BY_KEY, NAV_ENTRIES, type SidebarLayout } from "@/lib/nav-registry";
+import { defaultSidebarLayout, NAV_BY_KEY, NAV_COLORS, NAV_ENTRIES, NAV_ICONS, type NavCustomization, type SidebarLayout } from "@/lib/nav-registry";
 
 export const SIDEBAR_LAYOUT_KEY = "sidebar:layout";
 
@@ -10,7 +10,7 @@ export function normalizeSidebarLayout(input: unknown): SidebarLayout {
   const value = input as Record<string, unknown>;
   if (!Array.isArray(value.groups) || value.groups.length === 0) throw new Error("groups must be a non-empty array");
   if (!Array.isArray(value.hidden) || value.hidden.some((key) => typeof key !== "string")) throw new Error("hidden must be an array of strings");
-
+  if (value.customizations !== undefined && (!value.customizations || typeof value.customizations !== "object" || Array.isArray(value.customizations))) throw new Error("customizations must be an object");
   const groupIds = new Set<string>();
   const seen = new Set<string>();
   const groups = value.groups.map((raw, index) => {
@@ -42,8 +42,18 @@ export function normalizeSidebarLayout(input: unknown): SidebarLayout {
     seen.add(key);
   }
   for (const key of configurableKeys) if (!seen.has(key)) throw new Error(`Missing navigation key: ${key}`);
+  const customizations: Record<string, NavCustomization> = {};
+  for (const [key, raw] of Object.entries((value.customizations ?? {}) as Record<string, unknown>)) {
+    if (!NAV_BY_KEY[key]) throw new Error(`Unknown customization key: ${key}`);
+    if (!raw || typeof raw !== "object") throw new Error(`Customization ${key} must be an object`);
+    const customization = raw as Record<string, unknown>;
+    const icon = typeof customization.icon === "string" ? customization.icon.trim() : "";
+    const color = typeof customization.color === "string" ? customization.color.trim() : "";
+    if (!NAV_ICONS.includes(icon as typeof NAV_ICONS[number]) || !NAV_COLORS.includes(color as typeof NAV_COLORS[number])) throw new Error(`Invalid customization for ${key}`);
+    customizations[key] = { icon, color };
+  }
   if (!groupIds.has("ungrouped")) groups.push({ id: "ungrouped", name: "Ungrouped", defaultCollapsed: false, items: [] });
-  return { groups, hidden };
+  return { groups, hidden, customizations };
 }
 
 export async function getSidebarLayout(): Promise<SidebarLayout> {

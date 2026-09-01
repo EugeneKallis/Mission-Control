@@ -245,6 +245,9 @@ export function SidebarContent({
   const renderEntry = (key: string) => {
     const entry = NAV_BY_KEY[key];
     if (!entry) return null;
+    const customization = layout.customizations?.[key];
+    const icon = customization?.icon ?? entry.icon;
+    const color = customization?.color ?? entry.color;
     const badge = entry.badge;
     const count = badge ? badgeCounts[badge] : null;
     const suppressed = badge ? suppressedSources.includes(badgeSuppress[badge]) : false;
@@ -252,9 +255,9 @@ export function SidebarContent({
       <NavItem
         key={entry.key}
         label={entry.label}
-        icon={entry.icon}
+        icon={icon}
         href={entry.href}
-        color={entry.color}
+        color={color}
         badge={suppressed ? undefined : count ?? undefined}
         {...(entry.badgeTitle ? { badgeTitle: entry.badgeTitle } : {})}
       />
@@ -378,9 +381,10 @@ export function SidebarContent({
           );
         })}
         <div className="my-3 mx-5 h-px bg-outline-variant/30" />
-        {NAV_ENTRIES.filter((entry) => entry.fixed).map((entry) => (
-          <NavItem key={entry.key} label={entry.label} icon={entry.icon} href={entry.href} color={entry.color} />
-        ))}
+        {NAV_ENTRIES.filter((entry) => entry.fixed).map((entry) => {
+          const customization = layout.customizations?.[entry.key];
+          return <NavItem key={entry.key} label={entry.label} icon={customization?.icon ?? entry.icon} href={entry.href} color={customization?.color ?? entry.color} />;
+        })}
       </nav>
 
       {/* Appearance — theme switcher */}

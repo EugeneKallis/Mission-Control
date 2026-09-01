@@ -20,10 +20,35 @@ export interface NavGroup {
   items: string[];
 }
 
+export interface NavCustomization {
+  icon: string;
+  color: string;
+}
+
 export interface SidebarLayout {
   groups: NavGroup[];
   hidden: string[];
+  customizations: Record<string, NavCustomization>;
 }
+
+export const NAV_COLORS = ["primary", "amber", "cyan", "teal", "green", "violet", "rose", "lime"] as const;
+
+/** Curated Material Symbols names; kept local so the picker stays fast and searchable. */
+export const NAV_ICONS = [
+  "admin_panel_settings", "apps", "bolt", "book", "bookmark", "build", "calendar_month", "chat",
+  "check_circle", "cloud", "code", "dashboard", "database", "delete", "dns", "download",
+  "edit", "event", "favorite", "file_copy", "folder", "folder_open", "group", "history", "home",
+  "hub", "image", "info", "lan", "list", "lock", "manage_accounts", "map", "menu_book",
+  "monitor_heart", "movie", "notifications", "open_in_new", "people", "play_arrow", "public",
+  "router", "schedule", "schedule_send", "search", "settings", "smart_toy", "speed", "storage",
+  "table_chart", "task", "terminal", "tune", "update", "verified", "video_library", "view_sidebar",
+] as const;
+
+export const NAV_COLOR_CLASSES: Record<string, string> = {
+  primary: "text-primary", amber: "text-amber-500", cyan: "text-cyan-500", teal: "text-teal-500",
+  green: "text-green-500", violet: "text-violet-500", rose: "text-rose-500", lime: "text-lime-500",
+};
+
 
 export const NAV_ENTRIES: readonly NavEntry[] = [
   { key: "chat", label: "Pi Agent", icon: "smart_toy", href: "/chat", color: "primary" },
@@ -61,5 +86,5 @@ export const DEFAULT_NAV_GROUPS: NavGroup[] = [
 ];
 
 export function defaultSidebarLayout(): SidebarLayout {
-  return { groups: DEFAULT_NAV_GROUPS.map((group) => ({ ...group, items: [...group.items] })), hidden: [] };
+  return { groups: DEFAULT_NAV_GROUPS.map((group) => ({ ...group, items: [...group.items] })), hidden: [], customizations: {} };
 }
