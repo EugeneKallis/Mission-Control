@@ -61,7 +61,7 @@ function GroupCard({ group, index, count, customizations, onToggleDefaultCollaps
             <button type="button" aria-label={`Move ${group.name} up`} disabled={index === 0} onClick={() => onMove(-1)} className="min-h-11 min-w-11 p-1 text-on-surface-variant disabled:opacity-30 sm:min-h-0 sm:min-w-0"><span className="material-symbols-outlined text-base">keyboard_arrow_up</span></button>
             <button type="button" aria-label={`Move ${group.name} down`} onClick={() => onMove(1)} className="min-h-11 min-w-11 p-1 text-on-surface-variant sm:min-h-0 sm:min-w-0"><span className="material-symbols-outlined text-base">keyboard_arrow_down</span></button>
             <button type="button" onClick={() => { setName(group.name); setEditing(true); }} className="min-h-11 px-3 py-1 text-xs text-on-surface-variant hover:text-on-surface sm:min-h-0 sm:px-2">Edit</button>
-            <button type="button" onClick={onDelete} className="min-h-11 px-3 py-1 text-xs text-error sm:min-h-0 sm:px-2">Delete</button>
+            <button type="button" onClick={() => window.dispatchEvent(new CustomEvent("navigation:color-group", { detail: group.id }))} aria-label={`Change ${group.name} icon colors`} className="min-h-11 min-w-11 p-1 text-on-surface-variant hover:text-on-surface sm:min-h-0 sm:min-w-0"><span className="material-symbols-outlined text-base">palette</span></button>
           </div>
         </div>}
       </div>
@@ -78,7 +78,18 @@ export function NavigationPage() {
   const [editItemKey, setEditItemKey] = useState<string | null>(null);
   const [draftCustomization, setDraftCustomization] = useState<NavCustomization | null>(null);
   const [bulkColorOpen, setBulkColorOpen] = useState(false);
+  const [colorGroupId, setColorGroupId] = useState<string | null>(null);
   const { showToast } = useToast();
+  useEffect(() => {
+    const openGroupColors = (event: Event) => {
+      const groupId = (event as CustomEvent<string>).detail;
+      setColorGroupId(groupId);
+      setBulkColorOpen(true);
+      setDraftCustomization({ icon: "", color: "primary" });
+    };
+    window.addEventListener("navigation:color-group", openGroupColors);
+    return () => window.removeEventListener("navigation:color-group", openGroupColors);
+  }, []);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
   useEffect(() => { fetch("/api/sidebar/layout").then((r) => r.json()).then((data) => setLayout(data)).catch(() => setLayout(defaultSidebarLayout())); }, []);
   const current = layout ?? defaultSidebarLayout();
@@ -99,9 +110,16 @@ export function NavigationPage() {
   };
   const saveBulkColor = () => {
     if (!draftCustomization) return;
-    const customizations = Object.fromEntries(NAV_ENTRIES.map((entry) => [entry.key, { icon: current.customizations[entry.key]?.icon ?? entry.icon, color: draftCustomization.color }]));
+    const group = colorGroupId ? current.groups.find((candidate) => candidate.id === colorGroupId) : undefined;
+    const keys = group ? group.items : NAV_ENTRIES.map((entry) => entry.key);
+    const customizations = { ...current.customizations };
+    for (const key of keys) {
+      const entry = NAV_BY_KEY[key];
+      if (entry) customizations[key] = { icon: customizations[key]?.icon ?? entry.icon, color: draftCustomization.color };
+    }
     persist({ ...current, customizations });
     setBulkColorOpen(false);
+    setColorGroupId(null);
     setDraftCustomization(null);
   };
   const toggleDefaultCollapsed = (id: string) => persist({ ...current, groups: current.groups.map((group) => group.id === id ? { ...group, defaultCollapsed: !group.defaultCollapsed } : group) });
