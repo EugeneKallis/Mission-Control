@@ -35,8 +35,8 @@ export const NAV_COLORS = ["primary", "amber", "cyan", "teal", "green", "violet"
 
 /** Curated Material Symbols names; kept local so the picker stays fast and searchable. */
 export const NAV_ICONS = [
-  "admin_panel_settings", "apps", "bolt", "book", "bookmark", "build", "calendar_month", "chat",
-  "check_circle", "cloud", "code", "dashboard", "database", "delete", "dns", "download",
+  "admin_panel_settings", "apps", "bolt", "book", "bookmark", "broken_image", "build", "calendar_month", "chat",
+  "check_circle", "cloud", "code", "dashboard", "database", "delete", "difference", "dns", "download",
   "edit", "event", "favorite", "file_copy", "folder", "folder_open", "group", "history", "home",
   "hub", "image", "info", "lan", "list", "lock", "manage_accounts", "map", "menu_book",
   "monitor_heart", "movie", "notifications", "open_in_new", "people", "play_arrow", "public",
