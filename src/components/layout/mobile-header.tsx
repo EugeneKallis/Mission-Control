@@ -17,7 +17,7 @@ export function MobileHeader({
   onMenuClick,
 }: MobileHeaderProps) {
   return (
-    <div className="lg:hidden flex items-center h-14 px-2 bg-surface shrink-0 border-b border-outline-variant/30">
+    <div className="lg:hidden flex items-center h-14 px-2 bg-surface shrink-0 border-b border-outline-variant/30 overflow-x-hidden">
       <button
         onClick={onMenuClick}
         className="flex items-center justify-center w-11 h-11 -ml-1 hover:bg-surface-container transition-colors rounded-[var(--radius-button)]"

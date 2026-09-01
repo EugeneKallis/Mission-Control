@@ -299,7 +299,7 @@ export function SidebarContent({
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-3">
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3">
         {/* Macros section (collapsible) */}
         <details open={!macrosCollapsed} className="group">
           <summary className="list-none cursor-pointer outline-none">
@@ -334,7 +334,7 @@ export function SidebarContent({
                     <button
                       key={macro.id}
                       onClick={() => handleMacroClick(macro)}
-                      className="w-full text-left pl-7 pr-3 py-1.5 text-xs text-on-surface-variant hover:text-on-surface hover:bg-surface-container/60 transition-colors flex items-center gap-2 rounded-[var(--radius-button)] mx-1"
+                      className="text-left pl-7 pr-3 py-1.5 text-xs text-on-surface-variant hover:text-on-surface hover:bg-surface-container/60 transition-colors flex items-center gap-2 rounded-[var(--radius-button)] mx-1"
                       title={macro.description || macro.name}
                     >
                       <span className="material-symbols-outlined text-sm text-primary/60">
@@ -361,7 +361,7 @@ export function SidebarContent({
               <button
                 type="button"
                 onClick={() => toggleGroup(group.id)}
-                className="w-full flex items-center gap-3 px-5 py-2 text-on-surface hover:bg-surface-container/60 transition-colors mx-2 rounded-[var(--radius-button)]"
+                className="flex items-center gap-3 px-5 py-2 text-on-surface hover:bg-surface-container/60 transition-colors mx-2 rounded-[var(--radius-button)]"
                 aria-expanded={!collapsed}
               >
                 <span className="flex-1 text-left text-sm font-semibold">{group.name}</span>
