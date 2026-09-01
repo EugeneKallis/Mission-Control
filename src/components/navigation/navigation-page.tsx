@@ -32,21 +32,23 @@ function GroupCard({ group, index, count, onToggleDefaultCollapsed, onRename, on
   const saveName = () => { if (name.trim() && name.trim() !== group.name) onRename(name); setEditing(false); };
   return (
     <div ref={setNodeRef} className={`overflow-hidden rounded-[var(--radius-card)] border border-outline-variant/20 bg-surface-container ${isOver ? "ring-1 ring-primary" : ""}`}>
-      <div className="flex items-center gap-2 border-b border-outline-variant/20 px-4 py-3">
-        <button type="button" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+      <div className="flex flex-col gap-2 border-b border-outline-variant/20 px-4 py-3 sm:flex-row sm:items-center">
+        <button type="button" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded} className="flex w-full min-w-0 items-center gap-2 text-left sm:flex-1">
           <span className="material-symbols-outlined text-sm text-on-surface-variant" style={{ transform: expanded ? "rotate(90deg)" : undefined }}>chevron_right</span>
           {editing ? <input autoFocus value={name} onChange={(e) => setName(e.target.value)} onBlur={saveName} onKeyDown={(e) => { if (e.key === "Enter") saveName(); if (e.key === "Escape") setEditing(false); }} className="min-w-0 flex-1 rounded border border-outline-variant/40 bg-bg px-2 py-0.5 text-sm text-on-surface" /> : <span className="min-w-0 flex-1 text-sm font-semibold text-on-surface">{group.name}</span>}
-          <span className="text-xs text-on-surface-variant">({count})</span>
+          <span className="shrink-0 text-xs text-on-surface-variant">({count})</span>
         </button>
-        {group.id !== "ungrouped" && <div className="flex items-center gap-2">
-          <label className="flex items-center gap-1.5 text-xs text-on-surface-variant">
-            <span>Collapsed by default</span>
+        {group.id !== "ungrouped" && <div className="flex w-full flex-wrap items-center gap-x-2 gap-y-1 sm:w-auto sm:shrink-0 sm:flex-nowrap">
+          <label className="flex w-full items-center gap-1.5 text-xs text-on-surface-variant sm:w-auto">
+            <span className="whitespace-nowrap">Collapsed by default</span>
             <ToggleSwitch enabled={group.defaultCollapsed} onChange={onToggleDefaultCollapsed} label={`${group.name} collapsed by default`} />
           </label>
-          <button type="button" aria-label={`Move ${group.name} up`} disabled={index === 0} onClick={() => onMove(-1)} className="p-1 text-on-surface-variant disabled:opacity-30"><span className="material-symbols-outlined text-base">keyboard_arrow_up</span></button>
-          <button type="button" aria-label={`Move ${group.name} down`} onClick={() => onMove(1)} className="p-1 text-on-surface-variant"><span className="material-symbols-outlined text-base">keyboard_arrow_down</span></button>
-          <button type="button" onClick={() => { setName(group.name); setEditing(true); }} className="px-2 py-1 text-xs text-on-surface-variant hover:text-on-surface">Edit</button>
-          <button type="button" onClick={onDelete} className="px-2 py-1 text-xs text-error">Delete</button>
+          <div className="ml-auto flex items-center gap-1">
+            <button type="button" aria-label={`Move ${group.name} up`} disabled={index === 0} onClick={() => onMove(-1)} className="min-h-11 min-w-11 p-1 text-on-surface-variant disabled:opacity-30 sm:min-h-0 sm:min-w-0"><span className="material-symbols-outlined text-base">keyboard_arrow_up</span></button>
+            <button type="button" aria-label={`Move ${group.name} down`} onClick={() => onMove(1)} className="min-h-11 min-w-11 p-1 text-on-surface-variant sm:min-h-0 sm:min-w-0"><span className="material-symbols-outlined text-base">keyboard_arrow_down</span></button>
+            <button type="button" onClick={() => { setName(group.name); setEditing(true); }} className="min-h-11 px-3 py-1 text-xs text-on-surface-variant hover:text-on-surface sm:min-h-0 sm:px-2">Edit</button>
+            <button type="button" onClick={onDelete} className="min-h-11 px-3 py-1 text-xs text-error sm:min-h-0 sm:px-2">Delete</button>
+          </div>
         </div>}
       </div>
       {expanded && <div className="space-y-2 p-3"><SortableContext items={group.items.map((key) => `item:${key}`)} strategy={verticalListSortingStrategy}>{group.items.length ? group.items.map((key) => <ItemRow key={key} itemKey={key} onToggle={() => onToggleHidden(key)} />) : <div className="py-2 text-center text-xs text-on-surface-variant">No pages in this group.</div>}</SortableContext></div>}
