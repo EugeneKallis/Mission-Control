@@ -32,6 +32,17 @@ const accentColors: Record<string, string> = {
   lime: "hover:bg-lime-500/10",
 };
 
+const iconColors: Record<string, string> = {
+  amber: "text-amber-500",
+  cyan: "text-cyan-500",
+  teal: "text-teal-500",
+  green: "text-green-500",
+  primary: "text-primary",
+  violet: "text-violet-500",
+  rose: "text-rose-500",
+  lime: "text-lime-500",
+};
+
 export function NavItem({ label, icon, href, color = "primary", badge, badgeTitle = "broken" }: NavItemProps) {
   const pathname = usePathname();
   const isActive = pathname === href;
@@ -48,7 +59,7 @@ export function NavItem({ label, icon, href, color = "primary", badge, badgeTitl
         ${accentColors[color] ?? accentColors.primary}
       `}
     >
-      <span aria-hidden="true" className={`material-symbols-outlined text-xl ${isActive ? "text-primary" : ""}`}>{icon}</span>
+      <span aria-hidden="true" className={`material-symbols-outlined text-xl ${iconColors[color] ?? iconColors.primary}`}>{icon}</span>
       <span>{label}</span>
       {showBadge && (
         <span
