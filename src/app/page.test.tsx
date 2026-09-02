@@ -26,6 +26,7 @@ beforeEach(() => {
   const layout = defaultSidebarLayout();
   layout.groups = layout.groups.map((group) => ({ ...group, items: group.items.filter((item) => item !== "history") }));
   layout.hidden = ["history"];
+  layout.customizations.chat = { icon: "settings", color: "rose" };
   fetchMock.mockImplementation(async (input, init) => {
     if (String(input) === "/api/macros") return new Response(JSON.stringify(macroGroups), { status: 200 });
     if (String(input) === "/api/sidebar/layout") return new Response(JSON.stringify(layout), { status: 200 });
@@ -47,6 +48,15 @@ test("starts on Dashboard with organized macro and page cards", async () => {
   expect(within(dashboard).getByText("Utilities")).toBeInTheDocument();
   expect(within(dashboard).getAllByRole("link", { name: /History/ })).toHaveLength(1);
   expect(within(dashboard).getAllByRole("link", { name: /Navigation/ })).toHaveLength(1);
+});
+test("uses navbar icon and color customizations on page cards", async () => {
+  render(<Home />);
+  const dashboard = document.getElementById("home-panel-dashboard")!;
+  await waitFor(() => expect(within(dashboard).getByText("Pi Agent")).toBeInTheDocument());
+  const link = within(dashboard).getByText("Pi Agent").closest("a");
+  const icon = link?.querySelector(".material-symbols-outlined");
+  expect(icon?.textContent).toBe("settings");
+  expect(icon?.parentElement?.className).toContain("text-rose-500");
 });
 
 test("supports keyboard tab movement and one-click macro transition", async () => {

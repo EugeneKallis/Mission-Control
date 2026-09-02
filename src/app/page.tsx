@@ -7,7 +7,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { useLiveStream } from "@/hooks/use-live-stream";
 import { useToast } from "@/components/toast-provider";
-import { NAV_BY_KEY, NAV_ENTRIES, defaultSidebarLayout, type SidebarLayout } from "@/lib/nav-registry";
+import { NAV_BY_KEY, NAV_COLOR_CLASSES, NAV_ENTRIES, defaultSidebarLayout, type SidebarLayout } from "@/lib/nav-registry";
 import type { GroupWithMacros, Macro } from "@/types";
 
 type ActiveView = "dashboard" | "terminal";
@@ -34,16 +34,23 @@ function MacroCard({ macro, onRun }: { macro: Macro; onRun: (id: number) => void
   );
 }
 
-function PageCard({ entry }: { entry: (typeof NAV_ENTRIES)[number] }) {
+function PageCard({ entry, customization }: { entry: (typeof NAV_ENTRIES)[number]; customization?: SidebarLayout["customizations"][string] }) {
+  const icon = customization?.icon ?? entry.icon;
+  const colorClass = NAV_COLOR_CLASSES[customization?.color ?? entry.color] ?? NAV_COLOR_CLASSES.primary;
+
   return (
     <Link href={entry.href} className={cardClass()}>
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-button)] bg-primary/10 text-primary">
-        <span className="material-symbols-outlined text-lg">{entry.icon}</span>
+      <span className={`flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-button)] bg-current/10 ${colorClass}`}>
+        <span className="material-symbols-outlined text-lg">{icon}</span>
       </span>
       <span className="min-w-0 flex-1 truncate text-sm font-semibold text-on-surface">{entry.label}</span>
-      <span className="material-symbols-outlined shrink-0 text-lg text-primary/70">arrow_forward</span>
+      <span className={`material-symbols-outlined shrink-0 text-lg opacity-70 ${colorClass}`}>arrow_forward</span>
     </Link>
   );
+}
+ 
+function pageCard(entry: (typeof NAV_ENTRIES)[number], customizations: SidebarLayout["customizations"]) {
+  return <PageCard key={entry.key} entry={entry} customization={customizations[entry.key]} />;
 }
 
 export default function Home() {
@@ -152,7 +159,7 @@ export default function Home() {
         <section id={panelIds.dashboard} role="tabpanel" aria-labelledby={tabIds.dashboard} hidden={activeView !== "dashboard"} className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
           <div className="mx-auto max-w-7xl space-y-8">
             <section><h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-widest text-on-surface-variant">Macros</h2>{macroLoading ? <div className="text-xs text-on-surface-variant">Loading macros…</div> : macroError ? <div className="flex items-center gap-3 text-xs text-error">Unable to load macros.<Button type="button" onClick={() => void loadMacros()}>Retry</Button></div> : !hasMacros ? <EmptyState icon="terminal" message="No macros configured." /> : <div className="space-y-5">{groupedMacros.filter((group) => group.macros.length > 0).map((group) => <div key={group.group?.id ?? "ungrouped"}><h3 className="mb-2 text-xs font-semibold text-on-surface-variant">{group.group?.name ?? "Ungrouped"}</h3><div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">{group.macros.map((macro) => <MacroCard key={macro.id} macro={macro} onRun={runMacro} />)}</div></div>)}</div>}</section>
-            <section><h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-widest text-on-surface-variant">Pages</h2><div className="space-y-6">{groupedPages.map((group) => <div key={group.id}><h3 className="mb-2 text-xs font-semibold text-on-surface-variant">{group.name}</h3><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{group.entries.map((entry) => <PageCard key={entry.key} entry={entry} />)}</div></div>)}{hiddenPages.length > 0 && <div><h3 className="mb-2 text-xs font-semibold text-on-surface-variant">More pages</h3><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{hiddenPages.map((entry) => <PageCard key={entry.key} entry={entry} />)}</div></div>}<div><h3 className="mb-2 text-xs font-semibold text-on-surface-variant">Manage</h3><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{fixedPages.map((entry) => <PageCard key={entry.key} entry={entry} />)}</div></div></div></section>
+            <section><h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-widest text-on-surface-variant">Pages</h2><div className="space-y-6">{groupedPages.map((group) => <div key={group.id}><h3 className="mb-2 text-xs font-semibold text-on-surface-variant">{group.name}</h3><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{group.entries.map((entry) => pageCard(entry, layout.customizations))}</div></div>)}{hiddenPages.length > 0 && <div><h3 className="mb-2 text-xs font-semibold text-on-surface-variant">More pages</h3><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{hiddenPages.map((entry) => pageCard(entry, layout.customizations))}</div></div>}<div><h3 className="mb-2 text-xs font-semibold text-on-surface-variant">Manage</h3><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{fixedPages.map((entry) => pageCard(entry, layout.customizations))}</div></div></div></section>
           </div>
         </section>
 
