@@ -49,7 +49,6 @@ export function SidebarContent({
   const [energyBetterCount, setEnergyBetterCount] = useState<number | null>(null);
   const [pveAlertCount, setPveAlertCount] = useState<number | null>(null);
   const [operationsAlertCount, setOperationsAlertCount] = useState<number | null>(null);
-  const [suppressedSources, setSuppressedSources] = useState<string[]>([]);
   const [sidebarLayout, setSidebarLayout] = useState<SidebarLayout | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean> | null>(null);
   const pathname = usePathname();
@@ -197,28 +196,6 @@ export function SidebarContent({
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    const fetchOperations = () => {
-      fetch("/api/operations")
-        .then((response) => response.json())
-        .then((data: { alertCount?: number; activeSuppressedSources?: string[] }) => {
-          if (cancelled) return;
-          if (typeof data.alertCount === "number") setOperationsAlertCount(data.alertCount);
-          if (Array.isArray(data.activeSuppressedSources)) setSuppressedSources(data.activeSuppressedSources);
-        })
-        .catch(() => { /* leave previous value */ });
-    };
-    fetchOperations();
-    const interval = setInterval(fetchOperations, 60_000);
-    const onVis = () => { if (!document.hidden) fetchOperations(); };
-    document.addEventListener("visibilitychange", onVis);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-      document.removeEventListener("visibilitychange", onVis);
-    };
-  }, []);
 
   const handleMacroClick = useCallback((macro: Macro) => {
     runMacroFromSidebar(macro, pathname, router.push);
@@ -232,13 +209,6 @@ export function SidebarContent({
     "bl-finder": brokenCount,
     energy: energyBetterCount,
   };
-  const badgeSuppress: Record<NavBadgeKey, string> = {
-    pve: "pve",
-    operations: "",
-    logs: "logs",
-    "bl-finder": "blfinder",
-    energy: "energy",
-  };
   const toggleGroup = (groupId: string) => {
     setCollapsedGroups((prev) => prev ? { ...prev, [groupId]: !prev[groupId] } : prev);
   };
@@ -250,15 +220,14 @@ export function SidebarContent({
     const color = customization?.color ?? entry.color;
     const badge = entry.badge;
     const count = badge ? badgeCounts[badge] : null;
-    const suppressed = badge ? suppressedSources.includes(badgeSuppress[badge]) : false;
     return (
       <NavItem
         key={entry.key}
         label={entry.label}
         icon={icon}
         href={entry.href}
+        badge={count ?? undefined}
         color={color}
-        badge={suppressed ? undefined : count ?? undefined}
         {...(entry.badgeTitle ? { badgeTitle: entry.badgeTitle } : {})}
       />
     );

@@ -3,18 +3,14 @@ import { z } from "zod";
 import {
   acknowledgeAllReleases,
   acknowledgeRelease,
-  addMaintenanceWindow,
-  deleteMaintenanceWindow,
   getOperationsSnapshot,
   refreshOperationsChecks,
   saveOperationsConfig,
-  type OperationsSource,
 } from "@/lib/operations";
  
 
 export const dynamic = "force-dynamic";
 
-const sourceSchema = z.enum(["deployments", "releases", "adguard", "tls", "pve", "logs", "blfinder", "energy"]);
 const configSchema = z.object({
   githubRepos: z.array(z.string()).max(50).optional(),
   adguardUrl: z.string().trim().refine((value) => value === "" || /^https?:\/\//.test(value), "AdGuard URL must start with http:// or https://").optional(),
@@ -31,14 +27,6 @@ const actionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("refresh") }),
   z.object({ action: z.literal("ack-release"), repo: z.string().min(1), tag: z.string().min(1) }),
   z.object({ action: z.literal("ack-all-releases") }),
-  z.object({
-    action: z.literal("add-maintenance"),
-    startsAt: z.string().datetime(),
-    endsAt: z.string().datetime(),
-    reason: z.string().trim().min(1).max(300),
-    sources: z.array(sourceSchema).min(1),
-  }),
-  z.object({ action: z.literal("delete-maintenance"), id: z.string().uuid() }),
 ]);
 
 function response(body: unknown, init?: ResponseInit) {
@@ -83,17 +71,6 @@ export async function POST(request: Request) {
         break;
       case "ack-all-releases":
         await acknowledgeAllReleases();
-        break;
-      case "add-maintenance":
-        await addMaintenanceWindow({
-          startsAt: data.startsAt,
-          endsAt: data.endsAt,
-          reason: data.reason,
-          sources: data.sources as OperationsSource[],
-        });
-        break;
-      case "delete-maintenance":
-        await deleteMaintenanceWindow(data.id);
         break;
     }
     return response(await getOperationsSnapshot());

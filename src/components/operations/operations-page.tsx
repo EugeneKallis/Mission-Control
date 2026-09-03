@@ -5,22 +5,11 @@ import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/toast-provider";
 import type {
   OperationsSnapshot,
-  OperationsSource,
   PublicOperationsConfig,
   ReleaseStatus,
   TlsTarget,
 } from "@/lib/operations";
 
-const SOURCES: Array<{ value: OperationsSource; label: string }> = [
-  { value: "deployments", label: "Deployments" },
-  { value: "releases", label: "Releases" },
-  { value: "adguard", label: "AdGuard" },
-  { value: "tls", label: "TLS" },
-  { value: "pve", label: "Proxmox" },
-  { value: "logs", label: "Log alerts" },
-  { value: "blfinder", label: "BL Finder" },
-  { value: "energy", label: "Energy prices" },
-];
 
 function formatDate(value: string | null | undefined): string {
   return value ? new Date(value).toLocaleString() : "Never";
@@ -73,37 +62,19 @@ function Card({
   );
 }
 
-type SettingsSection = "releases" | "adguard" | "tls" | "maintenance";
+type SettingsSection = "releases" | "adguard" | "tls";
 
 const SETTINGS_META: Record<SettingsSection, { title: string; icon: string }> = {
   releases: { title: "Release radar", icon: "new_releases" },
   adguard: { title: "AdGuard DNS", icon: "dns" },
   tls: { title: "TLS certificates", icon: "verified_user" },
-  maintenance: { title: "Maintenance windows", icon: "build_circle" },
 };
-const CONFIG_SAVE_LABELS: Record<Exclude<SettingsSection, "maintenance">, string> = {
+const CONFIG_SAVE_LABELS: Record<SettingsSection, string> = {
   releases: "Save release settings",
   adguard: "Save AdGuard settings",
   tls: "Save TLS settings",
 };
 
-interface MaintenanceDraft {
-  startsAt: string;
-  endsAt: string;
-  reason: string;
-  sources: OperationsSource[];
-}
-
-function newMaintenanceDraft(): MaintenanceDraft {
-  const start = new Date();
-  const end = new Date(start.getTime() + 3_600_000);
-  return {
-    startsAt: start.toISOString().slice(0, 16),
-    endsAt: end.toISOString().slice(0, 16),
-    reason: "",
-    sources: SOURCES.map((source) => source.value),
-  };
-}
 
 interface ConfigDraft {
   githubRepos: string;
@@ -137,7 +108,6 @@ export function OperationsPage() {
   const [activeSettings, setActiveSettings] = useState<SettingsSection | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
-  const [maintenance, setMaintenance] = useState<MaintenanceDraft>(newMaintenanceDraft);
 
   useEffect(() => {
     let cancelled = false;
@@ -185,7 +155,7 @@ export function OperationsPage() {
     }
   };
 
-  const saveConfig = async (section: Exclude<SettingsSection, "maintenance">) => {
+  const saveConfig = async (section: SettingsSection) => {
     if (!draft) return;
     const body: Record<string, unknown> = section === "releases"
       ? { githubRepos: draft.githubRepos.split("\n").map((value) => value.trim()).filter(Boolean) }
@@ -223,11 +193,6 @@ export function OperationsPage() {
     return <div className="p-8 text-error">Operations data is unavailable.</div>;
   }
 
-  const checkedAt = Date.parse(snapshot.checkedAt ?? "");
-  const activeMaintenance = snapshot.maintenance.filter((item) => Number.isFinite(checkedAt) && Date.parse(item.startsAt) <= checkedAt);
-  const maintenanceStart = Date.parse(maintenance.startsAt);
-  const maintenanceEnd = Date.parse(maintenance.endsAt);
-  const maintenanceValid = Boolean(maintenance.reason.trim()) && maintenance.sources.length > 0 && Number.isFinite(maintenanceStart) && maintenanceEnd > maintenanceStart;
   const copyableReleases = snapshot.releases.filter((release) => !release.error && release.tag !== "unknown");
   const hasPendingReleases = snapshot.releases.some((release) => !release.acknowledged && !release.error && release.tag !== "unknown");
   const sortedReleases = [...snapshot.releases].sort((a, b) => {
@@ -238,7 +203,6 @@ export function OperationsPage() {
 
   const openSettings = (section: SettingsSection) => {
     setDraft(draftFromConfig(snapshot.config));
-    if (section === "maintenance") setMaintenance(newMaintenanceDraft());
     setActiveSettings(section);
   };
 
@@ -247,20 +211,6 @@ export function OperationsPage() {
     setActiveSettings(null);
   };
 
-  const createMaintenance = async () => {
-    if (!maintenanceValid) return;
-    const succeeded = await action({
-      action: "add-maintenance",
-      startsAt: new Date(maintenanceStart).toISOString(),
-      endsAt: new Date(maintenanceEnd).toISOString(),
-      reason: maintenance.reason,
-      sources: maintenance.sources,
-    }, "Create maintenance window");
-    if (succeeded) {
-      setMaintenance(newMaintenanceDraft());
-      setActiveSettings(null);
-    }
-  };
   const copyReleasePrompt = async () => {
     const prompt = buildReleaseUpdatePrompt(snapshot.releases);
     try {
@@ -302,7 +252,7 @@ export function OperationsPage() {
           <div>
             <h1 className="font-display text-2xl font-bold text-on-surface">Operations</h1>
             <p className="mt-1 text-sm text-on-surface-variant">
-              Recovery, changes, releases, DNS, certificates, and maintenance windows.
+              Recovery, changes, releases, DNS, and certificates.
             </p>
           </div>
           <button
@@ -315,11 +265,6 @@ export function OperationsPage() {
           </button>
         </header>
 
-        {activeMaintenance.length > 0 && (
-          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
-            Maintenance active: {activeMaintenance.map((item) => item.reason).join(", ")}
-          </div>
-        )}
 
         <div className="grid gap-5 lg:grid-cols-2">
 
@@ -380,20 +325,6 @@ export function OperationsPage() {
             )}
           </Card>
 
-          <Card title="Maintenance windows" icon="build_circle" onConfigure={() => openSettings("maintenance")}>
-            {snapshot.maintenance.length === 0 ? (
-              <p className="text-sm text-on-surface-variant">No maintenance windows configured.</p>
-            ) : (
-              <div className="space-y-2">
-                {snapshot.maintenance.map((item) => (
-                  <div key={item.id} className="rounded-lg bg-surface-container px-3 py-2 text-xs">
-                    <div className="font-medium">{item.reason}</div>
-                    <div className="text-on-surface-variant">{formatDate(item.startsAt)} – {formatDate(item.endsAt)} · {item.sources.join(", ")}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
         </div>
 
         {activeSettings && (
@@ -413,16 +344,6 @@ export function OperationsPage() {
                 >
                   Cancel
                 </button>
-                {activeSettings === "maintenance" ? (
-                  <button
-                    type="button"
-                    disabled={busy !== null || !maintenanceValid}
-                    onClick={() => { void createMaintenance(); }}
-                    className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary disabled:opacity-50"
-                  >
-                    {busy === "Create maintenance window" ? "Creating…" : "Create window"}
-                  </button>
-                ) : (
                   <button
                     type="button"
                     disabled={busy !== null}
@@ -431,7 +352,6 @@ export function OperationsPage() {
                   >
                     {busy === "Save settings" ? "Saving…" : CONFIG_SAVE_LABELS[activeSettings]}
                   </button>
-                )}
               </>
             )}
           >
@@ -467,46 +387,6 @@ export function OperationsPage() {
               </label>
             )}
 
-            {activeSettings === "maintenance" && (
-              <div className="space-y-4">
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <label className="text-xs text-on-surface-variant">
-                    Starts
-                    <input aria-label="Maintenance starts" type="datetime-local" value={maintenance.startsAt} onChange={(event) => setMaintenance({ ...maintenance, startsAt: event.target.value })} className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface" />
-                  </label>
-                  <label className="text-xs text-on-surface-variant">
-                    Ends
-                    <input aria-label="Maintenance ends" type="datetime-local" value={maintenance.endsAt} onChange={(event) => setMaintenance({ ...maintenance, endsAt: event.target.value })} className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface" />
-                  </label>
-                </div>
-                <label className="block text-xs text-on-surface-variant">
-                  Reason
-                  <input aria-label="Maintenance reason" value={maintenance.reason} onChange={(event) => setMaintenance({ ...maintenance, reason: event.target.value })} className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface" />
-                </label>
-                <fieldset className="flex flex-wrap gap-3">
-                  <legend className="sr-only">Suppressed alert sources</legend>
-                  {SOURCES.map((source) => (
-                    <label key={source.value} className="flex items-center gap-1 text-xs">
-                      <input type="checkbox" checked={maintenance.sources.includes(source.value)} onChange={(event) => setMaintenance({ ...maintenance, sources: event.target.checked ? [...maintenance.sources, source.value] : maintenance.sources.filter((value) => value !== source.value) })} />
-                      {source.label}
-                    </label>
-                  ))}
-                </fieldset>
-                <div className="space-y-2 border-t border-outline-variant/30 pt-4">
-                  {snapshot.maintenance.length === 0 ? (
-                    <p className="text-sm text-on-surface-variant">No maintenance windows configured.</p>
-                  ) : snapshot.maintenance.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between gap-2 rounded-lg bg-surface-container px-3 py-2 text-xs">
-                      <div>
-                        <div className="font-medium">{item.reason}</div>
-                        <div className="text-on-surface-variant">{formatDate(item.startsAt)} – {formatDate(item.endsAt)} · {item.sources.join(", ")}</div>
-                      </div>
-                      <button type="button" disabled={busy !== null} aria-label={`Delete maintenance window ${item.reason}`} onClick={() => { void action({ action: "delete-maintenance", id: item.id }, "Delete maintenance window"); }} className="material-symbols-outlined text-error disabled:opacity-50">delete</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </Modal>
         )}
       </div>

@@ -21,8 +21,6 @@ function snapshot(overrides: Partial<OperationsSnapshot> = {}): OperationsSnapsh
     releases: [{ repo: "n8n-io/n8n", tag: "v2", url: "https://github.com/n8n-io/n8n/releases/v2", publishedAt: "2026-08-22T10:00:00Z", acknowledged: false }],
     adguard: { configured: true, ok: true, protectionEnabled: true, dnsQueries: 100, blockedPercent: 25, averageProcessingMs: 2 },
     tls: [{ name: "Plex", host: "plex.test", port: 443, ok: true, authorized: true, daysRemaining: 60, expiresAt: "2026-10-22T10:00:00Z" }],
-    maintenance: [],
-    activeSuppressedSources: [],
     checkedAt: "2026-08-23T10:00:00Z",
     alertCount: 1,
     ...overrides,
@@ -57,7 +55,7 @@ afterEach(() => {
 describe("OperationsPage", () => {
   test("renders all operation areas", async () => {
     render(<OperationsPage />);
-    for (const title of ["Deployment ledger", "Release radar", "AdGuard DNS", "TLS certificates", "Maintenance windows"]) {
+    for (const title of ["Deployment ledger", "Release radar", "AdGuard DNS", "TLS certificates"]) {
       expect(await screen.findByRole("heading", { name: title })).toBeInTheDocument();
     }
     expect(screen.getByText("Ship operations")).toBeInTheDocument();
@@ -200,7 +198,7 @@ describe("OperationsPage", () => {
   });
   test("shows settings gears only on configurable cards", async () => {
     renderOperationsPage();
-    for (const title of ["Release radar", "AdGuard DNS", "TLS certificates", "Maintenance windows"]) {
+    for (const title of ["Release radar", "AdGuard DNS", "TLS certificates"]) {
       expect(await screen.findByRole("button", { name: `Configure ${title}` })).toBeInTheDocument();
     }
     expect(screen.queryByRole("button", { name: "Configure Deployment ledger" })).not.toBeInTheDocument();
@@ -212,7 +210,6 @@ describe("OperationsPage", () => {
       { title: "Release radar", field: "GitHub repositories", absent: ["AdGuard URL", "TLS targets"] },
       { title: "AdGuard DNS", field: "AdGuard URL", absent: ["GitHub repositories", "TLS targets"] },
       { title: "TLS certificates", field: "TLS targets", absent: ["GitHub repositories", "AdGuard URL"] },
-      { title: "Maintenance windows", field: "Maintenance reason", absent: ["GitHub repositories", "AdGuard URL", "TLS targets"] },
     ];
 
     for (const section of sections) {
@@ -291,37 +288,4 @@ describe("OperationsPage", () => {
   });
 
 
-  test("creates and deletes maintenance windows from its settings modal", async () => {
-    const created = {
-      id: "11111111-1111-4111-8111-111111111111",
-      startsAt: "2026-08-23T11:00:00.000Z",
-      endsAt: "2026-08-23T12:00:00.000Z",
-      reason: "Database upgrade",
-      sources: ["deployments" as const],
-    };
-    let current = snapshot();
-    const actions: Array<Record<string, unknown>> = [];
-    globalThis.fetch = mock(async (_input, init) => {
-      const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
-      if (body.action) {
-        actions.push(body);
-        if (body.action === "add-maintenance") current = snapshot({ maintenance: [created] });
-        if (body.action === "delete-maintenance") current = snapshot({ maintenance: [] });
-      }
-      return Response.json(current);
-    }) as unknown as typeof fetch;
-    renderOperationsPage();
-
-    await userEvent.click(await screen.findByRole("button", { name: "Configure Maintenance windows" }));
-    fireEvent.change(screen.getByLabelText("Maintenance reason"), { target: { value: "Database upgrade" } });
-    await userEvent.click(screen.getByRole("button", { name: "Create window" }));
-    expect(await screen.findByText("Database upgrade", { exact: true })).toBeInTheDocument();
-    expect(screen.queryByRole("dialog", { name: "Maintenance windows settings" })).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("button", { name: "Configure Maintenance windows" }));
-    await userEvent.click(screen.getByRole("button", { name: "Delete maintenance window Database upgrade" }));
-    await waitFor(() => expect(actions.some((body) => body.action === "delete-maintenance")).toBeTrue());
-    expect(screen.getByRole("dialog", { name: "Maintenance windows settings" })).toBeInTheDocument();
-    expect(screen.queryByText("Database upgrade", { exact: true })).not.toBeInTheDocument();
-  });
 });

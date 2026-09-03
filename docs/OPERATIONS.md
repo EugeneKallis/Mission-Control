@@ -1,12 +1,11 @@
 # Operations Dashboard
 
-`/operations` combines five read-mostly operational features:
+`/operations` combines four read-mostly operational features:
 
 - deployment/change ledger;
 - GitHub release radar;
 - AdGuard Home health;
-- TLS certificate expiry checks;
-- scoped alert maintenance windows.
+- TLS certificate expiry checks.
 
 ## Storage
 
@@ -29,12 +28,4 @@ Manual checks are available from `/operations`.
 
 `GET /api/operations` returns the cached snapshot. Add `?refresh=1` for live external checks.
 `PUT /api/operations` updates validated configuration. `POST /api/operations` accepts only
-the allowlisted actions implemented in the route: refresh, release acknowledgement, and
-maintenance-window create/delete.
-
-## Maintenance suppression
-
-Maintenance windows suppress badges, not evidence. Operations alerts are excluded from the
-Operations count while their source is active. Proxmox, Log Viewer, BL Finder, and Energy
-Prices sidebar badges are hidden when their corresponding source is active. Logs, health
-snapshots, and database rows continue to be collected.
+the allowlisted actions implemented in the route: refresh and release acknowledgement.

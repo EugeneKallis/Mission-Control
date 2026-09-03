@@ -2,7 +2,6 @@ import { readFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { isIP } from "node:net";
 import { connect } from "node:tls";
-import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
 import { RELEASE_RADAR_REPOS } from "@/lib/release-radar";
 
@@ -72,19 +71,10 @@ export interface TlsStatus extends TlsTarget {
   error?: string;
 }
 
-export interface MaintenanceWindow {
-  id: string;
-  startsAt: string;
-  endsAt: string;
-  reason: string;
-  sources: OperationsSource[];
-}
-
 interface OperationsState {
   releases: ReleaseStatus[];
   lastAdguard?: AdguardStatus;
   lastTls?: TlsStatus[];
-  maintenance: MaintenanceWindow[];
   checkedAt?: string;
 }
 
@@ -94,8 +84,6 @@ export interface OperationsSnapshot {
   releases: ReleaseStatus[];
   adguard: AdguardStatus;
   tls: TlsStatus[];
-  maintenance: MaintenanceWindow[];
-  activeSuppressedSources: OperationsSource[];
   checkedAt: string | null;
   alertCount: number;
 }
@@ -175,7 +163,6 @@ function normalizeState(raw: Record<string, unknown>): OperationsState {
     releases: Array.isArray(raw.releases) ? raw.releases as ReleaseStatus[] : [],
     lastAdguard: raw.lastAdguard as AdguardStatus | undefined,
     lastTls: Array.isArray(raw.lastTls) ? raw.lastTls as TlsStatus[] : [],
-    maintenance: Array.isArray(raw.maintenance) ? raw.maintenance as MaintenanceWindow[] : [],
     checkedAt: stringValue(raw.checkedAt) || undefined,
   };
 }
@@ -375,38 +362,12 @@ export async function checkTls(config?: OperationsConfig): Promise<TlsStatus[]> 
   return Promise.all(resolvedConfig.tlsTargets.map(checkTlsTarget));
 }
 
-export function activeMaintenance(windows: MaintenanceWindow[], now = Date.now()): MaintenanceWindow[] {
-  return windows.filter((window) => Date.parse(window.startsAt) <= now && Date.parse(window.endsAt) > now);
-}
-
-export function sourceSuppressed(windows: MaintenanceWindow[], source: OperationsSource, now = Date.now()): boolean {
-  return activeMaintenance(windows, now).some((window) => window.sources.includes(source));
-}
-
-export async function addMaintenanceWindow(input: Omit<MaintenanceWindow, "id">): Promise<MaintenanceWindow> {
-  if (!input.reason.trim()) throw new Error("Maintenance reason is required");
-  if (!Number.isFinite(Date.parse(input.startsAt)) || !Number.isFinite(Date.parse(input.endsAt)) || Date.parse(input.endsAt) <= Date.parse(input.startsAt)) {
-    throw new Error("Maintenance end must be after its start");
-  }
-  const window = { ...input, id: randomUUID(), reason: input.reason.trim(), sources: [...new Set(input.sources)] };
-  const state = await getOperationsState();
-  state.maintenance = [...state.maintenance.filter((item) => Date.parse(item.endsAt) > Date.now()), window];
-  await saveOperationsState(state);
-  return window;
-}
-
-export async function deleteMaintenanceWindow(id: string): Promise<void> {
-  const state = await getOperationsState();
-  state.maintenance = state.maintenance.filter((item) => item.id !== id);
-  await saveOperationsState(state);
-}
-
-export function countOperationsAlerts(input: Pick<OperationsSnapshot, "deployments" | "releases" | "adguard" | "tls" | "maintenance">, now = Date.now()): number {
+export function countOperationsAlerts(input: Pick<OperationsSnapshot, "deployments" | "releases" | "adguard" | "tls">): number {
   let count = 0;
-  if (!sourceSuppressed(input.maintenance, "deployments", now) && input.deployments[0]?.status === "failed") count += 1;
-  if (!sourceSuppressed(input.maintenance, "releases", now)) count += input.releases.filter(isPendingRelease).length;
-  if (!sourceSuppressed(input.maintenance, "adguard", now) && input.adguard.configured && (!input.adguard.ok || input.adguard.protectionEnabled === false)) count += 1;
-  if (!sourceSuppressed(input.maintenance, "tls", now)) count += input.tls.filter((item) => tlsSeverity(item) !== "ok").length;
+  if (input.deployments[0]?.status === "failed") count += 1;
+  count += input.releases.filter(isPendingRelease).length;
+  if (input.adguard.configured && (!input.adguard.ok || input.adguard.protectionEnabled === false)) count += 1;
+  count += input.tls.filter((item) => tlsSeverity(item) !== "ok").length;
   return count;
 }
 
@@ -433,15 +394,12 @@ export async function getOperationsSnapshot(refresh = false): Promise<Operations
     getOperationsState(),
     getDeployments(),
   ]);
-  const maintenance = state.maintenance.filter((item) => Date.parse(item.endsAt) > Date.now());
   const snapshot: OperationsSnapshot = {
     config: publicConfig(config),
     deployments,
     releases: state.releases,
     adguard: state.lastAdguard ?? { configured: Boolean(config.adguardUrl), ok: false },
     tls: state.lastTls ?? [],
-    maintenance,
-    activeSuppressedSources: [...new Set(activeMaintenance(maintenance).flatMap((item) => item.sources))],
     checkedAt: state.checkedAt ?? null,
     alertCount: 0,
   };
