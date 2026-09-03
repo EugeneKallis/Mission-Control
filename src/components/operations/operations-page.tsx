@@ -12,7 +12,6 @@ import type {
 } from "@/lib/operations";
 
 const SOURCES: Array<{ value: OperationsSource; label: string }> = [
-  { value: "backup", label: "Backups" },
   { value: "deployments", label: "Deployments" },
   { value: "releases", label: "Releases" },
   { value: "adguard", label: "AdGuard" },
@@ -27,12 +26,6 @@ function formatDate(value: string | null | undefined): string {
   return value ? new Date(value).toLocaleString() : "Never";
 }
 
-function formatBytes(value: number | null): string {
-  if (value === null) return "—";
-  const units = ["B", "KB", "MB", "GB"];
-  const unit = Math.min(Math.floor(Math.log(Math.max(value, 1)) / Math.log(1024)), units.length - 1);
-  return `${(value / 1024 ** unit).toFixed(unit ? 1 : 0)} ${units[unit]}`;
-}
 
 function statusClass(ok: boolean): string {
   return ok ? "text-success" : "text-error";
@@ -80,17 +73,15 @@ function Card({
   );
 }
 
-type SettingsSection = "backup" | "releases" | "adguard" | "tls" | "maintenance";
+type SettingsSection = "releases" | "adguard" | "tls" | "maintenance";
 
 const SETTINGS_META: Record<SettingsSection, { title: string; icon: string }> = {
-  backup: { title: "Disaster recovery", icon: "backup" },
   releases: { title: "Release radar", icon: "new_releases" },
   adguard: { title: "AdGuard DNS", icon: "dns" },
   tls: { title: "TLS certificates", icon: "verified_user" },
   maintenance: { title: "Maintenance windows", icon: "build_circle" },
 };
 const CONFIG_SAVE_LABELS: Record<Exclude<SettingsSection, "maintenance">, string> = {
-  backup: "Save backup settings",
   releases: "Save release settings",
   adguard: "Save AdGuard settings",
   tls: "Save TLS settings",
@@ -115,8 +106,6 @@ function newMaintenanceDraft(): MaintenanceDraft {
 }
 
 interface ConfigDraft {
-  backupDir: string;
-  backupRetention: number;
   githubRepos: string;
   adguardUrl: string;
   adguardUsername: string;
@@ -126,8 +115,6 @@ interface ConfigDraft {
 
 function draftFromConfig(config: PublicOperationsConfig): ConfigDraft {
   return {
-    backupDir: config.backupDir,
-    backupRetention: config.backupRetention,
     githubRepos: config.githubRepos.join("\n"),
     adguardUrl: config.adguardUrl,
     adguardUsername: config.adguardUsername,
@@ -154,20 +141,27 @@ export function OperationsPage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/operations", { cache: "no-store" })
-      .then(async (response) => {
+    const refresh = async (initial: boolean) => {
+      try {
+        const response = await fetch("/api/operations", { cache: "no-store" });
         const data = await response.json() as OperationsSnapshot & { error?: string };
         if (!response.ok) throw new Error(data.error || "Failed to load operations");
-        if (!cancelled) {
-          setSnapshot(data);
-          setDraft(draftFromConfig(data.config));
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) showToast(error instanceof Error ? error.message : "Failed to load operations", "error");
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+        if (cancelled) return;
+        setSnapshot(data);
+        if (initial) setDraft(draftFromConfig(data.config));
+      } catch (error) {
+        if (initial && !cancelled) showToast(error instanceof Error ? error.message : "Failed to load operations", "error");
+      } finally {
+        if (initial && !cancelled) setLoading(false);
+      }
+    };
+
+    void refresh(true);
+    const interval = setInterval(() => { void refresh(false); }, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [showToast]);
 
   const action = async (body: Record<string, unknown>, label: string): Promise<boolean> => {
@@ -193,13 +187,11 @@ export function OperationsPage() {
 
   const saveConfig = async (section: Exclude<SettingsSection, "maintenance">) => {
     if (!draft) return;
-    const body: Record<string, unknown> = section === "backup"
-      ? { backupDir: draft.backupDir, backupRetention: draft.backupRetention }
-      : section === "releases"
-        ? { githubRepos: draft.githubRepos.split("\n").map((value) => value.trim()).filter(Boolean) }
-        : section === "adguard"
-          ? { adguardUrl: draft.adguardUrl, adguardUsername: draft.adguardUsername }
-          : { tlsTargets: parseTlsTargets(draft.tlsTargets) };
+    const body: Record<string, unknown> = section === "releases"
+      ? { githubRepos: draft.githubRepos.split("\n").map((value) => value.trim()).filter(Boolean) }
+      : section === "adguard"
+        ? { adguardUrl: draft.adguardUrl, adguardUsername: draft.adguardUsername }
+        : { tlsTargets: parseTlsTargets(draft.tlsTargets) };
     if (section === "adguard" && draft.adguardPassword.trim()) {
       body.adguardPassword = draft.adguardPassword;
     }
@@ -231,7 +223,6 @@ export function OperationsPage() {
     return <div className="p-8 text-error">Operations data is unavailable.</div>;
   }
 
-  const backupHealthy = snapshot.backup.integrity === "ok" && (snapshot.backup.foreignKeyErrors ?? 0) === 0;
   const checkedAt = Date.parse(snapshot.checkedAt ?? "");
   const activeMaintenance = snapshot.maintenance.filter((item) => Number.isFinite(checkedAt) && Date.parse(item.startsAt) <= checkedAt);
   const maintenanceStart = Date.parse(maintenance.startsAt);
@@ -331,20 +322,6 @@ export function OperationsPage() {
         )}
 
         <div className="grid gap-5 lg:grid-cols-2">
-          <Card title="Disaster recovery" icon="backup" onConfigure={() => openSettings("backup")}>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div><div className="text-xs text-on-surface-variant">Latest backup</div><div>{snapshot.backup.name ?? "No backup"}</div></div>
-              <div><div className="text-xs text-on-surface-variant">Created</div><div>{formatDate(snapshot.backup.createdAt)}</div></div>
-              <div><div className="text-xs text-on-surface-variant">Size</div><div>{formatBytes(snapshot.backup.size)}</div></div>
-              <div><div className="text-xs text-on-surface-variant">Verification</div><div className={statusClass(backupHealthy)}>{snapshot.backup.integrity}{snapshot.backup.foreignKeyErrors ? ` · ${snapshot.backup.foreignKeyErrors} FK errors` : ""}</div></div>
-            </div>
-            {snapshot.backup.error && <p className="mt-3 text-xs text-error">{snapshot.backup.error}</p>}
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button type="button" disabled={busy !== null} onClick={() => action({ action: "backup" }, "Backup")} className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-on-primary disabled:opacity-50">Back up now</button>
-              <button type="button" disabled={busy !== null} onClick={() => action({ action: "restore-verified" }, "Restore drill verification")} className="rounded-lg border border-outline-variant px-3 py-2 text-xs text-on-surface disabled:opacity-50">Mark restore drill verified</button>
-            </div>
-            <p className="mt-3 text-xs text-on-surface-variant">Last restore drill: {formatDate(snapshot.restoreVerifiedAt)}</p>
-          </Card>
 
           <Card title="Deployment ledger" icon="deployed_code">
             {snapshot.deployments.length === 0 ? (
@@ -458,18 +435,6 @@ export function OperationsPage() {
               </>
             )}
           >
-            {activeSettings === "backup" && (
-              <div className="grid gap-4">
-                <label className="text-xs text-on-surface-variant">
-                  Backup directory
-                  <input aria-label="Backup directory" value={draft.backupDir} onChange={(event) => setDraft({ ...draft, backupDir: event.target.value })} className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface" />
-                </label>
-                <label className="text-xs text-on-surface-variant">
-                  Backup retention
-                  <input aria-label="Backup retention" type="number" min={2} max={90} value={draft.backupRetention} onChange={(event) => setDraft({ ...draft, backupRetention: Number(event.target.value) })} className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface" />
-                </label>
-              </div>
-            )}
 
             {activeSettings === "releases" && (
               <label className="text-xs text-on-surface-variant">

@@ -1,6 +1,5 @@
-import { createClient } from "@libsql/client";
-import { mkdir, readdir, readFile, stat, unlink } from "node:fs/promises";
-import { isAbsolute, dirname, join, relative, resolve } from "node:path";
+import { readFile } from "node:fs/promises";
+import { resolve, join } from "node:path";
 import { isIP } from "node:net";
 import { connect } from "node:tls";
 import { randomUUID } from "node:crypto";
@@ -10,8 +9,9 @@ import { RELEASE_RADAR_REPOS } from "@/lib/release-radar";
 export const OPERATIONS_CONFIG_KEY = "operations:config:v1";
 export const OPERATIONS_STATE_KEY = "operations:state:v1";
 export const DEFAULT_RELEASE_REPOS = RELEASE_RADAR_REPOS;
+export type OperationsSource = "deployments" | "releases" | "adguard" | "tls" | "pve" | "logs" | "blfinder" | "energy";
 
-export type OperationsSource = "backup" | "deployments" | "releases" | "adguard" | "tls" | "pve" | "logs" | "blfinder" | "energy";
+
 
 export interface TlsTarget {
   name: string;
@@ -20,8 +20,6 @@ export interface TlsTarget {
 }
 
 export interface OperationsConfig {
-  backupDir: string;
-  backupRetention: number;
   githubRepos: string[];
   adguardUrl: string;
   adguardUsername: string;
@@ -42,14 +40,6 @@ export interface ReleaseStatus {
   error?: string;
 }
 
-export interface BackupStatus {
-  name: string | null;
-  createdAt: string | null;
-  size: number | null;
-  integrity: "ok" | "failed" | "unknown";
-  foreignKeyErrors: number | null;
-  error?: string;
-}
 
 export interface DeploymentRecord {
   timestamp: string;
@@ -92,24 +82,20 @@ export interface MaintenanceWindow {
 
 interface OperationsState {
   releases: ReleaseStatus[];
-  lastBackup?: BackupStatus;
   lastAdguard?: AdguardStatus;
   lastTls?: TlsStatus[];
-  restoreVerifiedAt?: string;
   maintenance: MaintenanceWindow[];
   checkedAt?: string;
 }
 
 export interface OperationsSnapshot {
   config: PublicOperationsConfig;
-  backup: BackupStatus;
   deployments: DeploymentRecord[];
   releases: ReleaseStatus[];
   adguard: AdguardStatus;
   tls: TlsStatus[];
   maintenance: MaintenanceWindow[];
   activeSuppressedSources: OperationsSource[];
-  restoreVerifiedAt: string | null;
   checkedAt: string | null;
   alertCount: number;
 }
@@ -122,8 +108,6 @@ function defaultDataDir(): string {
 
 export function defaultOperationsConfig(): OperationsConfig {
   return {
-    backupDir: join(/*turbopackIgnore: true*/ defaultDataDir(), "backups"),
-    backupRetention: 14,
     githubRepos: [...DEFAULT_RELEASE_REPOS],
     adguardUrl: "",
     adguardUsername: "",
@@ -171,12 +155,9 @@ export function normalizeOperationsConfig(
   const tlsTargets = Array.isArray(input.tlsTargets)
     ? input.tlsTargets.map((value) => normalizeTlsTarget(value as Partial<TlsTarget>)).filter((value): value is TlsTarget => Boolean(value))
     : current.tlsTargets;
-  const retention = Number(input.backupRetention ?? current.backupRetention);
   const password = stringValue(input.adguardPassword);
 
   return {
-    backupDir: stringValue(input.backupDir) || current.backupDir,
-    backupRetention: Number.isInteger(retention) ? Math.min(90, Math.max(2, retention)) : current.backupRetention,
     githubRepos: repos,
     adguardUrl: Object.hasOwn(input, "adguardUrl")
       ? stringValue(input.adguardUrl).replace(/\/+$/, "")
@@ -192,10 +173,8 @@ export function normalizeOperationsConfig(
 function normalizeState(raw: Record<string, unknown>): OperationsState {
   return {
     releases: Array.isArray(raw.releases) ? raw.releases as ReleaseStatus[] : [],
-    lastBackup: raw.lastBackup as BackupStatus | undefined,
     lastAdguard: raw.lastAdguard as AdguardStatus | undefined,
     lastTls: Array.isArray(raw.lastTls) ? raw.lastTls as TlsStatus[] : [],
-    restoreVerifiedAt: stringValue(raw.restoreVerifiedAt) || undefined,
     maintenance: Array.isArray(raw.maintenance) ? raw.maintenance as MaintenanceWindow[] : [],
     checkedAt: stringValue(raw.checkedAt) || undefined,
   };
@@ -220,7 +199,6 @@ export async function getOperationsConfig(): Promise<OperationsConfig> {
 export async function saveOperationsConfig(input: Record<string, unknown>): Promise<OperationsConfig> {
   const current = await getOperationsConfig();
   const next = normalizeOperationsConfig(input, current);
-  validateBackupDirectory(next.backupDir);
   await writeSetting(OPERATIONS_CONFIG_KEY, next);
   return next;
 }
@@ -238,114 +216,6 @@ export function publicConfig(config: OperationsConfig): PublicOperationsConfig {
   return { ...safe, hasAdguardPassword: Boolean(adguardPassword) };
 }
 
-export function databasePath(databaseUrl = process.env.DATABASE_URL || "file:./prisma/dev.db"): string {
-  if (!databaseUrl.startsWith("file:")) throw new Error("Operations backups require a local file database");
-  const value = decodeURIComponent(databaseUrl.slice(5).split("?")[0]);
-  return isAbsolute(value) ? value : resolve(/*turbopackIgnore: true*/ process.cwd(), value);
-}
-
-export function validateBackupDirectory(backupDir: string, sourcePath = databasePath()): void {
-  const target = resolve(/*turbopackIgnore: true*/ backupDir);
-  const sourceDir = dirname(resolve(/*turbopackIgnore: true*/ sourcePath));
-  const insideSource = relative(sourceDir, target);
-  if (!isAbsolute(target) || insideSource === "" || (!insideSource.startsWith("..") && !isAbsolute(insideSource))) {
-    throw new Error("Backup directory must be outside the live database directory");
-  }
-}
-
-function sqlString(value: string): string {
-  return `'${value.replaceAll("'", "''")}'`;
-}
-
-async function verifyBackupFile(path: string): Promise<Pick<BackupStatus, "integrity" | "foreignKeyErrors">> {
-  const client = createClient({ url: `file:${path}` });
-  try {
-    const [quick, foreignKeys] = await Promise.all([
-      client.execute("PRAGMA quick_check"),
-      client.execute("PRAGMA foreign_key_check"),
-    ]);
-    const first = quick.rows[0] as Record<string, unknown> | undefined;
-    const result = first ? String(Object.values(first)[0] ?? "") : "";
-    return {
-      integrity: result.toLowerCase() === "ok" ? "ok" : "failed",
-      foreignKeyErrors: foreignKeys.rows.length,
-    };
-  } finally {
-    client.close();
-  }
-}
-
-async function backupFiles(directory: string): Promise<Array<{ name: string; path: string; createdAt: Date; size: number }>> {
-  const names = await readdir(/*turbopackIgnore: true*/ directory).catch(() => [] as string[]);
-  const rows = await Promise.all(names
-    .filter((name) => /^mission-control-\d{4}-\d{2}-\d{2}T.*\.db$/.test(name))
-    .map(async (name) => {
-      const path = join(/*turbopackIgnore: true*/ directory, name);
-      const details = await stat(/*turbopackIgnore: true*/ path);
-      return { name, path, createdAt: details.mtime, size: details.size };
-    }));
-  return rows.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-}
-
-export async function latestBackupStatus(config: OperationsConfig, state?: OperationsState): Promise<BackupStatus> {
-  const latest = (await backupFiles(config.backupDir))[0];
-  if (!latest) return { name: null, createdAt: null, size: null, integrity: "unknown", foreignKeyErrors: null };
-  const recorded = state?.lastBackup?.name === latest.name ? state.lastBackup : undefined;
-  return {
-    name: latest.name,
-    createdAt: latest.createdAt.toISOString(),
-    size: latest.size,
-    integrity: recorded?.integrity ?? "unknown",
-    foreignKeyErrors: recorded?.foreignKeyErrors ?? null,
-    error: recorded?.error,
-  };
-}
-
-export async function createDatabaseBackup(): Promise<BackupStatus> {
-  const config = await getOperationsConfig();
-  const source = databasePath();
-  validateBackupDirectory(config.backupDir, source);
-  await mkdir(/*turbopackIgnore: true*/ config.backupDir, { recursive: true, mode: 0o700 });
-  const name = `mission-control-${new Date().toISOString().replace(/[:.]/g, "-")}.db`;
-  const path = join(/*turbopackIgnore: true*/ config.backupDir, name);
-  const client = createClient({ url: `file:${source}` });
-  try {
-    await client.execute(`VACUUM INTO ${sqlString(path)}`);
-  } finally {
-    client.close();
-  }
-
-  let result: BackupStatus;
-  try {
-    const verified = await verifyBackupFile(path);
-    const details = await stat(/*turbopackIgnore: true*/ path);
-    result = {
-      name,
-      createdAt: details.mtime.toISOString(),
-      size: details.size,
-      ...verified,
-    };
-  } catch (error) {
-    result = {
-      name,
-      createdAt: new Date().toISOString(),
-      size: null,
-      integrity: "failed",
-      foreignKeyErrors: null,
-      error: error instanceof Error ? error.message : "Backup verification failed",
-    };
-  }
-
-  if (result.integrity === "ok" && result.foreignKeyErrors === 0) {
-    const files = await backupFiles(config.backupDir);
-    await Promise.all(files.slice(config.backupRetention).map((file) => unlink(/*turbopackIgnore: true*/ file.path).catch(() => {})));
-  }
-  const state = await getOperationsState();
-  state.lastBackup = result;
-  state.checkedAt = new Date().toISOString();
-  await saveOperationsState(state);
-  return result;
-}
 
 export async function fetchLatestReleases(config?: OperationsConfig): Promise<ReleaseStatus[]> {
   const resolvedConfig = config ?? await getOperationsConfig();
@@ -531,19 +401,8 @@ export async function deleteMaintenanceWindow(id: string): Promise<void> {
   await saveOperationsState(state);
 }
 
-export async function markRestoreVerified(): Promise<string> {
-  const state = await getOperationsState();
-  state.restoreVerifiedAt = new Date().toISOString();
-  await saveOperationsState(state);
-  return state.restoreVerifiedAt;
-}
-
-export function countOperationsAlerts(input: Pick<OperationsSnapshot, "backup" | "deployments" | "releases" | "adguard" | "tls" | "maintenance">, now = Date.now()): number {
+export function countOperationsAlerts(input: Pick<OperationsSnapshot, "deployments" | "releases" | "adguard" | "tls" | "maintenance">, now = Date.now()): number {
   let count = 0;
-  if (!sourceSuppressed(input.maintenance, "backup", now)) {
-    const age = input.backup.createdAt ? now - Date.parse(input.backup.createdAt) : Number.POSITIVE_INFINITY;
-    if (!input.backup.createdAt || input.backup.integrity === "failed" || (input.backup.foreignKeyErrors ?? 0) > 0 || age > 48 * 3_600_000) count += 1;
-  }
   if (!sourceSuppressed(input.maintenance, "deployments", now) && input.deployments[0]?.status === "failed") count += 1;
   if (!sourceSuppressed(input.maintenance, "releases", now)) count += input.releases.filter(isPendingRelease).length;
   if (!sourceSuppressed(input.maintenance, "adguard", now) && input.adguard.configured && (!input.adguard.ok || input.adguard.protectionEnabled === false)) count += 1;
@@ -551,8 +410,7 @@ export function countOperationsAlerts(input: Pick<OperationsSnapshot, "backup" |
   return count;
 }
 
-export async function refreshOperationsChecks(options: { backup?: boolean } = {}): Promise<void> {
-  if (options.backup) await createDatabaseBackup();
+export async function refreshOperationsChecks(): Promise<void> {
   const config = await getOperationsConfig();
   const [releases, adguard, tls] = await Promise.all([
     fetchLatestReleases(config),
@@ -567,6 +425,7 @@ export async function refreshOperationsChecks(options: { backup?: boolean } = {}
   await saveOperationsState(state);
 }
 
+
 export async function getOperationsSnapshot(refresh = false): Promise<OperationsSnapshot> {
   if (refresh) await refreshOperationsChecks();
   const [config, state, deployments] = await Promise.all([
@@ -577,14 +436,12 @@ export async function getOperationsSnapshot(refresh = false): Promise<Operations
   const maintenance = state.maintenance.filter((item) => Date.parse(item.endsAt) > Date.now());
   const snapshot: OperationsSnapshot = {
     config: publicConfig(config),
-    backup: await latestBackupStatus(config, state),
     deployments,
     releases: state.releases,
     adguard: state.lastAdguard ?? { configured: Boolean(config.adguardUrl), ok: false },
     tls: state.lastTls ?? [],
     maintenance,
     activeSuppressedSources: [...new Set(activeMaintenance(maintenance).flatMap((item) => item.sources))],
-    restoreVerifiedAt: state.restoreVerifiedAt ?? null,
     checkedAt: state.checkedAt ?? null,
     alertCount: 0,
   };

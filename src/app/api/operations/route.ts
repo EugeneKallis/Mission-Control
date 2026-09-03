@@ -4,21 +4,18 @@ import {
   acknowledgeAllReleases,
   acknowledgeRelease,
   addMaintenanceWindow,
-  createDatabaseBackup,
   deleteMaintenanceWindow,
   getOperationsSnapshot,
-  markRestoreVerified,
   refreshOperationsChecks,
   saveOperationsConfig,
   type OperationsSource,
 } from "@/lib/operations";
+ 
 
 export const dynamic = "force-dynamic";
 
-const sourceSchema = z.enum(["backup", "deployments", "releases", "adguard", "tls", "pve", "logs", "blfinder", "energy"]);
+const sourceSchema = z.enum(["deployments", "releases", "adguard", "tls", "pve", "logs", "blfinder", "energy"]);
 const configSchema = z.object({
-  backupDir: z.string().trim().min(1).optional(),
-  backupRetention: z.coerce.number().int().min(2).max(90).optional(),
   githubRepos: z.array(z.string()).max(50).optional(),
   adguardUrl: z.string().trim().refine((value) => value === "" || /^https?:\/\//.test(value), "AdGuard URL must start with http:// or https://").optional(),
   adguardUsername: z.string().max(200).optional(),
@@ -31,9 +28,7 @@ const configSchema = z.object({
 });
 
 const actionSchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("backup") }),
   z.object({ action: z.literal("refresh") }),
-  z.object({ action: z.literal("restore-verified") }),
   z.object({ action: z.literal("ack-release"), repo: z.string().min(1), tag: z.string().min(1) }),
   z.object({ action: z.literal("ack-all-releases") }),
   z.object({
@@ -70,7 +65,7 @@ export async function PUT(request: Request) {
     return response(await getOperationsSnapshot());
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to save operations config";
-    return response({ error: message }, { status: message.includes("Backup directory") ? 400 : 500 });
+    return response({ error: message }, { status: 500 });
   }
 }
 
@@ -80,14 +75,8 @@ export async function POST(request: Request) {
     if (!parsed.success) return response({ error: "Validation failed", details: parsed.error.flatten() }, { status: 400 });
     const data = parsed.data;
     switch (data.action) {
-      case "backup":
-        await createDatabaseBackup();
-        break;
       case "refresh":
         await refreshOperationsChecks();
-        break;
-      case "restore-verified":
-        await markRestoreVerified();
         break;
       case "ack-release":
         await acknowledgeRelease(data.repo, data.tag);

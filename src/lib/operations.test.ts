@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import {
   activeMaintenance,
   countOperationsAlerts,
-  databasePath,
   defaultOperationsConfig,
   normalizeOperationsConfig,
   normalizeRepo,
@@ -10,7 +9,6 @@ import {
   parseDeploymentLog,
   sourceSuppressed,
   tlsSeverity,
-  validateBackupDirectory,
   type MaintenanceWindow,
   type OperationsSnapshot,
   type TlsStatus,
@@ -24,14 +22,13 @@ function window(overrides: Partial<MaintenanceWindow> = {}): MaintenanceWindow {
     startsAt: "2026-08-23T11:00:00.000Z",
     endsAt: "2026-08-23T13:00:00.000Z",
     reason: "Upgrade",
-    sources: ["backup"],
+    sources: ["deployments"],
     ...overrides,
   };
 }
 
-function alertInput(): Pick<OperationsSnapshot, "backup" | "deployments" | "releases" | "adguard" | "tls" | "maintenance"> {
+function alertInput(): Pick<OperationsSnapshot, "deployments" | "releases" | "adguard" | "tls" | "maintenance"> {
   return {
-    backup: { name: "good.db", createdAt: "2026-08-23T10:00:00.000Z", size: 1, integrity: "ok", foreignKeyErrors: 0 },
     deployments: [{ timestamp: "2026-08-23T10:00:00.000Z", status: "success", sha: "abc", subject: "ok", stage: "complete" }],
     releases: [],
     adguard: { configured: false, ok: false },
@@ -52,51 +49,23 @@ describe("operations config", () => {
   });
 
   test("preserves omitted AdGuard fields during partial updates", () => {
-    const current = {
-      ...defaultOperationsConfig(),
-      adguardUrl: "https://adguard.example.test",
-      adguardUsername: "admin",
-      adguardPassword: "secret",
-    };
-    const value = normalizeOperationsConfig({ backupRetention: 30 }, current);
-
+    const current = { ...defaultOperationsConfig(), adguardUrl: "https://adguard.example.test", adguardUsername: "admin", adguardPassword: "secret" };
+    const value = normalizeOperationsConfig({ githubRepos: ["n8n-io/n8n"] }, current);
     expect(value.adguardUrl).toBe("https://adguard.example.test");
     expect(value.adguardUsername).toBe("admin");
     expect(value.adguardPassword).toBe("secret");
   });
 
   test("clears explicit empty AdGuard fields but preserves a blank password", () => {
-    const current = {
-      ...defaultOperationsConfig(),
-      adguardUrl: "https://adguard.example.test",
-      adguardUsername: "admin",
-      adguardPassword: "secret",
-    };
-    const value = normalizeOperationsConfig({
-      adguardUrl: "",
-      adguardUsername: "",
-      adguardPassword: "",
-    }, current);
-
+    const current = { ...defaultOperationsConfig(), adguardUrl: "https://adguard.example.test", adguardUsername: "admin", adguardPassword: "secret" };
+    const value = normalizeOperationsConfig({ adguardUrl: "", adguardUsername: "", adguardPassword: "" }, current);
     expect(value.adguardUrl).toBe("");
     expect(value.adguardUsername).toBe("");
     expect(value.adguardPassword).toBe("secret");
   });
 
-  test("deduplicates repositories and clamps retention", () => {
-    const value = normalizeOperationsConfig({ githubRepos: ["n8n-io/n8n", "n8n-io/n8n", "bad"], backupRetention: 500 });
-    expect(value.githubRepos).toEqual(["n8n-io/n8n"]);
-    expect(value.backupRetention).toBe(90);
-  });
-
-  test("rejects a backup directory inside the live database directory", () => {
-    expect(() => validateBackupDirectory("/srv/app/prisma/backups", "/srv/app/prisma/dev.db")).toThrow("outside");
-    expect(() => validateBackupDirectory("/srv/backups", "/srv/app/prisma/dev.db")).not.toThrow();
-  });
-
-  test("resolves file database URLs", () => {
-    expect(databasePath("file:/tmp/example.db")).toBe("/tmp/example.db");
-    expect(() => databasePath("libsql://example.test")).toThrow("local file");
+  test("deduplicates repositories", () => {
+    expect(normalizeOperationsConfig({ githubRepos: ["n8n-io/n8n", "n8n-io/n8n", "bad"] }).githubRepos).toEqual(["n8n-io/n8n"]);
   });
 });
 
@@ -118,32 +87,30 @@ describe("maintenance windows", () => {
   });
 
   test("suppresses only selected sources", () => {
-    expect(sourceSuppressed([window()], "backup", NOW)).toBeTrue();
+    expect(sourceSuppressed([window()], "deployments", NOW)).toBeTrue();
     expect(sourceSuppressed([window()], "tls", NOW)).toBeFalse();
   });
 });
 
 describe("operation alerts", () => {
-  test("counts stale backups, failed deployments, releases, DNS, and TLS", () => {
+  test("counts failed deployments, releases, DNS, and TLS", () => {
     const input = alertInput();
-    input.backup.createdAt = "2026-08-20T10:00:00Z";
     input.deployments[0].status = "failed";
     input.releases = [{ repo: "a/b", tag: "v1", url: "", publishedAt: "", acknowledged: false }];
     input.adguard = { configured: true, ok: true, protectionEnabled: false };
     input.tls = [{ name: "x", host: "x", port: 443, ok: true, authorized: true, daysRemaining: 10 }];
-    expect(countOperationsAlerts(input, NOW)).toBe(5);
+    expect(countOperationsAlerts(input)).toBe(4);
   });
-
   test("maintenance suppresses matching alerts without deleting evidence", () => {
     const input = alertInput();
-    input.backup.integrity = "failed";
+    input.deployments[0].status = "failed";
     input.maintenance = [window()];
     expect(countOperationsAlerts(input, NOW)).toBe(0);
-    expect(input.backup.integrity).toBe("failed");
+    expect(input.deployments[0].status).toBe("failed");
   });
 
   test("does not alert for configured-free AdGuard", () => {
-    expect(countOperationsAlerts(alertInput(), NOW)).toBe(0);
+    expect(countOperationsAlerts(alertInput())).toBe(0);
   });
 });
 

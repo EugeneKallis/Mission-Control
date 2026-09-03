@@ -11,22 +11,18 @@ const originalExecCommand = document.execCommand;
 function snapshot(overrides: Partial<OperationsSnapshot> = {}): OperationsSnapshot {
   return {
     config: {
-      backupDir: "/var/lib/mission-control/backups",
-      backupRetention: 14,
       githubRepos: ["n8n-io/n8n"],
       adguardUrl: "http://adguard.test",
       adguardUsername: "admin",
       tlsTargets: [{ name: "Plex", host: "plex.test", port: 443 }],
       hasAdguardPassword: true,
     },
-    backup: { name: "mission-control.db", createdAt: "2026-08-23T10:00:00Z", size: 1024, integrity: "ok", foreignKeyErrors: 0 },
     deployments: [{ timestamp: "2026-08-23T10:00:00Z", status: "success", sha: "abcdef123456", subject: "Ship operations", stage: "complete" }],
     releases: [{ repo: "n8n-io/n8n", tag: "v2", url: "https://github.com/n8n-io/n8n/releases/v2", publishedAt: "2026-08-22T10:00:00Z", acknowledged: false }],
     adguard: { configured: true, ok: true, protectionEnabled: true, dnsQueries: 100, blockedPercent: 25, averageProcessingMs: 2 },
     tls: [{ name: "Plex", host: "plex.test", port: 443, ok: true, authorized: true, daysRemaining: 60, expiresAt: "2026-10-22T10:00:00Z" }],
     maintenance: [],
     activeSuppressedSources: [],
-    restoreVerifiedAt: null,
     checkedAt: "2026-08-23T10:00:00Z",
     alertCount: 1,
     ...overrides,
@@ -59,9 +55,9 @@ afterEach(() => {
 });
 
 describe("OperationsPage", () => {
-  test("renders all six operation areas", async () => {
+  test("renders all operation areas", async () => {
     render(<OperationsPage />);
-    for (const title of ["Disaster recovery", "Deployment ledger", "Release radar", "AdGuard DNS", "TLS certificates", "Maintenance windows"]) {
+    for (const title of ["Deployment ledger", "Release radar", "AdGuard DNS", "TLS certificates", "Maintenance windows"]) {
       expect(await screen.findByRole("heading", { name: title })).toBeInTheDocument();
     }
     expect(screen.getByText("Ship operations")).toBeInTheDocument();
@@ -77,6 +73,34 @@ describe("OperationsPage", () => {
 
     const releaseLinks = await screen.findAllByRole("link");
     expect(releaseLinks.filter((link) => ["old/repo", "new/repo"].includes(link.textContent ?? "")).map((link) => link.textContent)).toEqual(["new/repo", "old/repo"]);
+  });
+
+  test("refreshes operation details every 30 seconds", async () => {
+    const originalSetInterval = globalThis.setInterval;
+    const intervals: Array<{ callback: TimerHandler; delay: number }> = [];
+    let requestCount = 0;
+    globalThis.setInterval = ((callback: TimerHandler, delay?: number) => {
+      intervals.push({ callback, delay: delay ?? 0 });
+      return intervals.length;
+    }) as unknown as typeof setInterval;
+    globalThis.fetch = mock(async () => {
+      requestCount += 1;
+      return Response.json(snapshot({
+        deployments: [{ timestamp: "2026-08-23T10:00:00Z", status: "success", sha: "abcdef123456", subject: requestCount === 1 ? "Initial checks" : "Refreshed checks", stage: "complete" }],
+      }));
+    }) as unknown as typeof fetch;
+    try {
+      renderOperationsPage();
+      expect(await screen.findByText("Initial checks")).toBeInTheDocument();
+      expect(requestCount).toBe(1);
+      const refreshInterval = intervals.find((interval) => interval.delay === 30_000);
+      expect(refreshInterval).toBeDefined();
+      (refreshInterval?.callback as () => void)();
+      expect(await screen.findByText("Refreshed checks")).toBeInTheDocument();
+      expect(requestCount).toBe(2);
+    } finally {
+      globalThis.setInterval = originalSetInterval;
+    }
   });
 
 
@@ -176,7 +200,7 @@ describe("OperationsPage", () => {
   });
   test("shows settings gears only on configurable cards", async () => {
     renderOperationsPage();
-    for (const title of ["Disaster recovery", "Release radar", "AdGuard DNS", "TLS certificates", "Maintenance windows"]) {
+    for (const title of ["Release radar", "AdGuard DNS", "TLS certificates", "Maintenance windows"]) {
       expect(await screen.findByRole("button", { name: `Configure ${title}` })).toBeInTheDocument();
     }
     expect(screen.queryByRole("button", { name: "Configure Deployment ledger" })).not.toBeInTheDocument();
@@ -185,11 +209,10 @@ describe("OperationsPage", () => {
   test("shows only the active section controls in one dialog", async () => {
     renderOperationsPage();
     const sections = [
-      { title: "Disaster recovery", field: "Backup directory", absent: ["GitHub repositories", "AdGuard URL", "TLS targets"] },
-      { title: "Release radar", field: "GitHub repositories", absent: ["Backup directory", "AdGuard URL", "TLS targets"] },
-      { title: "AdGuard DNS", field: "AdGuard URL", absent: ["Backup directory", "GitHub repositories", "TLS targets"] },
-      { title: "TLS certificates", field: "TLS targets", absent: ["Backup directory", "GitHub repositories", "AdGuard URL"] },
-      { title: "Maintenance windows", field: "Maintenance reason", absent: ["Backup directory", "GitHub repositories", "AdGuard URL", "TLS targets"] },
+      { title: "Release radar", field: "GitHub repositories", absent: ["AdGuard URL", "TLS targets"] },
+      { title: "AdGuard DNS", field: "AdGuard URL", absent: ["GitHub repositories", "TLS targets"] },
+      { title: "TLS certificates", field: "TLS targets", absent: ["GitHub repositories", "AdGuard URL"] },
+      { title: "Maintenance windows", field: "Maintenance reason", absent: ["GitHub repositories", "AdGuard URL", "TLS targets"] },
     ];
 
     for (const section of sections) {
@@ -225,32 +248,24 @@ describe("OperationsPage", () => {
     }) as unknown as typeof fetch;
     renderOperationsPage();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Configure Disaster recovery" }));
-    fireEvent.change(screen.getByLabelText("Backup directory"), { target: { value: "/tmp/backups" } });
-    fireEvent.change(screen.getByLabelText("Backup retention"), { target: { value: "30" } });
-    await userEvent.click(screen.getByRole("button", { name: "Save backup settings" }));
-    await waitFor(() => expect(payloads).toHaveLength(1));
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-
-    await userEvent.click(screen.getByRole("button", { name: "Configure Release radar" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Configure Release radar" }));
     fireEvent.change(screen.getByLabelText("GitHub repositories"), { target: { value: "owner/one\n\n owner/two " } });
     await userEvent.click(screen.getByRole("button", { name: "Save release settings" }));
-    await waitFor(() => expect(payloads).toHaveLength(2));
+    await waitFor(() => expect(payloads).toHaveLength(1));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 
     await userEvent.click(screen.getByRole("button", { name: "Configure AdGuard DNS" }));
     fireEvent.change(screen.getByLabelText("AdGuard URL"), { target: { value: "http://new-adguard.test" } });
     await userEvent.click(screen.getByRole("button", { name: "Save AdGuard settings" }));
-    await waitFor(() => expect(payloads).toHaveLength(3));
+    await waitFor(() => expect(payloads).toHaveLength(2));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 
     await userEvent.click(screen.getByRole("button", { name: "Configure TLS certificates" }));
     fireEvent.change(screen.getByLabelText("TLS targets"), { target: { value: "Site,site.test,8443\n" } });
     await userEvent.click(screen.getByRole("button", { name: "Save TLS settings" }));
-    await waitFor(() => expect(payloads).toHaveLength(4));
+    await waitFor(() => expect(payloads).toHaveLength(3));
 
     expect(payloads).toEqual([
-      { backupDir: "/tmp/backups", backupRetention: 30 },
       { githubRepos: ["owner/one", "owner/two"] },
       { adguardUrl: "http://new-adguard.test", adguardUsername: "admin" },
       { tlsTargets: [{ name: "Site", host: "site.test", port: 8443 }] },
@@ -275,21 +290,6 @@ describe("OperationsPage", () => {
     expect(screen.queryByText("secret")).not.toBeInTheDocument();
   });
 
-  test("keeps a settings modal open when saving fails", async () => {
-    globalThis.fetch = mock(async (_input, init) => {
-      if (init?.method === "PUT") return Response.json({ error: "Invalid settings" }, { status: 400 });
-      return Response.json(snapshot());
-    }) as unknown as typeof fetch;
-    renderOperationsPage();
-
-    await userEvent.click(await screen.findByRole("button", { name: "Configure Disaster recovery" }));
-    fireEvent.change(screen.getByLabelText("Backup directory"), { target: { value: "/invalid" } });
-    await userEvent.click(screen.getByRole("button", { name: "Save backup settings" }));
-
-    expect(await screen.findByText("Invalid settings", { exact: true })).toBeInTheDocument();
-    expect(screen.getByRole("dialog", { name: "Disaster recovery settings" })).toBeInTheDocument();
-    expect((screen.getByLabelText("Backup directory") as HTMLInputElement).value).toBe("/invalid");
-  });
 
   test("creates and deletes maintenance windows from its settings modal", async () => {
     const created = {
@@ -297,7 +297,7 @@ describe("OperationsPage", () => {
       startsAt: "2026-08-23T11:00:00.000Z",
       endsAt: "2026-08-23T12:00:00.000Z",
       reason: "Database upgrade",
-      sources: ["backup" as const],
+      sources: ["deployments" as const],
     };
     let current = snapshot();
     const actions: Array<Record<string, unknown>> = [];

@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
-/** Daily verified database backup plus release, DNS, and TLS checks. */
+/** Daily release, DNS, and TLS checks. */
 
 import { refreshOperationsChecks } from "@/lib/operations";
 
 export async function main(): Promise<void> {
   console.log("[operations] Starting daily operations checks");
-  await refreshOperationsChecks({ backup: true });
-  console.log("[operations] Backup and checks completed");
+  await refreshOperationsChecks();
+  console.log("[operations] Operations checks completed");
 }
 
 if (import.meta.main) {
