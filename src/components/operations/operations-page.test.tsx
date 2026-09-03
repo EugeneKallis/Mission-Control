@@ -67,6 +67,18 @@ describe("OperationsPage", () => {
     expect(screen.getByText("Ship operations")).toBeInTheDocument();
     expect(screen.getByText("Protection enabled")).toBeInTheDocument();
   });
+  test("shows newest releases first", async () => {
+    const releases = [
+      { repo: "old/repo", tag: "v1", url: "https://github.com/old/repo/releases/v1", publishedAt: "2026-08-20T10:00:00Z", acknowledged: false },
+      { repo: "new/repo", tag: "v2", url: "https://github.com/new/repo/releases/v2", publishedAt: "2026-08-22T10:00:00Z", acknowledged: false },
+    ];
+    globalThis.fetch = mock(async () => Response.json(snapshot({ releases }))) as unknown as typeof fetch;
+    renderOperationsPage();
+
+    const releaseLinks = await screen.findAllByRole("link");
+    expect(releaseLinks.filter((link) => ["old/repo", "new/repo"].includes(link.textContent ?? "")).map((link) => link.textContent)).toEqual(["new/repo", "old/repo"]);
+  });
+
 
   test("never renders the stored AdGuard password", async () => {
     renderOperationsPage();

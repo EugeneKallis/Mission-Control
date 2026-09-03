@@ -239,6 +239,12 @@ export function OperationsPage() {
   const maintenanceValid = Boolean(maintenance.reason.trim()) && maintenance.sources.length > 0 && Number.isFinite(maintenanceStart) && maintenanceEnd > maintenanceStart;
   const copyableReleases = snapshot.releases.filter((release) => !release.error && release.tag !== "unknown");
   const hasPendingReleases = snapshot.releases.some((release) => !release.acknowledged && !release.error && release.tag !== "unknown");
+  const sortedReleases = [...snapshot.releases].sort((a, b) => {
+    const dateA = Date.parse(a.publishedAt);
+    const dateB = Date.parse(b.publishedAt);
+    return (Number.isFinite(dateB) ? dateB : 0) - (Number.isFinite(dateA) ? dateA : 0);
+  });
+
   const openSettings = (section: SettingsSection) => {
     setDraft(draftFromConfig(snapshot.config));
     if (section === "maintenance") setMaintenance(newMaintenanceDraft());
@@ -363,7 +369,7 @@ export function OperationsPage() {
                   <button type="button" disabled={busy !== null || !hasPendingReleases} onClick={() => action({ action: "ack-all-releases" }, "Acknowledge all releases")} className="rounded border border-outline-variant px-2 py-1 text-xs text-on-surface disabled:opacity-50">Acknowledge all</button>
                 </div>
                 <div className="space-y-2">
-                  {snapshot.releases.map((release) => (
+                  {sortedReleases.map((release) => (
                     <div key={release.repo} className="flex items-center justify-between gap-3 rounded-lg bg-surface-container px-3 py-2 text-xs">
                       <div className="min-w-0"><a className="truncate font-medium text-primary hover:underline" href={release.url} target="_blank" rel="noreferrer">{release.repo}</a><div className="text-on-surface-variant">{release.tag} · {formatDate(release.publishedAt)}</div>{release.error && <div className="text-error">{release.error}</div>}</div>
                       {!release.acknowledged && !release.error && release.tag !== "unknown" ? <button type="button" disabled={busy !== null} onClick={() => action({ action: "ack-release", repo: release.repo, tag: release.tag }, "Acknowledge release")} className="shrink-0 rounded border border-outline-variant px-2 py-1">Acknowledge</button> : <span className="shrink-0 text-success">{release.acknowledged ? "Seen" : "—"}</span>}
