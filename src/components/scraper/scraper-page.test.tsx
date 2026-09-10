@@ -169,6 +169,51 @@ describe("ScraperPage", () => {
     expect(screen.getByText(/no results found/i)).toBeInTheDocument();
   });
 
+  test("downloading the first card synchronously lands on the next snap offset", async () => {
+    sessionStorage.setItem("scraper_warning_accepted", String(Date.now()));
+    const fetchCalls: Array<{ url: string; init?: RequestInit }> = [];
+    globalThis.fetch = mock(async (url: unknown, init: RequestInit = {}) => {
+      const u = String(url);
+      fetchCalls.push({ url: u, init });
+      if (u.includes("/api/scraper/results")) {
+        return new Response(JSON.stringify(sampleResults), { status: 200 });
+      }
+      if (u.includes("/api/scraper/status")) {
+        return new Response(JSON.stringify({ is_scraping: false }), { status: 200 });
+      }
+      if (u.includes("/api/scraper/download")) {
+        return new Response(JSON.stringify({ success: true }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ success: true }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("First Result")).toBeInTheDocument();
+    });
+
+    const container = document.getElementById("scraper-content-container")!;
+    const firstCard = document.querySelector<HTMLElement>('.scraper-card[data-id="1"]')!;
+    const secondCard = document.querySelector<HTMLElement>('.scraper-card[data-id="2"]')!;
+    Object.defineProperty(firstCard, "offsetTop", { configurable: true, value: 456 });
+    Object.defineProperty(secondCard, "offsetTop", { configurable: true, value: 1234 });
+    container.scrollTop = 456;
+
+    fireEvent.click(document.getElementById("dl-btn-1")!);
+
+    expect(firstCard.style.display).toBe("none");
+    expect(firstCard.classList.contains("is-user-hidden")).toBe(true);
+    expect(container.scrollTop).toBe(1234);
+    expect(container.style.scrollSnapType).toBe("y mandatory");
+
+    await waitFor(() => {
+      const download = fetchCalls.find((call) => call.url.includes("/api/scraper/download"));
+      expect(download).toBeDefined();
+      expect(download!.init?.method).toBe("POST");
+      expect(JSON.parse((download!.init?.body as string) || "{}")).toEqual({ id: 1 });
+    });
+  });
+
   test("clicking 'Scrape Now' posts to /api/scraper/trigger with the source", async () => {
     const fetchCalls: Array<{ url: string; init?: RequestInit }> = [];
     let pendingResults: Response | null = null;

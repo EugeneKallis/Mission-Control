@@ -205,62 +205,63 @@ export function ScraperPage({
     [toast, fetchResults]
   );
 
-  // After hiding or downloading, advance the scroll to the next visible
-  // card — exactly like the ServerTool does after a successful POST.
+  // Hide a card optimistically and advance to the next visible card.
   //
-  // The caller is expected to have ALREADY removed the card from the
-  // layout (display: none) before calling this, so `next.offsetTop`
-  // reflects the post-removal layout. If we snap before the layout
-  // shift, the browser's `scroll-snap-type: y mandatory` re-evaluates
-  // ~300ms later when the card finally disappears and re-snaps the
-  // user to a different (often wrong) target — frequently the header
-  // at the top, which is the "scrolls to top" bug.
+  // The first card is preceded by #scraper-header-section, another mandatory
+  // snap target. Removing that card while snapping is enabled lets the browser
+  // re-evaluate snap points after the layout change and race the requested
+  // destination — often re-snapping to the header at scrollTop 0. Suspend
+  // snapping across the mutation, read the next card's post-layout offset, and
+  // assign scrollTop synchronously before restoring mandatory snapping.
   //
-  // Walk forward in the full DOM list (the removed card is, by
-  // definition, not "visible" anymore, so findIndex on a filtered
-  // visible list always returned -1) to the next still-visible card,
-  // skipping any previously-hidden cards in between.
-  const advanceToNextCard = useCallback((removedId: number) => {
+  // Walk forward in the full DOM list, skipping any previously-hidden cards
+  // between the requested card and the next visible snap target.
+  const hideCardAndAdvance = useCallback((id: number): HTMLElement | null => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container) return null;
     const cards = Array.from(
       container.querySelectorAll<HTMLElement>(".scraper-card")
     );
-    const removedIdx = cards.findIndex(
-      (c) => c.getAttribute("data-id") === String(removedId)
+    const cardIndex = cards.findIndex(
+      (card) => card.getAttribute("data-id") === String(id)
     );
-    if (removedIdx === -1) return;
+    if (cardIndex === -1) return null;
+    const card = cards[cardIndex];
     let next: HTMLElement | null = null;
-    for (let i = removedIdx + 1; i < cards.length; i++) {
-      const c = cards[i];
-      if (c.style.display === "none" || c.classList.contains("is-user-hidden")) {
+    for (let i = cardIndex + 1; i < cards.length; i++) {
+      const candidate = cards[i];
+      if (
+        candidate.style.display === "none" ||
+        candidate.classList.contains("is-user-hidden")
+      ) {
         continue;
       }
-      next = c;
+      next = candidate;
       break;
     }
-    if (next) {
-      container.scrollTo({ top: next.offsetTop, behavior: "smooth" });
+    if (!next) {
+      card.classList.add("is-user-hidden");
+      card.style.display = "none";
+      return card;
     }
+
+    const previousSnapType = container.style.scrollSnapType;
+    try {
+      container.style.scrollSnapType = "none";
+      card.classList.add("is-user-hidden");
+      card.style.display = "none";
+      container.scrollTop = next.offsetTop;
+    } finally {
+      container.style.scrollSnapType = previousSnapType;
+    }
+    return card;
   }, []);
 
   const downloadItem = useCallback(
     async (id: number) => {
-      // Optimistic: remove the card from the layout and snap to the
-      // next one in a single synchronous step. Applying display: none
-      // first (instead of fading then setting display: none after
-      // 300ms) is critical: if we snap before the layout shift, the
-      // browser's mandatory scroll-snap re-evaluates 300ms later when
-      // the card finally disappears and can re-snap the user to a
-      // different target — often the header at the top.
-      const card = containerRef.current?.querySelector<HTMLElement>(
-        `.scraper-card[data-id="${id}"]`
-      );
-      if (card) {
-        card.classList.add("is-user-hidden");
-        card.style.display = "none";
-        advanceToNextCard(id);
-      }
+      // Remove the card and advance before the request so the next snap target
+      // remains stable while the server processes the download.
+      const card = hideCardAndAdvance(id);
       try {
         const res = await fetch("/api/scraper/download", {
           method: "POST",
@@ -284,21 +285,14 @@ export function ScraperPage({
         );
       }
     },
-    [toast, advanceToNextCard]
+    [toast, hideCardAndAdvance]
   );
 
   const hideItem = useCallback(
     async (id: number) => {
-      // See downloadItem above for why this is a single synchronous
-      // step instead of fade-then-display:none.
-      const card = containerRef.current?.querySelector<HTMLElement>(
-        `.scraper-card[data-id="${id}"]`
-      );
-      if (card) {
-        card.classList.add("is-user-hidden");
-        card.style.display = "none";
-        advanceToNextCard(id);
-      }
+      // See downloadItem above for why removal and scroll advance are one
+      // synchronous step instead of fade-then-display:none.
+      const card = hideCardAndAdvance(id);
       try {
         const res = await fetch("/api/scraper/hide", {
           method: "POST",
@@ -315,8 +309,9 @@ export function ScraperPage({
         toast.showToast("Failed to hide", "error");
       }
     },
-    [toast, advanceToNextCard]
+    [toast, hideCardAndAdvance]
   );
+
 
   // ── Keyboard nav (mirrors ServerTool scraper.templ) ─────────────────
   // D / H: find the card whose top is closest to (and at or above)
