@@ -5,12 +5,20 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
 import { listScrapeResults } from "@/lib/db/queries";
 
 export async function GET(request: NextRequest) {
   const source = request.nextUrl.searchParams.get("source") ?? "141jav";
   try {
-    const rows = await listScrapeResults(source);
+    const [rows, groupedCounts] = await Promise.all([
+      listScrapeResults(source),
+      db.scrapeResult.groupBy({
+        by: ["source"],
+        where: { isHidden: false },
+        _count: { _all: true },
+      }),
+    ]);
     const results = rows.map((r) => {
       const tags = r.tags ? r.tags.split(",").filter(Boolean) : [];
       let images: string[] = [];
@@ -33,7 +41,10 @@ export async function GET(request: NextRequest) {
         created_at: r.createdAt,
       };
     });
-    return NextResponse.json({ results });
+    const counts = Object.fromEntries(
+      groupedCounts.map((row) => [row.source, row._count._all]),
+    );
+    return NextResponse.json({ results, counts });
   } catch (err) {
     console.error("Failed to list scrape results:", err);
     return NextResponse.json({ error: "Failed to list scrape results" }, { status: 500 });

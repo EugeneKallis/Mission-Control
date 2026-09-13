@@ -39,6 +39,10 @@ export function ScraperPage({
   const toast = useToast();
   const [source, setSource] = useState<ScraperSource>(initialSource);
   const [results, setResults] = useState<ScrapeResultView[]>([]);
+  const [counts, setCounts] = useState<Record<ScraperSource, number>>({
+    "141jav": 0,
+    pornrips: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [isScraping, setIsScraping] = useState(false);
   const [anyScraping, setAnyScraping] = useState(false);
@@ -57,6 +61,10 @@ export function ScraperPage({
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setResults(data.results ?? []);
+      setCounts({
+        "141jav": data.counts?.["141jav"] ?? 0,
+        pornrips: data.counts?.pornrips ?? 0,
+      });
     } catch (err) {
       console.error("Failed to fetch scraper results:", err);
       toast.showToast("Failed to load scraper results", "error");
@@ -262,6 +270,12 @@ export function ScraperPage({
       // Remove the card and advance before the request so the next snap target
       // remains stable while the server processes the download.
       const card = hideCardAndAdvance(id);
+      if (card) {
+        setCounts((current) => ({
+          ...current,
+          [source]: Math.max(0, current[source] - 1),
+        }));
+      }
       try {
         const res = await fetch("/api/scraper/download", {
           method: "POST",
@@ -274,18 +288,18 @@ export function ScraperPage({
         }
         toast.showToast("Sent to Decypharr!", "success");
       } catch (err) {
-        // Restore on failure
         if (card) {
           card.style.display = "";
           card.classList.remove("is-user-hidden");
+          setCounts((current) => ({ ...current, [source]: current[source] + 1 }));
         }
         toast.showToast(
           err instanceof Error ? err.message : "Download failed",
-          "error"
+          "error",
         );
       }
     },
-    [toast, hideCardAndAdvance]
+    [toast, hideCardAndAdvance, source],
   );
 
   const hideItem = useCallback(
@@ -293,6 +307,12 @@ export function ScraperPage({
       // See downloadItem above for why removal and scroll advance are one
       // synchronous step instead of fade-then-display:none.
       const card = hideCardAndAdvance(id);
+      if (card) {
+        setCounts((current) => ({
+          ...current,
+          [source]: Math.max(0, current[source] - 1),
+        }));
+      }
       try {
         const res = await fetch("/api/scraper/hide", {
           method: "POST",
@@ -301,15 +321,16 @@ export function ScraperPage({
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         toast.showToast("Hidden", "success");
-      } catch (err) {
+      } catch {
         if (card) {
           card.style.display = "";
           card.classList.remove("is-user-hidden");
+          setCounts((current) => ({ ...current, [source]: current[source] + 1 }));
         }
         toast.showToast("Failed to hide", "error");
       }
     },
-    [toast, hideCardAndAdvance]
+    [toast, hideCardAndAdvance, source],
   );
 
 
@@ -529,7 +550,14 @@ export function ScraperPage({
                       active ? "text-on-surface border-rose-500" : "text-on-surface-variant border-transparent hover:text-on-surface"
                     }`}
                   >
-                    {s === "141jav" ? "141JAV" : "PornRips"}
+                    {s === "141jav" ? "141JAV" : "PornRips"}{" "}
+                    <span
+                      title={`${counts[s]} visible ${counts[s] === 1 ? "record" : "records"}`}
+                      aria-label={`${counts[s]} visible ${counts[s] === 1 ? "record" : "records"}`}
+                      className="rounded-full bg-surface-container px-1.5 py-0.5 text-xs text-on-surface-variant"
+                    >
+                      {counts[s]}
+                    </span>
                   </button>
                 );
               })}
@@ -574,7 +602,6 @@ export function ScraperPage({
       >
         <span className="material-symbols-outlined">arrow_upward</span>
       </button>
-
       <ConfirmDialog
         open={hideAllConfirmOpen}
         onClose={() => setHideAllConfirmOpen(false)}
@@ -582,7 +609,7 @@ export function ScraperPage({
           setHideAllConfirmOpen(false);
           void hideAll(source);
         }}
-        title={`Hide all ${results.length} item${results.length === 1 ? "" : "s"}?`}
+        title={`Hide all ${counts[source]} item${counts[source] === 1 ? "" : "s"}?`}
         icon="visibility_off"
         confirmLabel="Hide All"
         variant="danger"

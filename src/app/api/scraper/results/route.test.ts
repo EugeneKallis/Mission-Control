@@ -194,15 +194,20 @@ describe("GET /api/scraper/results", () => {
     expect(typeof body.results[0].created_at).toBe("string");
   });
 
-  test("filters by source — rows from other sources are excluded", async () => {
+  test("filters results by source and reports visible counts for every source", async () => {
     await seed({ source: "141jav", title: "A" });
+    await seed({ source: "141jav", title: "Hidden A", isHidden: true });
     await seed({ source: "pornrips", title: "B" });
-    await seed({ source: "141jav", title: "C" });
+    await seed({ source: "pornrips", title: "C" });
+    await seed({ source: "pornrips", title: "Hidden C", isHidden: true });
     const { GET } = await loadRoute();
     const res = await GET(getRequest("/api/scraper/results?source=pornrips"));
-    const body = (await jsonBody(res)) as { results: Array<{ title: string }> };
-    expect(body.results).toHaveLength(1);
-    expect(body.results[0].title).toBe("B");
+    const body = (await jsonBody(res)) as {
+      results: Array<{ title: string }>;
+      counts: Record<string, number>;
+    };
+    expect(body.results.map((result) => result.title)).toEqual(["C", "B"]);
+    expect(body.counts).toEqual({ "141jav": 1, pornrips: 2 });
   });
 
   test("returns 500 when the DB throws", async () => {

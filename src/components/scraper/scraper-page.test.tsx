@@ -50,7 +50,7 @@ function mockFetch(responder: (url: string, init?: RequestInit) => MockResponse)
   return mocked;
 }
 
-const sampleResults: { results: ScrapeResultView[] } = {
+const sampleResults: { results: ScrapeResultView[]; counts: Record<string, number> } = {
   results: [
     {
       id: 1,
@@ -79,6 +79,7 @@ const sampleResults: { results: ScrapeResultView[] } = {
       created_at: "2026-06-25T00:00:00Z",
     },
   ],
+  counts: { "141jav": 2, pornrips: 7 },
 };
 
 function renderPage(initialSource: "141jav" | "pornrips" = "141jav") {
@@ -148,8 +149,9 @@ describe("ScraperPage", () => {
     await act(async () => {
       resultsResolve(new Response(JSON.stringify(sampleResults), { status: 200 }));
     });
-    expect(screen.getByText("First Result")).toBeInTheDocument();
     expect(screen.getByText("Second Result")).toBeInTheDocument();
+    expect(screen.getByLabelText("2 visible records")).toBeInTheDocument();
+    expect(screen.getByLabelText("7 visible records")).toBeInTheDocument();
     expect(responses.some((r) => r.url.includes("/api/scraper/results?source=141jav"))).toBe(true);
   });
 
@@ -205,6 +207,7 @@ describe("ScraperPage", () => {
     expect(firstCard.classList.contains("is-user-hidden")).toBe(true);
     expect(container.scrollTop).toBe(1234);
     expect(container.style.scrollSnapType).toBe("y mandatory");
+    expect(screen.getByLabelText("1 visible record")).toBeInTheDocument();
 
     await waitFor(() => {
       const download = fetchCalls.find((call) => call.url.includes("/api/scraper/download"));
