@@ -35,6 +35,11 @@ import {
  *  - Each `.card-snap-area` card is a snap target with
  *    min-height: 90dvh (mobile) / 100dvh (md+).
  *  - Back-to-top button is fixed at the bottom-right of the viewport.
+ *  - Results load incrementally: the first page is fetched on mount and
+ *    whenever the source changes, and scrolling within 300px of the bottom
+ *    requests the next page. A request-generation token plus the rendered-
+ *    source ref discard responses that belong to a superseded source or
+ *    fetch, and `nextCursor: null` stops further continuation requests.
  *  - Keyboard nav (d=download, h=hide, arrows=move between snap
  *    targets) finds the active card by its proximity to the viewport
  *    top, mirroring the ServerTool JS.
@@ -244,7 +249,7 @@ export function ScraperPage({
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       toast.showToast("Scraping all sources…", "info");
       setAnyScraping(true);
-    } catch (err) {
+    } catch {
       toast.showToast("Failed to trigger scrape-all", "error");
     }
   }, [toast]);
@@ -261,7 +266,7 @@ export function ScraperPage({
         const data = await res.json();
         toast.showToast(`Hid ${data.hidden ?? 0} items`, "success");
         await fetchResults();
-      } catch (err) {
+      } catch {
         toast.showToast("Failed to hide all", "error");
       }
     },
@@ -303,7 +308,7 @@ export function ScraperPage({
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         toast.showToast(`Clearing & rescraping ${src}…`, "info");
         await fetchResults();
-      } catch (err) {
+      } catch {
         toast.showToast("Failed to refresh", "error");
       }
     },

@@ -360,7 +360,8 @@ src/workers/scrapers/      # One source-specific scraper per file
   status.ts                # DB-backed is_scraping flag (so web and worker share state)
 src/components/scraper/    # UI for /scraper
   access-gate.tsx          # "Authorized Personnel Only" modal + inactivity lock
-  scraper-page.tsx         # Main client component (toolbar / tabs / cards / keyboard nav)
+  scraper-page.tsx         # Main client component (toolbar / tabs / cards / keyboard nav
+                           #  / incremental cursor pagination)
   scraper-card.tsx         # Single scrape result card
   scraper-types.ts         # Shared TS types for the scraper
 ```
@@ -624,7 +625,7 @@ can share it. The web page polls `/api/scraper/status?source=` every 2s.
 
 | Method | Path                              | Purpose                                |
 | ------ | --------------------------------- | -------------------------------------- |
-| GET    | `/api/scraper/results?source=`    | List visible results for a source      |
+| GET    | `/api/scraper/results?source=`    | Visible results, cursor paged, 20/page |
 | GET    | `/api/scraper/status?source=`     | Is a source currently scraping?        |
 | GET    | `/api/scraper/status-all`         | Is any source currently scraping?      |
 | POST   | `/api/scraper/trigger`            | Trigger one source                     |
@@ -634,6 +635,11 @@ can share it. The web page polls `/api/scraper/status?source=` every 2s.
 | POST   | `/api/scraper/download`           | Submit to Decypharr, mark downloaded   |
 | POST   | `/api/scraper/hide-all`           | Hide all (or all for a source)         |
 | POST   | `/api/scraper/refresh`            | Clear + rescrape (source, or all)      |
+
+`GET /api/scraper/results` returns the source's newest results first, at most 20 per
+response, in `{ results, counts, nextCursor }`. `nextCursor` is `{ createdAt, id }` for
+the next page or `null` on the terminal page; a client resumes with `cursorCreatedAt` +
+`cursorId` (both together — a partial or malformed cursor is a 400).
 
 ## Phase 4 — Prisma 7 driver-adapter note
 

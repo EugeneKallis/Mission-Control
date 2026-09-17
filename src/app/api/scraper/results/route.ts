@@ -1,7 +1,12 @@
 /**
  * GET /api/scraper/results?source=
- * Returns the visible (not hidden) scrape results for the given source.
- * Mirrors the Go APIScraperResults handler.
+ * Returns the visible (not hidden) scrape results for the given source, newest
+ * first, in pages of at most 20.
+ *
+ * Resume with the previous response's `nextCursor` as `cursorCreatedAt` +
+ * `cursorId` (both required together) to fetch rows strictly older than that
+ * cursor row; `nextCursor: null` marks the terminal page. A partial or
+ * malformed cursor is a 400. Mirrors the Go APIScraperResults handler.
  */
 
 import { NextRequest, NextResponse } from "next/server";
