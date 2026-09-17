@@ -384,6 +384,200 @@ describe("ScraperPage", () => {
     expect(screen.queryByText("141 stale 1")).toBeNull();
   });
 
+  test("clicking the already-active source tab keeps incremental loading working", async () => {
+    const firstResults = makeResults("141jav", 1, 20, "Active first");
+    const nextResults = makeResults("141jav", 21, 5, "Active next");
+    const requests: string[] = [];
+    let resolveFirst!: (response: Response) => void;
+    let resolveNext!: (response: Response) => void;
+
+    globalThis.fetch = mock(async (url: unknown) => {
+      const requestUrl = String(url);
+      requests.push(requestUrl);
+      const parsed = new URL(requestUrl, "http://localhost");
+      if (parsed.pathname === "/api/scraper/results") {
+        if (parsed.searchParams.has("cursorId")) {
+          return new Promise<Response>((resolve) => {
+            resolveNext = resolve;
+          });
+        }
+        return new Promise<Response>((resolve) => {
+          resolveFirst = resolve;
+        });
+      }
+      if (parsed.pathname.startsWith("/api/scraper/status")) {
+        return new Response(JSON.stringify({ is_scraping: false }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ success: true }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    renderPage();
+    await waitFor(() => expect(resolveFirst).toBeDefined());
+    await act(async () => {
+      resolveFirst(
+        new Response(
+          JSON.stringify({
+            results: firstResults,
+            counts: { "141jav": 21, pornrips: 0 },
+            nextCursor: { createdAt: "2026-09-17T00:00:00.000Z", id: 21 },
+          }),
+          { status: 200 },
+        ),
+      );
+    });
+    await waitFor(() =>
+      expect(document.querySelectorAll(".scraper-card")).toHaveLength(20),
+    );
+
+    // Clicking the tab that is already active must not clear the cursor.
+    fireEvent.click(screen.getByRole("button", { name: /141JAV/ }));
+
+    const container = document.getElementById("scraper-content-container")!;
+    Object.defineProperty(container, "scrollHeight", {
+      configurable: true,
+      value: 1000,
+    });
+    Object.defineProperty(container, "clientHeight", {
+      configurable: true,
+      value: 600,
+    });
+    container.scrollTop = 100;
+    fireEvent.scroll(container);
+
+    await waitFor(() => expect(resolveNext).toBeDefined());
+    const continuationRequest = requests.find((request) =>
+      request.includes("cursorId="),
+    );
+    expect(continuationRequest).toBeDefined();
+    const params = new URL(continuationRequest!, "http://localhost").searchParams;
+    expect(params.get("cursorCreatedAt")).toBe("2026-09-17T00:00:00.000Z");
+    expect(params.get("cursorId")).toBe("21");
+
+    await act(async () => {
+      resolveNext(
+        new Response(
+          JSON.stringify({
+            results: nextResults,
+            counts: { "141jav": 21, pornrips: 0 },
+            nextCursor: null,
+          }),
+          { status: 200 },
+        ),
+      );
+    });
+    await waitFor(() =>
+      expect(document.querySelectorAll(".scraper-card")).toHaveLength(25),
+    );
+  });
+
+  test("a same-source refresh paginates from the fresh cursor and drops the stale page", async () => {
+    const initialResults = makeResults("141jav", 1, 20, "Before refresh");
+    const refreshedResults = makeResults("141jav", 201, 5, "After refresh");
+    const staleResults = makeResults("141jav", 21, 5, "Stale page");
+    const requests: string[] = [];
+    let firstPageCount = 0;
+    let continuationCount = 0;
+    let resolveInitial!: (response: Response) => void;
+    let resolveRefreshed!: (response: Response) => void;
+    let resolveStale!: (response: Response) => void;
+
+    globalThis.fetch = mock(async (url: unknown) => {
+      const requestUrl = String(url);
+      requests.push(requestUrl);
+      const parsed = new URL(requestUrl, "http://localhost");
+      if (parsed.pathname === "/api/scraper/results") {
+        if (parsed.searchParams.has("cursorId")) {
+          continuationCount += 1;
+          return new Promise<Response>((resolve) => {
+            resolveStale = resolve;
+          });
+        }
+        firstPageCount += 1;
+        if (firstPageCount === 1) {
+          return new Promise<Response>((resolve) => {
+            resolveInitial = resolve;
+          });
+        }
+        return new Promise<Response>((resolve) => {
+          resolveRefreshed = resolve;
+        });
+      }
+      if (parsed.pathname.startsWith("/api/scraper/status")) {
+        return new Response(JSON.stringify({ is_scraping: false }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ success: true }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    renderPage();
+    await waitFor(() => expect(resolveInitial).toBeDefined());
+    await act(async () => {
+      resolveInitial(
+        new Response(
+          JSON.stringify({
+            results: initialResults,
+            counts: { "141jav": 25, pornrips: 0 },
+            nextCursor: { createdAt: "2026-09-17T00:00:00.000Z", id: 21 },
+          }),
+          { status: 200 },
+        ),
+      );
+    });
+    await waitFor(() => expect(screen.getByText("Before refresh 1")).toBeInTheDocument());
+
+    const container = document.getElementById("scraper-content-container")!;
+    Object.defineProperty(container, "scrollHeight", {
+      configurable: true,
+      value: 1000,
+    });
+    Object.defineProperty(container, "clientHeight", {
+      configurable: true,
+      value: 600,
+    });
+    container.scrollTop = 100;
+    fireEvent.scroll(container);
+    await waitFor(() => expect(continuationCount).toBe(1));
+
+    fireEvent.click(screen.getByRole("button", { name: /clear.*rescrape/i }));
+    await waitFor(() => expect(resolveRefreshed).toBeDefined());
+    await act(async () => {
+      resolveRefreshed(
+        new Response(
+          JSON.stringify({
+            results: refreshedResults,
+            counts: { "141jav": 5, pornrips: 0 },
+            nextCursor: { createdAt: "2026-09-18T00:00:00.000Z", id: 401 },
+          }),
+          { status: 200 },
+        ),
+      );
+    });
+    await waitFor(() => expect(screen.getByText("After refresh 5")).toBeInTheDocument());
+    expect(screen.queryByText("Before refresh 1")).toBeNull();
+
+    await act(async () => {
+      resolveStale(
+        new Response(
+          JSON.stringify({
+            results: staleResults,
+            counts: { "141jav": 5, pornrips: 0 },
+            nextCursor: null,
+          }),
+          { status: 200 },
+        ),
+      );
+    });
+    expect(screen.queryByText("Stale page 1")).toBeNull();
+
+    fireEvent.scroll(container);
+    await waitFor(() => expect(continuationCount).toBe(2));
+    const latestContinuation = requests.filter((request) =>
+      request.includes("cursorId="),
+    )[1];
+    const params = new URL(latestContinuation, "http://localhost").searchParams;
+    expect(params.get("cursorCreatedAt")).toBe("2026-09-18T00:00:00.000Z");
+    expect(params.get("cursorId")).toBe("401");
+  });
+
   test("downloading the first card synchronously lands on the next snap offset", async () => {
     sessionStorage.setItem("scraper_warning_accepted", String(Date.now()));
     const fetchCalls: Array<{ url: string; init?: RequestInit }> = [];

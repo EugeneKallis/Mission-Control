@@ -47,7 +47,6 @@ export function ScraperPage({
   });
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [nextCursor, setNextCursor] = useState<ScrapeResultsCursor | null>(null);
   const [isScraping, setIsScraping] = useState(false);
   const [anyScraping, setAnyScraping] = useState(false);
   const [hideAllConfirmOpen, setHideAllConfirmOpen] = useState(false);
@@ -58,6 +57,8 @@ export function ScraperPage({
   const activeSourceRef = useRef(initialSource);
   const requestGenerationRef = useRef(0);
   const continuationInFlightRef = useRef(false);
+  const loadingRef = useRef(true);
+  const nextCursorRef = useRef<ScrapeResultsCursor | null>(null);
   const previousIsScrapingRef = useRef(false);
   const fetchResultsRef = useRef<() => Promise<void>>(async () => {});
   const fetchNextPageRef = useRef<() => Promise<void>>(async () => {});
@@ -66,8 +67,9 @@ export function ScraperPage({
     activeSourceRef.current = nextSource;
     requestGenerationRef.current += 1;
     continuationInFlightRef.current = false;
+    loadingRef.current = true;
+    nextCursorRef.current = null;
     setLoadingMore(false);
-    setNextCursor(null);
     return requestGenerationRef.current;
   }, []);
 
@@ -85,42 +87,44 @@ export function ScraperPage({
         "141jav": data.counts?.["141jav"] ?? 0,
         pornrips: data.counts?.pornrips ?? 0,
       });
-      setNextCursor(data.nextCursor ?? null);
+      nextCursorRef.current = data.nextCursor ?? null;
     } catch (err) {
       if (generation !== requestGenerationRef.current) return;
       console.error("Failed to fetch scraper results:", err);
       toast.showToast("Failed to load scraper results", "error");
     } finally {
       if (generation === requestGenerationRef.current) {
+        loadingRef.current = false;
         setLoading(false);
       }
     }
   }, [resetPagination, source, toast]);
 
   const fetchNextPage = useCallback(async () => {
-    if (
-      loading ||
-      !nextCursor ||
-      continuationInFlightRef.current ||
-      activeSourceRef.current !== source
-    ) {
+    const cursor = nextCursorRef.current;
+    const src = activeSourceRef.current;
+    if (loadingRef.current || !cursor || continuationInFlightRef.current) {
       return;
     }
 
     const generation = requestGenerationRef.current;
-    const cursor = nextCursor;
     continuationInFlightRef.current = true;
     setLoadingMore(true);
     try {
       const params = new URLSearchParams({
-        source,
+        source: src,
         cursorCreatedAt: cursor.createdAt,
         cursorId: String(cursor.id),
       });
       const res = await fetch(`/api/scraper/results?${params.toString()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as Partial<ScrapeResultsPage>;
-      if (generation !== requestGenerationRef.current) return;
+      if (
+        generation !== requestGenerationRef.current ||
+        activeSourceRef.current !== src
+      ) {
+        return;
+      }
 
       const pageResults = data.results ?? [];
       setResults((current) => {
@@ -136,7 +140,7 @@ export function ScraperPage({
           pornrips: data.counts.pornrips ?? 0,
         });
       }
-      setNextCursor(data.nextCursor ?? null);
+      nextCursorRef.current = data.nextCursor ?? null;
     } catch (err) {
       if (generation !== requestGenerationRef.current) return;
       console.error("Failed to fetch next scraper results page:", err);
@@ -147,7 +151,7 @@ export function ScraperPage({
         setLoadingMore(false);
       }
     }
-  }, [loading, nextCursor, source, toast]);
+  }, [toast]);
 
   useEffect(() => {
     fetchResultsRef.current = fetchResults;
@@ -629,8 +633,10 @@ export function ScraperPage({
                   <button
                     key={s}
                     onClick={() => {
-                      resetPagination(s);
-                      setSource(s);
+                      if (s !== source) {
+                        resetPagination(s);
+                        setSource(s);
+                      }
                       window.history.replaceState(null, "", `/scraper?source=${s}`);
                       // Scroll back to the top so the header is visible.
                       containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
