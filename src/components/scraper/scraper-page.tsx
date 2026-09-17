@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { useToast } from "@/components/toast-provider";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AccessGate } from "./access-gate";
@@ -54,7 +60,7 @@ export function ScraperPage({
   const [showSettings, setShowSettings] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const activeSourceRef = useRef(initialSource);
+  const renderedSourceRef = useRef(initialSource);
   const requestGenerationRef = useRef(0);
   const continuationInFlightRef = useRef(false);
   const loadingRef = useRef(true);
@@ -63,8 +69,7 @@ export function ScraperPage({
   const fetchResultsRef = useRef<() => Promise<void>>(async () => {});
   const fetchNextPageRef = useRef<() => Promise<void>>(async () => {});
 
-  const resetPagination = useCallback((nextSource: ScraperSource) => {
-    activeSourceRef.current = nextSource;
+  const resetPagination = useCallback(() => {
     requestGenerationRef.current += 1;
     continuationInFlightRef.current = false;
     loadingRef.current = true;
@@ -75,7 +80,8 @@ export function ScraperPage({
 
   // ── Fetch the first page when source changes or results are invalidated ─
   const fetchResults = useCallback(async () => {
-    const generation = resetPagination(source);
+    if (source !== renderedSourceRef.current) return;
+    const generation = resetPagination();
     setLoading(true);
     try {
       const res = await fetch(`/api/scraper/results?source=${source}`);
@@ -102,7 +108,7 @@ export function ScraperPage({
 
   const fetchNextPage = useCallback(async () => {
     const cursor = nextCursorRef.current;
-    const src = activeSourceRef.current;
+    const src = renderedSourceRef.current;
     if (loadingRef.current || !cursor || continuationInFlightRef.current) {
       return;
     }
@@ -121,7 +127,7 @@ export function ScraperPage({
       const data = (await res.json()) as Partial<ScrapeResultsPage>;
       if (
         generation !== requestGenerationRef.current ||
-        activeSourceRef.current !== src
+        renderedSourceRef.current !== src
       ) {
         return;
       }
@@ -152,6 +158,10 @@ export function ScraperPage({
       }
     }
   }, [toast]);
+
+  useLayoutEffect(() => {
+    renderedSourceRef.current = source;
+  }, [source]);
 
   useEffect(() => {
     fetchResultsRef.current = fetchResults;
@@ -634,7 +644,7 @@ export function ScraperPage({
                     key={s}
                     onClick={() => {
                       if (s !== source) {
-                        resetPagination(s);
+                        resetPagination();
                         setSource(s);
                       }
                       window.history.replaceState(null, "", `/scraper?source=${s}`);

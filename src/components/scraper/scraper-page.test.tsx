@@ -578,6 +578,87 @@ describe("ScraperPage", () => {
     expect(params.get("cursorId")).toBe("401");
   });
 
+  test("a stale action refresh does not clobber the newly selected source", async () => {
+    const firstResults = makeResults("141jav", 1, 20, "Stale first");
+    const pornResults = makeResults("pornrips", 101, 1, "Porn result");
+    const requests: string[] = [];
+    let resolveInitial!: (response: Response) => void;
+    let resolvePorn!: (response: Response) => void;
+    let resolveRefresh!: (response: Response) => void;
+
+    globalThis.fetch = mock(async (url: unknown) => {
+      const requestUrl = String(url);
+      requests.push(requestUrl);
+      const parsed = new URL(requestUrl, "http://localhost");
+      if (parsed.pathname === "/api/scraper/results") {
+        if (parsed.searchParams.get("source") === "pornrips") {
+          return new Promise<Response>((resolve) => {
+            resolvePorn = resolve;
+          });
+        }
+        return new Promise<Response>((resolve) => {
+          resolveInitial = resolve;
+        });
+      }
+      if (parsed.pathname === "/api/scraper/refresh") {
+        return new Promise<Response>((resolve) => {
+          resolveRefresh = resolve;
+        });
+      }
+      if (parsed.pathname.startsWith("/api/scraper/status")) {
+        return new Response(JSON.stringify({ is_scraping: false }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ success: true }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    renderPage();
+    await waitFor(() => expect(resolveInitial).toBeDefined());
+    await act(async () => {
+      resolveInitial(
+        new Response(
+          JSON.stringify({
+            results: firstResults,
+            counts: { "141jav": 21, pornrips: 1 },
+            nextCursor: { createdAt: "2026-09-17T00:00:00.000Z", id: 21 },
+          }),
+          { status: 200 },
+        ),
+      );
+    });
+    await waitFor(() => expect(screen.getByText("Stale first 1")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: /clear.*rescrape/i }));
+    await waitFor(() => expect(resolveRefresh).toBeDefined());
+
+    fireEvent.click(screen.getByRole("button", { name: /PornRips/ }));
+    await waitFor(() => expect(resolvePorn).toBeDefined());
+    await act(async () => {
+      resolvePorn(
+        new Response(
+          JSON.stringify({
+            results: pornResults,
+            counts: { "141jav": 21, pornrips: 1 },
+            nextCursor: null,
+          }),
+          { status: 200 },
+        ),
+      );
+    });
+    await waitFor(() => expect(screen.getByText("Porn result 1")).toBeInTheDocument());
+
+    await act(async () => {
+      resolveRefresh(new Response(JSON.stringify({ success: true }), { status: 200 }));
+    });
+
+    const stale141Requests = requests.filter(
+      (request) =>
+        request.includes("/api/scraper/results") && request.includes("source=141jav"),
+    );
+    expect(stale141Requests).toHaveLength(1);
+    expect(screen.getByText("Porn result 1")).toBeInTheDocument();
+    expect(screen.queryByText("Stale first 1")).toBeNull();
+  });
+
   test("downloading the first card synchronously lands on the next snap offset", async () => {
     sessionStorage.setItem("scraper_warning_accepted", String(Date.now()));
     const fetchCalls: Array<{ url: string; init?: RequestInit }> = [];
