@@ -19,6 +19,17 @@ export interface ScrapeResultView {
 
 export type ScraperSource = "141jav" | "pornrips";
 
+export interface ScrapeResultsCursor {
+  createdAt: string;
+  id: number;
+}
+
+export interface ScrapeResultsPage {
+  results: ScrapeResultView[];
+  counts: Partial<Record<ScraperSource, number>>;
+  nextCursor: ScrapeResultsCursor | null;
+}
+
 export const SOURCES: ScraperSource[] = ["141jav", "pornrips"];
 
 export function isValidSource(value: string | null | undefined): value is ScraperSource {

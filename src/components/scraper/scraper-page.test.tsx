@@ -82,6 +82,27 @@ const sampleResults: { results: ScrapeResultView[]; counts: Record<string, numbe
   counts: { "141jav": 2, pornrips: 7 },
 };
 
+function makeResults(
+  source: "141jav" | "pornrips",
+  startId: number,
+  count: number,
+  label: string,
+): ScrapeResultView[] {
+  return Array.from({ length: count }, (_, index) => ({
+    id: startId + index,
+    source,
+    title: `${label} ${index + 1}`,
+    image: null,
+    images: [],
+    magnet: `magnet:?xt=urn:btih:${source}-${startId + index}`,
+    torrent: null,
+    tags: [],
+    is_downloaded: false,
+    is_hidden: false,
+    created_at: "2026-09-17T00:00:00.000Z",
+  }));
+}
+
 function renderPage(initialSource: "141jav" | "pornrips" = "141jav") {
   return render(
     <ToastProvider>
@@ -157,18 +178,485 @@ describe("ScraperPage", () => {
 
   test("renders the empty state when no results are returned", async () => {
     let resolveResults!: (v: Response) => void;
-    const mocked = mock((async () => {
-      return new Promise<Response>((resolve) => {
-        resolveResults = resolve;
-      });
+    const mocked = mock((async (url: unknown) => {
+      const u = String(url);
+      if (u.includes("/api/scraper/results")) {
+        return new Promise<Response>((resolve) => {
+          resolveResults = resolve;
+        });
+      }
+      return new Response(JSON.stringify({ is_scraping: false }), { status: 200 });
     }) as unknown as typeof fetch);
-    (globalThis as any).fetch = mocked;
-
+    globalThis.fetch = mocked as unknown as typeof fetch;
     renderPage();
+    await waitFor(() => expect(resolveResults).toBeDefined());
     await act(async () => {
       resolveResults(new Response(JSON.stringify({ results: [] }), { status: 200 }));
     });
     expect(screen.getByText(/no results found/i)).toBeInTheDocument();
+  });
+
+  test("appends bottom-scroll pages, serializes continuation, and stops at the terminal page", async () => {
+    const firstResults = makeResults("141jav", 1, 20, "First page");
+    const secondResults = makeResults("141jav", 21, 5, "Second page");
+    const requests: string[] = [];
+    let resolveFirst!: (response: Response) => void;
+    let resolveSecond!: (response: Response) => void;
+
+    globalThis.fetch = mock(async (url: unknown) => {
+      const requestUrl = String(url);
+      requests.push(requestUrl);
+      if (requestUrl.includes("/api/scraper/results")) {
+        const parsed = new URL(requestUrl, "http://localhost");
+        if (parsed.searchParams.has("cursorId")) {
+          return new Promise<Response>((resolve) => {
+            resolveSecond = resolve;
+          });
+        }
+        return new Promise<Response>((resolve) => {
+          resolveFirst = resolve;
+        });
+      }
+      if (requestUrl.includes("/api/scraper/status")) {
+        return new Response(JSON.stringify({ is_scraping: false }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ success: true }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    renderPage();
+    await waitFor(() => expect(resolveFirst).toBeDefined());
+    await act(async () => {
+      resolveFirst(
+        new Response(
+          JSON.stringify({
+            results: firstResults,
+            counts: { "141jav": 25, pornrips: 0 },
+            nextCursor: { createdAt: "2026-09-17T00:00:00.000Z", id: 21 },
+          }),
+          { status: 200 },
+        ),
+      );
+    });
+    await waitFor(() => {
+      expect(document.querySelectorAll(".scraper-card")).toHaveLength(20);
+    });
+
+    const container = document.getElementById("scraper-content-container")!;
+    Object.defineProperty(container, "scrollHeight", {
+      configurable: true,
+      value: 1000,
+    });
+    Object.defineProperty(container, "clientHeight", {
+      configurable: true,
+      value: 600,
+    });
+    container.scrollTop = 100;
+    fireEvent.scroll(container);
+    await waitFor(() => expect(resolveSecond).toBeDefined());
+
+    const continuationRequests = requests.filter((request) =>
+      request.includes("cursorId="),
+    );
+    expect(continuationRequests).toHaveLength(1);
+    const continuationParams = new URL(continuationRequests[0], "http://localhost").searchParams;
+    expect(continuationParams.get("cursorCreatedAt")).toBe("2026-09-17T00:00:00.000Z");
+    expect(continuationParams.get("cursorId")).toBe("21");
+
+    fireEvent.scroll(container);
+    fireEvent.scroll(container);
+    expect(
+      requests.filter((request) => request.includes("cursorId=")),
+    ).toHaveLength(1);
+
+    await act(async () => {
+      resolveSecond(
+        new Response(
+          JSON.stringify({
+            results: secondResults,
+            counts: { "141jav": 25, pornrips: 0 },
+            nextCursor: null,
+          }),
+          { status: 200 },
+        ),
+      );
+    });
+    await waitFor(() => expect(screen.getByText("Second page 5")).toBeInTheDocument());
+    expect(screen.getByText("First page 1")).toBeInTheDocument();
+    expect(document.querySelectorAll(".scraper-card")).toHaveLength(25);
+
+    fireEvent.scroll(container);
+    expect(
+      requests.filter((request) => request.includes("cursorId=")),
+    ).toHaveLength(1);
+  });
+
+  test("ignores a stale continuation after switching source tabs", async () => {
+    const first141Results = makeResults("141jav", 1, 20, "141 first");
+    const stale141Results = makeResults("141jav", 21, 1, "141 stale");
+    const pornResults = makeResults("pornrips", 101, 1, "Porn result");
+    let resolveInitial141!: (response: Response) => void;
+    let resolveStale141!: (response: Response) => void;
+    let resolvePorn!: (response: Response) => void;
+
+    globalThis.fetch = mock(async (url: unknown) => {
+      const parsed = new URL(String(url), "http://localhost");
+      if (parsed.pathname === "/api/scraper/results") {
+        const requestedSource = parsed.searchParams.get("source");
+        if (requestedSource === "141jav" && parsed.searchParams.has("cursorId")) {
+          return new Promise<Response>((resolve) => {
+            resolveStale141 = resolve;
+          });
+        }
+        if (requestedSource === "141jav") {
+          return new Promise<Response>((resolve) => {
+            resolveInitial141 = resolve;
+          });
+        }
+        return new Promise<Response>((resolve) => {
+          resolvePorn = resolve;
+        });
+      }
+      if (parsed.pathname.startsWith("/api/scraper/status")) {
+        return new Response(JSON.stringify({ is_scraping: false }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ success: true }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    renderPage();
+    await waitFor(() => expect(resolveInitial141).toBeDefined());
+    await act(async () => {
+      resolveInitial141(
+        new Response(
+          JSON.stringify({
+            results: first141Results,
+            counts: { "141jav": 21, pornrips: 1 },
+            nextCursor: { createdAt: "2026-09-17T00:00:00.000Z", id: 21 },
+          }),
+          { status: 200 },
+        ),
+      );
+    });
+    await waitFor(() => expect(screen.getByText("141 first 1")).toBeInTheDocument());
+
+    const container = document.getElementById("scraper-content-container")!;
+    Object.defineProperty(container, "scrollHeight", {
+      configurable: true,
+      value: 1000,
+    });
+    Object.defineProperty(container, "clientHeight", {
+      configurable: true,
+      value: 600,
+    });
+    container.scrollTop = 100;
+    fireEvent.scroll(container);
+    await waitFor(() => expect(resolveStale141).toBeDefined());
+
+    fireEvent.click(screen.getByRole("button", { name: /PornRips/ }));
+    await waitFor(() => expect(resolvePorn).toBeDefined());
+    await act(async () => {
+      resolvePorn(
+        new Response(
+          JSON.stringify({
+            results: pornResults,
+            counts: { "141jav": 21, pornrips: 1 },
+            nextCursor: null,
+          }),
+          { status: 200 },
+        ),
+      );
+    });
+    await waitFor(() => expect(screen.getByText("Porn result 1")).toBeInTheDocument());
+
+    await act(async () => {
+      resolveStale141(
+        new Response(
+          JSON.stringify({
+            results: stale141Results,
+            counts: { "141jav": 21, pornrips: 1 },
+            nextCursor: null,
+          }),
+          { status: 200 },
+        ),
+      );
+    });
+    expect(screen.getByText("Porn result 1")).toBeInTheDocument();
+    expect(screen.queryByText("141 first 1")).toBeNull();
+    expect(screen.queryByText("141 stale 1")).toBeNull();
+  });
+
+  test("clicking the already-active source tab keeps incremental loading working", async () => {
+    const firstResults = makeResults("141jav", 1, 20, "Active first");
+    const nextResults = makeResults("141jav", 21, 5, "Active next");
+    const requests: string[] = [];
+    let resolveFirst!: (response: Response) => void;
+    let resolveNext!: (response: Response) => void;
+
+    globalThis.fetch = mock(async (url: unknown) => {
+      const requestUrl = String(url);
+      requests.push(requestUrl);
+      const parsed = new URL(requestUrl, "http://localhost");
+      if (parsed.pathname === "/api/scraper/results") {
+        if (parsed.searchParams.has("cursorId")) {
+          return new Promise<Response>((resolve) => {
+            resolveNext = resolve;
+          });
+        }
+        return new Promise<Response>((resolve) => {
+          resolveFirst = resolve;
+        });
+      }
+      if (parsed.pathname.startsWith("/api/scraper/status")) {
+        return new Response(JSON.stringify({ is_scraping: false }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ success: true }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    renderPage();
+    await waitFor(() => expect(resolveFirst).toBeDefined());
+    await act(async () => {
+      resolveFirst(
+        new Response(
+          JSON.stringify({
+            results: firstResults,
+            counts: { "141jav": 21, pornrips: 0 },
+            nextCursor: { createdAt: "2026-09-17T00:00:00.000Z", id: 21 },
+          }),
+          { status: 200 },
+        ),
+      );
+    });
+    await waitFor(() =>
+      expect(document.querySelectorAll(".scraper-card")).toHaveLength(20),
+    );
+
+    // Clicking the tab that is already active must not clear the cursor.
+    fireEvent.click(screen.getByRole("button", { name: /141JAV/ }));
+
+    const container = document.getElementById("scraper-content-container")!;
+    Object.defineProperty(container, "scrollHeight", {
+      configurable: true,
+      value: 1000,
+    });
+    Object.defineProperty(container, "clientHeight", {
+      configurable: true,
+      value: 600,
+    });
+    container.scrollTop = 100;
+    fireEvent.scroll(container);
+
+    await waitFor(() => expect(resolveNext).toBeDefined());
+    const continuationRequest = requests.find((request) =>
+      request.includes("cursorId="),
+    );
+    expect(continuationRequest).toBeDefined();
+    const params = new URL(continuationRequest!, "http://localhost").searchParams;
+    expect(params.get("cursorCreatedAt")).toBe("2026-09-17T00:00:00.000Z");
+    expect(params.get("cursorId")).toBe("21");
+
+    await act(async () => {
+      resolveNext(
+        new Response(
+          JSON.stringify({
+            results: nextResults,
+            counts: { "141jav": 21, pornrips: 0 },
+            nextCursor: null,
+          }),
+          { status: 200 },
+        ),
+      );
+    });
+    await waitFor(() =>
+      expect(document.querySelectorAll(".scraper-card")).toHaveLength(25),
+    );
+  });
+
+  test("a same-source refresh paginates from the fresh cursor and drops the stale page", async () => {
+    const initialResults = makeResults("141jav", 1, 20, "Before refresh");
+    const refreshedResults = makeResults("141jav", 201, 5, "After refresh");
+    const staleResults = makeResults("141jav", 21, 5, "Stale page");
+    const requests: string[] = [];
+    let firstPageCount = 0;
+    let continuationCount = 0;
+    let resolveInitial!: (response: Response) => void;
+    let resolveRefreshed!: (response: Response) => void;
+    let resolveStale!: (response: Response) => void;
+
+    globalThis.fetch = mock(async (url: unknown) => {
+      const requestUrl = String(url);
+      requests.push(requestUrl);
+      const parsed = new URL(requestUrl, "http://localhost");
+      if (parsed.pathname === "/api/scraper/results") {
+        if (parsed.searchParams.has("cursorId")) {
+          continuationCount += 1;
+          return new Promise<Response>((resolve) => {
+            resolveStale = resolve;
+          });
+        }
+        firstPageCount += 1;
+        if (firstPageCount === 1) {
+          return new Promise<Response>((resolve) => {
+            resolveInitial = resolve;
+          });
+        }
+        return new Promise<Response>((resolve) => {
+          resolveRefreshed = resolve;
+        });
+      }
+      if (parsed.pathname.startsWith("/api/scraper/status")) {
+        return new Response(JSON.stringify({ is_scraping: false }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ success: true }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    renderPage();
+    await waitFor(() => expect(resolveInitial).toBeDefined());
+    await act(async () => {
+      resolveInitial(
+        new Response(
+          JSON.stringify({
+            results: initialResults,
+            counts: { "141jav": 25, pornrips: 0 },
+            nextCursor: { createdAt: "2026-09-17T00:00:00.000Z", id: 21 },
+          }),
+          { status: 200 },
+        ),
+      );
+    });
+    await waitFor(() => expect(screen.getByText("Before refresh 1")).toBeInTheDocument());
+
+    const container = document.getElementById("scraper-content-container")!;
+    Object.defineProperty(container, "scrollHeight", {
+      configurable: true,
+      value: 1000,
+    });
+    Object.defineProperty(container, "clientHeight", {
+      configurable: true,
+      value: 600,
+    });
+    container.scrollTop = 100;
+    fireEvent.scroll(container);
+    await waitFor(() => expect(continuationCount).toBe(1));
+
+    fireEvent.click(screen.getByRole("button", { name: /clear.*rescrape/i }));
+    await waitFor(() => expect(resolveRefreshed).toBeDefined());
+    await act(async () => {
+      resolveRefreshed(
+        new Response(
+          JSON.stringify({
+            results: refreshedResults,
+            counts: { "141jav": 5, pornrips: 0 },
+            nextCursor: { createdAt: "2026-09-18T00:00:00.000Z", id: 401 },
+          }),
+          { status: 200 },
+        ),
+      );
+    });
+    await waitFor(() => expect(screen.getByText("After refresh 5")).toBeInTheDocument());
+    expect(screen.queryByText("Before refresh 1")).toBeNull();
+
+    await act(async () => {
+      resolveStale(
+        new Response(
+          JSON.stringify({
+            results: staleResults,
+            counts: { "141jav": 5, pornrips: 0 },
+            nextCursor: null,
+          }),
+          { status: 200 },
+        ),
+      );
+    });
+    expect(screen.queryByText("Stale page 1")).toBeNull();
+
+    fireEvent.scroll(container);
+    await waitFor(() => expect(continuationCount).toBe(2));
+    const latestContinuation = requests.filter((request) =>
+      request.includes("cursorId="),
+    )[1];
+    const params = new URL(latestContinuation, "http://localhost").searchParams;
+    expect(params.get("cursorCreatedAt")).toBe("2026-09-18T00:00:00.000Z");
+    expect(params.get("cursorId")).toBe("401");
+  });
+
+  test("a stale action refresh does not clobber the newly selected source", async () => {
+    const firstResults = makeResults("141jav", 1, 20, "Stale first");
+    const pornResults = makeResults("pornrips", 101, 1, "Porn result");
+    const requests: string[] = [];
+    let resolveInitial!: (response: Response) => void;
+    let resolvePorn!: (response: Response) => void;
+    let resolveRefresh!: (response: Response) => void;
+
+    globalThis.fetch = mock(async (url: unknown) => {
+      const requestUrl = String(url);
+      requests.push(requestUrl);
+      const parsed = new URL(requestUrl, "http://localhost");
+      if (parsed.pathname === "/api/scraper/results") {
+        if (parsed.searchParams.get("source") === "pornrips") {
+          return new Promise<Response>((resolve) => {
+            resolvePorn = resolve;
+          });
+        }
+        return new Promise<Response>((resolve) => {
+          resolveInitial = resolve;
+        });
+      }
+      if (parsed.pathname === "/api/scraper/refresh") {
+        return new Promise<Response>((resolve) => {
+          resolveRefresh = resolve;
+        });
+      }
+      if (parsed.pathname.startsWith("/api/scraper/status")) {
+        return new Response(JSON.stringify({ is_scraping: false }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ success: true }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    renderPage();
+    await waitFor(() => expect(resolveInitial).toBeDefined());
+    await act(async () => {
+      resolveInitial(
+        new Response(
+          JSON.stringify({
+            results: firstResults,
+            counts: { "141jav": 21, pornrips: 1 },
+            nextCursor: { createdAt: "2026-09-17T00:00:00.000Z", id: 21 },
+          }),
+          { status: 200 },
+        ),
+      );
+    });
+    await waitFor(() => expect(screen.getByText("Stale first 1")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: /clear.*rescrape/i }));
+    await waitFor(() => expect(resolveRefresh).toBeDefined());
+
+    fireEvent.click(screen.getByRole("button", { name: /PornRips/ }));
+    await waitFor(() => expect(resolvePorn).toBeDefined());
+    await act(async () => {
+      resolvePorn(
+        new Response(
+          JSON.stringify({
+            results: pornResults,
+            counts: { "141jav": 21, pornrips: 1 },
+            nextCursor: null,
+          }),
+          { status: 200 },
+        ),
+      );
+    });
+    await waitFor(() => expect(screen.getByText("Porn result 1")).toBeInTheDocument());
+
+    await act(async () => {
+      resolveRefresh(new Response(JSON.stringify({ success: true }), { status: 200 }));
+    });
+
+    const stale141Requests = requests.filter(
+      (request) =>
+        request.includes("/api/scraper/results") && request.includes("source=141jav"),
+    );
+    expect(stale141Requests).toHaveLength(1);
+    expect(screen.getByText("Porn result 1")).toBeInTheDocument();
+    expect(screen.queryByText("Stale first 1")).toBeNull();
   });
 
   test("downloading the first card synchronously lands on the next snap offset", async () => {

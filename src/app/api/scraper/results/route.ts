@@ -1,25 +1,58 @@
 /**
  * GET /api/scraper/results?source=
- * Returns the visible (not hidden) scrape results for the given source.
- * Mirrors the Go APIScraperResults handler.
+ * Returns the visible (not hidden) scrape results for the given source, newest
+ * first, in pages of at most 20.
+ *
+ * Resume with the previous response's `nextCursor` as `cursorCreatedAt` +
+ * `cursorId` (both required together) to fetch rows strictly older than that
+ * cursor row; `nextCursor: null` marks the terminal page. A partial or
+ * malformed cursor is a 400. Mirrors the Go APIScraperResults handler.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { listScrapeResults } from "@/lib/db/queries";
 
+const PAGE_SIZE = 20;
+
 export async function GET(request: NextRequest) {
-  const source = request.nextUrl.searchParams.get("source") ?? "141jav";
+  const searchParams = request.nextUrl.searchParams;
+  const source = searchParams.get("source") ?? "141jav";
+  const cursorCreatedAt = searchParams.get("cursorCreatedAt");
+  const cursorId = searchParams.get("cursorId");
+  const hasCursorCreatedAt = cursorCreatedAt !== null;
+  const hasCursorId = cursorId !== null;
+
+  if (hasCursorCreatedAt !== hasCursorId) {
+    return NextResponse.json({ error: "Invalid pagination cursor" }, { status: 400 });
+  }
+
+  let before: { createdAt: Date; id: number } | undefined;
+  if (hasCursorCreatedAt && hasCursorId) {
+    const createdAt = new Date(cursorCreatedAt);
+    const id = Number(cursorId);
+    if (
+      Number.isNaN(createdAt.getTime()) ||
+      !/^[1-9]\d*$/.test(cursorId) ||
+      !Number.isSafeInteger(id) ||
+      id <= 0
+    ) {
+      return NextResponse.json({ error: "Invalid pagination cursor" }, { status: 400 });
+    }
+    before = { createdAt, id };
+  }
+
   try {
     const [rows, groupedCounts] = await Promise.all([
-      listScrapeResults(source),
+      listScrapeResults(source, { limit: PAGE_SIZE + 1, before }),
       db.scrapeResult.groupBy({
         by: ["source"],
         where: { isHidden: false },
         _count: { _all: true },
       }),
     ]);
-    const results = rows.map((r) => {
+    const emittedRows = rows.slice(0, PAGE_SIZE);
+    const results = emittedRows.map((r) => {
       const tags = r.tags ? r.tags.split(",").filter(Boolean) : [];
       let images: string[] = [];
       let mainImage = r.imageUrl;
@@ -44,7 +77,12 @@ export async function GET(request: NextRequest) {
     const counts = Object.fromEntries(
       groupedCounts.map((row) => [row.source, row._count._all]),
     );
-    return NextResponse.json({ results, counts });
+    const lastRow = emittedRows[PAGE_SIZE - 1];
+    const nextCursor =
+      rows.length > PAGE_SIZE && lastRow
+        ? { createdAt: lastRow.createdAt.toISOString(), id: lastRow.id }
+        : null;
+    return NextResponse.json({ results, counts, nextCursor });
   } catch (err) {
     console.error("Failed to list scrape results:", err);
     return NextResponse.json({ error: "Failed to list scrape results" }, { status: 500 });

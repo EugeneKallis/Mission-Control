@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { useToast } from "@/components/toast-provider";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AccessGate } from "./access-gate";
@@ -11,6 +17,8 @@ import {
   SOURCES,
   type ScraperSource,
   type ScrapeResultView,
+  type ScrapeResultsCursor,
+  type ScrapeResultsPage,
 } from "./scraper-types";
 
 /**
@@ -27,6 +35,11 @@ import {
  *  - Each `.card-snap-area` card is a snap target with
  *    min-height: 90dvh (mobile) / 100dvh (md+).
  *  - Back-to-top button is fixed at the bottom-right of the viewport.
+ *  - Results load incrementally: the first page is fetched on mount and
+ *    whenever the source changes, and scrolling within 300px of the bottom
+ *    requests the next page. A request-generation token plus the rendered-
+ *    source ref discard responses that belong to a superseded source or
+ *    fetch, and `nextCursor: null` stops further continuation requests.
  *  - Keyboard nav (d=download, h=hide, arrows=move between snap
  *    targets) finds the active card by its proximity to the viewport
  *    top, mirroring the ServerTool JS.
@@ -44,6 +57,7 @@ export function ScraperPage({
     pornrips: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [isScraping, setIsScraping] = useState(false);
   const [anyScraping, setAnyScraping] = useState(false);
   const [hideAllConfirmOpen, setHideAllConfirmOpen] = useState(false);
@@ -51,37 +65,123 @@ export function ScraperPage({
   const [showSettings, setShowSettings] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const renderedSourceRef = useRef(initialSource);
+  const requestGenerationRef = useRef(0);
+  const continuationInFlightRef = useRef(false);
+  const loadingRef = useRef(true);
+  const nextCursorRef = useRef<ScrapeResultsCursor | null>(null);
+  const previousIsScrapingRef = useRef(false);
   const fetchResultsRef = useRef<() => Promise<void>>(async () => {});
+  const fetchNextPageRef = useRef<() => Promise<void>>(async () => {});
 
-  // ── Fetch results when source changes ────────────────────────────────
+  const resetPagination = useCallback(() => {
+    requestGenerationRef.current += 1;
+    continuationInFlightRef.current = false;
+    loadingRef.current = true;
+    nextCursorRef.current = null;
+    setLoadingMore(false);
+    return requestGenerationRef.current;
+  }, []);
+
+  // ── Fetch the first page when source changes or results are invalidated ─
   const fetchResults = useCallback(async () => {
+    if (source !== renderedSourceRef.current) return;
+    const generation = resetPagination();
     setLoading(true);
     try {
       const res = await fetch(`/api/scraper/results?source=${source}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data = (await res.json()) as Partial<ScrapeResultsPage>;
+      if (generation !== requestGenerationRef.current) return;
       setResults(data.results ?? []);
       setCounts({
         "141jav": data.counts?.["141jav"] ?? 0,
         pornrips: data.counts?.pornrips ?? 0,
       });
+      nextCursorRef.current = data.nextCursor ?? null;
     } catch (err) {
+      if (generation !== requestGenerationRef.current) return;
       console.error("Failed to fetch scraper results:", err);
       toast.showToast("Failed to load scraper results", "error");
     } finally {
-      setLoading(false);
+      if (generation === requestGenerationRef.current) {
+        loadingRef.current = false;
+        setLoading(false);
+      }
     }
-  }, [source, toast]);
+  }, [resetPagination, source, toast]);
+
+  const fetchNextPage = useCallback(async () => {
+    const cursor = nextCursorRef.current;
+    const src = renderedSourceRef.current;
+    if (loadingRef.current || !cursor || continuationInFlightRef.current) {
+      return;
+    }
+
+    const generation = requestGenerationRef.current;
+    continuationInFlightRef.current = true;
+    setLoadingMore(true);
+    try {
+      const params = new URLSearchParams({
+        source: src,
+        cursorCreatedAt: cursor.createdAt,
+        cursorId: String(cursor.id),
+      });
+      const res = await fetch(`/api/scraper/results?${params.toString()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as Partial<ScrapeResultsPage>;
+      if (
+        generation !== requestGenerationRef.current ||
+        renderedSourceRef.current !== src
+      ) {
+        return;
+      }
+
+      const pageResults = data.results ?? [];
+      setResults((current) => {
+        const existingIds = new Set(current.map((result) => result.id));
+        return [
+          ...current,
+          ...pageResults.filter((result) => !existingIds.has(result.id)),
+        ];
+      });
+      if (data.counts) {
+        setCounts({
+          "141jav": data.counts["141jav"] ?? 0,
+          pornrips: data.counts.pornrips ?? 0,
+        });
+      }
+      nextCursorRef.current = data.nextCursor ?? null;
+    } catch (err) {
+      if (generation !== requestGenerationRef.current) return;
+      console.error("Failed to fetch next scraper results page:", err);
+      toast.showToast("Failed to load scraper results", "error");
+    } finally {
+      if (generation === requestGenerationRef.current) {
+        continuationInFlightRef.current = false;
+        setLoadingMore(false);
+      }
+    }
+  }, [toast]);
+
+  useLayoutEffect(() => {
+    renderedSourceRef.current = source;
+  }, [source]);
 
   useEffect(() => {
     fetchResultsRef.current = fetchResults;
   }, [fetchResults]);
 
   useEffect(() => {
+    fetchNextPageRef.current = fetchNextPage;
+  }, [fetchNextPage]);
+
+  useEffect(() => {
     void fetchResultsRef.current();
   }, [source]);
 
   // ── Poll scraping status every 2s (for the spinner state) ────────────
+
   useEffect(() => {
     let cancelled = false;
     const tick = async () => {
@@ -110,9 +210,11 @@ export function ScraperPage({
     };
   }, [source]);
 
-  // ── Reload results when a scrape finishes ────────────────────────────
+  // ── Reload results only when a scrape transitions to finished ─────────
   useEffect(() => {
-    if (!isScraping) {
+    const wasScraping = previousIsScrapingRef.current;
+    previousIsScrapingRef.current = isScraping;
+    if (wasScraping && !isScraping) {
       void fetchResultsRef.current();
     }
   }, [isScraping]);
@@ -147,7 +249,7 @@ export function ScraperPage({
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       toast.showToast("Scraping all sources…", "info");
       setAnyScraping(true);
-    } catch (err) {
+    } catch {
       toast.showToast("Failed to trigger scrape-all", "error");
     }
   }, [toast]);
@@ -164,7 +266,7 @@ export function ScraperPage({
         const data = await res.json();
         toast.showToast(`Hid ${data.hidden ?? 0} items`, "success");
         await fetchResults();
-      } catch (err) {
+      } catch {
         toast.showToast("Failed to hide all", "error");
       }
     },
@@ -206,7 +308,7 @@ export function ScraperPage({
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         toast.showToast(`Clearing & rescraping ${src}…`, "info");
         await fetchResults();
-      } catch (err) {
+      } catch {
         toast.showToast("Failed to refresh", "error");
       }
     },
@@ -403,12 +505,17 @@ export function ScraperPage({
     return () => document.removeEventListener("keydown", handler);
   }, [downloadItem, hideItem]);
 
-  // ── Back-to-top: show when scrolled past 300px (matches ServerTool) ─
+  // ── Back-to-top and incremental loading scroll listener ───────────────
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
     const onScroll = () => {
       setShowBackToTop(container.scrollTop > 300);
+      if (
+        container.scrollHeight - container.scrollTop - container.clientHeight <= 300
+      ) {
+        void fetchNextPageRef.current();
+      }
     };
     container.addEventListener("scroll", onScroll, { passive: true });
     return () => container.removeEventListener("scroll", onScroll);
@@ -541,7 +648,10 @@ export function ScraperPage({
                   <button
                     key={s}
                     onClick={() => {
-                      setSource(s);
+                      if (s !== source) {
+                        resetPagination();
+                        setSource(s);
+                      }
                       window.history.replaceState(null, "", `/scraper?source=${s}`);
                       // Scroll back to the top so the header is visible.
                       containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
@@ -569,7 +679,6 @@ export function ScraperPage({
           </p>
         </div>
 
-        {/* ── Card grid (each card is a snap target) ────────────────── */}
         {loading ? (
           <p className="text-center py-12 italic text-on-surface-variant">
             Loading…
@@ -579,16 +688,26 @@ export function ScraperPage({
             No results found.
           </p>
         ) : (
-          <div className="grid grid-cols-1 gap-5">
-            {results.map((r) => (
-              <ScraperCard
-                key={r.id}
-                result={r}
-                onDownload={(id) => void downloadItem(id)}
-                onHide={(id) => void hideItem(id)}
-              />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 gap-5">
+              {results.map((r) => (
+                <ScraperCard
+                  key={r.id}
+                  result={r}
+                  onDownload={(id) => void downloadItem(id)}
+                  onHide={(id) => void hideItem(id)}
+                />
+              ))}
+            </div>
+            {loadingMore && (
+              <p
+                aria-live="polite"
+                className="py-6 text-center text-sm italic text-on-surface-variant"
+              >
+                Loading more…
+              </p>
+            )}
+          </>
         )}
       </div>
 

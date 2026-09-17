@@ -46,6 +46,7 @@ async function seed(opts: {
   tags?: string | null;
   isHidden?: boolean;
   isDownloaded?: boolean;
+  createdAt?: Date;
 }) {
   return testDB.db.scrapeResult.create({
     data: {
@@ -58,6 +59,7 @@ async function seed(opts: {
       tags: opts.tags ?? null,
       isHidden: opts.isHidden ?? false,
       isDownloaded: opts.isDownloaded ?? false,
+      ...(opts.createdAt ? { createdAt: opts.createdAt } : {}),
     },
   });
 }
@@ -208,6 +210,68 @@ describe("GET /api/scraper/results", () => {
     };
     expect(body.results.map((result) => result.title)).toEqual(["C", "B"]);
     expect(body.counts).toEqual({ "141jav": 1, pornrips: 2 });
+  });
+
+  test("returns keyset-paginated pages with deterministic equal-timestamp ordering", async () => {
+    const createdAt = new Date("2026-09-17T00:00:00.000Z");
+    const rows = [];
+    for (let index = 0; index < 25; index++) {
+      rows.push(
+        await seed({
+          source: "141jav",
+          title: `Paginated ${index}`,
+          createdAt,
+        }),
+      );
+    }
+
+    const { GET } = await loadRoute();
+    const firstResponse = await GET(getRequest("/api/scraper/results?source=141jav"));
+    const firstBody = (await jsonBody(firstResponse)) as {
+      results: Array<{ id: number }>;
+      counts: Record<string, number>;
+      nextCursor: { createdAt: string; id: number } | null;
+    };
+    const expectedIds = rows.map((row) => row.id).sort((a, b) => b - a);
+
+    expect(firstBody.results).toHaveLength(20);
+    expect(firstBody.results.map((result) => result.id)).toEqual(expectedIds.slice(0, 20));
+    expect(firstBody.counts["141jav"]).toBe(25);
+    expect(firstBody.nextCursor).not.toBeNull();
+
+    const cursor = firstBody.nextCursor!;
+    const secondUrl =
+      `/api/scraper/results?source=141jav&cursorCreatedAt=${encodeURIComponent(cursor.createdAt)}` +
+      `&cursorId=${cursor.id}`;
+    const secondResponse = await GET(getRequest(secondUrl));
+    const secondBody = (await jsonBody(secondResponse)) as {
+      results: Array<{ id: number }>;
+      counts: Record<string, number>;
+      nextCursor: { createdAt: string; id: number } | null;
+    };
+    const secondIds = secondBody.results.map((result) => result.id);
+
+    expect(secondIds).toHaveLength(5);
+    expect(secondIds).toEqual(expectedIds.slice(20));
+    expect(new Set([...firstBody.results.map((result) => result.id), ...secondIds]).size).toBe(25);
+    expect(secondBody.counts["141jav"]).toBe(25);
+    expect(secondBody.nextCursor).toBeNull();
+  });
+
+  test("rejects partial and malformed pagination cursors", async () => {
+    const invalidUrls = [
+      "/api/scraper/results?source=141jav&cursorCreatedAt=2026-09-17T00%3A00%3A00.000Z",
+      "/api/scraper/results?source=141jav&cursorId=1",
+      "/api/scraper/results?source=141jav&cursorCreatedAt=not-a-date&cursorId=1",
+      "/api/scraper/results?source=141jav&cursorCreatedAt=2026-09-17T00%3A00%3A00.000Z&cursorId=0",
+    ];
+
+    const { GET } = await loadRoute();
+    for (const url of invalidUrls) {
+      const res = await GET(getRequest(url));
+      expect(status(res)).toBe(400);
+      expect(await jsonBody(res)).toEqual({ error: "Invalid pagination cursor" });
+    }
   });
 
   test("returns 500 when the DB throws", async () => {
