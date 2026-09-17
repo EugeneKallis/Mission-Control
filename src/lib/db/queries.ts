@@ -463,10 +463,26 @@ export async function createScrapeResult(data: {
   return db.scrapeResult.create({ data: { ...data, isHidden: false, isDownloaded: false } });
 }
 
-export async function listScrapeResults(source: string) {
+export async function listScrapeResults(
+  source: string,
+  options: { limit: number; before?: { createdAt: Date; id: number } },
+) {
+  const before = options.before;
   return db.scrapeResult.findMany({
-    where: { isHidden: false, source },
-    orderBy: { createdAt: "desc" },
+    where: {
+      isHidden: false,
+      source,
+      ...(before
+        ? {
+            OR: [
+              { createdAt: { lt: before.createdAt } },
+              { createdAt: before.createdAt, id: { lt: before.id } },
+            ],
+          }
+        : {}),
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: options.limit,
   });
 }
 
