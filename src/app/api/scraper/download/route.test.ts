@@ -299,17 +299,18 @@ describe("POST /api/scraper/download", () => {
     expect(after?.isDownloaded).toBe(false);
   });
 
-  test("prefers magnet when both magnet AND torrent are present", async () => {
+  test("prefers torrent when both magnet AND torrent are present", async () => {
     const row = await seed({
       source: "141jav",
       title: "both links",
       magnetLink: "magnet:?xt=urn:btih:AAA",
       torrentLink: "https://example.com/both.torrent",
     });
+    globalThis.fetch = mock(async () => new Response("torrent", { status: 200 })) as unknown as typeof fetch;
     const { POST } = await loadRoute();
     const res = await POST(jsonRequest("/api/scraper/download", { id: row.id }));
     expect(status(res)).toBe(200);
-    expect(addMagnetMock).toHaveBeenCalledTimes(1);
-    expect(addTorrentMock).not.toHaveBeenCalled();
+    expect(addMagnetMock).not.toHaveBeenCalled();
+    expect(addTorrentMock).toHaveBeenCalledTimes(1);
   });
 });

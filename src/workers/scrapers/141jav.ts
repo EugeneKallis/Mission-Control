@@ -2,9 +2,9 @@
  * 141jav scraper.
  *
  * Fetches up to 3 pages of https://www.141jav.com/tag/Big%20Tits, parses each
- * card with cheerio (goquery equivalent), and inserts eligible magnets into
- * the `scrape_results` table. Mirrors `Scrape141Jav` + `run141JavScrape` in
- * `~/ServerTool/cmd/web/handler/scraper.go`.
+ * card with cheerio (goquery equivalent), and inserts eligible torrent links
+ * into the `scrape_results` table. Mirrors `Scrape141Jav` + `run141JavScrape`
+ * in `~/ServerTool/cmd/web/handler/scraper.go`.
  */
 
 import { load } from "cheerio";
@@ -117,7 +117,7 @@ export async function run141JavScrape(): Promise<{ pages: number; inserted: numb
           title,
           imageUrl: item.image || null,
           magnetLink: item.magnet,
-          torrentLink: null,
+          torrentLink: item.torrent || null,
           uniqueKey,
           infoHash: null,
           fileSize: null,
