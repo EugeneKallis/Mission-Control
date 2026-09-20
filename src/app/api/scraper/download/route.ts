@@ -98,10 +98,9 @@ export async function POST(request: NextRequest) {
     const zurg = new ZurgClient(cfg.zurgUrl, cfg.zurgApiKey);
     const isRealMagnet = magnet ? magnet.startsWith("magnet:") : false;
 
-    // Prefer the torrent file when the source provides both links. Real-Debrid
-    // can fail to resolve otherwise-valid magnets with `magnet_error`, while
-    // the .torrent contains the metadata it needs directly.
-    if (torrent || (magnet && !isRealMagnet)) {
+    if (magnet && isRealMagnet) {
+      await zurg.addMagnet(magnet);
+    } else {
       const torrentUrl = torrent || magnet;
       if (!torrentUrl || !isAllowedTorrentUrl(torrentUrl)) {
         return NextResponse.json({ success: false, error: "Invalid torrent URL" }, { status: 400 });
@@ -112,10 +111,6 @@ export async function POST(request: NextRequest) {
       }
       const data = await res.arrayBuffer();
       await zurg.addTorrent(data, `${sanitizeFilename(item.title)}.torrent`);
-    } else if (magnet && isRealMagnet) {
-      await zurg.addMagnet(magnet);
-    } else {
-      return NextResponse.json({ success: false, error: "Invalid torrent or magnet link" }, { status: 400 });
     }
 
     await markScrapeResultDownloaded(parsed.data.id);
