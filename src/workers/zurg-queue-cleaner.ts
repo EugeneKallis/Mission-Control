@@ -45,14 +45,23 @@ export async function main(): Promise<void> {
     interval: { type: "number", default: DEFAULT_INTERVAL_S },
     category: { type: "string", default: process.env.ZURG_CATEGORY || "special" },
   });
-  const cfg = await resolveConfig();
-  const client = new ZurgClient(cfg.zurgUrl, cfg.zurgApiKey, args.category);
   banner("zurg-queue-cleaner");
-  info(`Zurg: ${cfg.zurgUrl}`);
-  info(`Special view: ${cfg.specialMediaPath}`);
-  if (args.once) return pollOnce(client, cfg.specialMediaPath);
-  for (;;) {
+
+  let announced = false;
+  const pollConfiguredOnce = async () => {
+    const cfg = await resolveConfig();
+    if (!announced) {
+      info(`Zurg: ${cfg.zurgUrl}`);
+      info(`Special view: ${cfg.specialMediaPath}`);
+      announced = true;
+    }
+    const client = new ZurgClient(cfg.zurgUrl, cfg.zurgApiKey, args.category);
     await pollOnce(client, cfg.specialMediaPath);
+  };
+
+  if (args.once) return pollConfiguredOnce();
+  for (;;) {
+    await pollConfiguredOnce();
     await Bun.sleep(args.interval * 1000);
   }
 }
