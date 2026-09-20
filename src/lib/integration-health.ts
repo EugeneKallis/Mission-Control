@@ -112,11 +112,12 @@ export async function getIntegrationHealth(refresh = false): Promise<Integration
       headers: { Authorization: `Bearer ${config.realDebridApiKey}` },
     }),
     checkHttpIntegration({
-      id: "decypharr",
+      id: "zurg",
       category: "Downloads",
-      name: "Decypharr",
-      configured: Boolean(config.decypharrUrl),
-      url: `${config.decypharrUrl.replace(/\/+$/, "")}/api/torrents`,
+      name: "Zurg",
+      configured: Boolean(config.zurgUrl && config.zurgApiKey),
+      url: `${config.zurgUrl.replace(/\/+$/, "")}/api/v2/app/version`,
+      headers: { Authorization: `Bearer ${config.zurgApiKey}` },
     }),
     checkHttpIntegration({
       id: "pulse",

@@ -64,23 +64,19 @@ restart:
 logs:
     journalctl -u mission-control.service -f
 
-# ── Magnet Bridge (long-running Decypharr poller) ────────────────────────────
+# ── Zurg Queue (long-running completion cleaner) ─────────────────────────────
 
-# Run the magnet bridge worker in the foreground (for local dev / debugging)
-magnet-bridge:
-    bun run src/workers/magnet-bridge.ts
+zurg-queue:
+    bun run src/workers/zurg-queue-cleaner.ts
 
-# Tail magnet bridge logs
-magnet-bridge-logs:
-    journalctl -u mission-control-magnet-bridge.service -f
+zurg-queue-logs:
+    journalctl -u mission-control-zurg-queue-cleaner.service -f
 
-# Restart the magnet bridge service (picks up new code after deploy)
-magnet-bridge-restart:
-    systemctl restart mission-control-magnet-bridge.service
+zurg-queue-restart:
+    systemctl restart mission-control-zurg-queue-cleaner.service
 
-# Stop the magnet bridge service
-magnet-bridge-stop:
-    systemctl stop mission-control-magnet-bridge.service
+zurg-queue-stop:
+    systemctl stop mission-control-zurg-queue-cleaner.service
 
 # ── BL Finder (long-running media readability poller) ─────────────────────────
 

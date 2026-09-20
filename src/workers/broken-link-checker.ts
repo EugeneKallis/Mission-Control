@@ -30,6 +30,8 @@
  */
 
 import { discoverFiles, probeFileReadable } from "@/lib/broken-link";
+import { getConfig } from "@/lib/config";
+import { basename, dirname } from "path";
 import { checkMediaDependencies } from "@/lib/media-dependency-breaker";
 import {
   getBlFinderConfig,
@@ -198,22 +200,17 @@ export async function pollOnce(opts: PollOnceOptions): Promise<BlFinderPassResul
     // 1. Discovery (unless --check-only)
     if (!opts.checkOnly && opts.forceDiscover) {
       try {
+        const cfg = getConfig();
         const seeds = await discoverFiles({
-          // Hardcoded to /mnt/debrid/media/special — the BL Finder only
-          // checks the special directory, not movies/tv/etc.
-          basePath: "/mnt/debrid/media",
-          mediaDirs: ["special"],
+          basePath: dirname(cfg.specialMediaPath),
+          mediaDirs: [basename(cfg.specialMediaPath)],
         });
         for (const s of seeds) {
-          await upsertFileCheck({
-            filePath: s.filePath,
-            mediaDir: s.mediaDir,
-            fileSize: s.fileSize,
-          });
+          await upsertFileCheck({ filePath: s.filePath, mediaDir: s.mediaDir, fileSize: s.fileSize });
         }
         result.discovered = seeds.length;
-        info(`discovered ${seeds.length} media symlink(s)`);
-        void logBlFinder("info", `discovered ${seeds.length} media symlink(s)`);
+        info(`discovered ${seeds.length} media file(s)`);
+        void logBlFinder("info", `discovered ${seeds.length} media file(s)`);
       } catch (err) {
         warn(`Discovery failed: ${(err as Error).message}`);
         void logBlFinder("warn", `Discovery failed: ${(err as Error).message}`);

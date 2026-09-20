@@ -47,6 +47,9 @@ describe("AppConfig defaults", () => {
     expect(cfg.mediaBasePath).toBe("/mnt/debrid/media/");
     expect(cfg.mediaDirectories.length).toBeGreaterThan(0);
     expect(cfg.pulseApiKey).toBe("");
+    expect(cfg.zurgUrl).toBe("http://192.168.1.99:9999");
+    expect(cfg.zurgApiKey).toBe("");
+    expect(cfg.specialMediaPath).toBe("/mnt/zurg/special");
   });
 
   test("reads PULSE_API_KEY from the environment", async () => {

@@ -8,7 +8,7 @@
  *
  * Not covered (integration):
  *  - sweep: real fs.watch + readdir loop
- *  - submitTorrent / submitMagnet: real file I/O + Decypharr HTTP
+ *  - submitTorrent / submitMagnet: real file I/O + Zurg HTTP
  *  - main: the long-running watcher + signal handler
  */
 

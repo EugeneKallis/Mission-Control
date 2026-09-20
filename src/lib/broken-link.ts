@@ -106,10 +106,14 @@ export async function probeFileReadable(
     return { ok: false, packets: 0, error: `spawn failed: ${(err as Error).message}`, elapsedMs: Date.now() - started };
   }
 
-  const timeout = new Promise<"timeout">((resolve) =>
-    setTimeout(() => resolve("timeout"), timeoutSec * 1000),
-  );
-  const exited = await Promise.race([proc.exited, timeout]);
+  const timeout = Promise.withResolvers<"timeout">();
+  const timer = setTimeout(() => timeout.resolve("timeout"), timeoutSec * 1000);
+  let exited: number | "timeout";
+  try {
+    exited = await Promise.race([proc.exited, timeout.promise]);
+  } finally {
+    clearTimeout(timer);
+  }
   if (exited === "timeout") {
     try { proc.kill(); } catch { /* ignore */ }
     return { ok: false, packets: 0, error: `timeout after ${timeoutSec}s`, elapsedMs: Date.now() - started };
@@ -176,22 +180,18 @@ function nodeStreamToWebStream(stream: NodeJS.ReadableStream): ReadableStream<Ui
 // ── Discovery ─────────────────────────────────────────────────────────────
 
 export interface FileCheckSeed {
-  filePath: string;        // absolute POSIX path (e.g. /mnt/debrid/media/movies/...)
-  mediaDir: string;        // top-level media dir name (movies, tv, special, ...)
-  symlinkTarget: string;   // absolute path the symlink points to
-  fileSize: number | null; // target size if available
+  filePath: string;
+  mediaDir: string;
+  fileSize: number | null;
 }
 
 /**
  * Walk every configured media dir under MEDIA_BASE_PATH and yield one
- * `FileCheckSeed` per media-file symlink. The walk is done with bounded
- * concurrency so a 10k-entry tree doesn't fork thousands of readdirs.
+ * `FileCheckSeed` per media symlink or regular media file. The walk uses
+ * bounded concurrency so a large tree does not fork thousands of readdirs.
  *
- * Excludes the symlink itself when its target isn't a media extension
- * (regular files, non-media symlinks, directories). Broken symlinks
- * (where `readlink` succeeds but `stat` fails) are still returned as
- * seeds with `fileSize=null` — the probe will report them as broken
- * and the user can decide what to do.
+ * Broken symlinks are returned with `fileSize=null`; regular files and
+ * readable symlinks carry the size reported by the backing mount.
  */
 export async function discoverFiles(opts?: {
   basePath?: string;
@@ -260,9 +260,10 @@ async function walkForMedia(
       out.push({
         filePath: toPosix(full),
         mediaDir,
-        symlinkTarget: target,
         fileSize: size,
       });
+    } else if (e.isFile() && isMedia(e.name)) {
+      out.push({ filePath: toPosix(full), mediaDir, fileSize: (await stat(full)).size });
     } else if (e.isDirectory()) {
       await walkForMedia(full, mediaDir, out, concurrency, delayMs);
     }

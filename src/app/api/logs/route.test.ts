@@ -75,14 +75,14 @@ describe("GET /api/logs", () => {
     expect(journalCall!.args).toContain("mission-control.service");
   });
 
-  test("uses the magnet-bridge service when service=magnet-bridge", async () => {
+  test("uses the zurg-queue service when service=zurg-queue", async () => {
     const { GET } = await loadRoute();
     const res = await GET(
-      buildRequest("http://localhost/api/logs?service=magnet-bridge"),
+      buildRequest("http://localhost/api/logs?service=zurg-queue"),
     );
     expect(status(res)).toBe(200);
     const journalCall = execCalls.find((c) => c.cmd === "journalctl");
-    expect(journalCall!.args).toContain("mission-control-magnet-bridge.service");
+    expect(journalCall!.args).toContain("mission-control-zurg-queue-cleaner.service");
   });
 
   test("passes --since and the lines count to journalctl when lines is numeric", async () => {
@@ -177,7 +177,7 @@ describe("GET /api/logs", () => {
     const text = await res.text();
     expect(text).toContain("Unknown service: unknown-svc");
     expect(text).toContain("web");
-    expect(text).toContain("magnet-bridge");
+    expect(text).toContain("zurg-queue");
     expect(text).toContain("broken-link-checker");
     expect(text).toContain("scraper");
   });

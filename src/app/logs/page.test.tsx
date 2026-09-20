@@ -81,7 +81,7 @@ function renderPage() {
 const defaultAlertCounts = {
   perService: {
     web: 0,
-    "magnet-bridge": 3,
+    "zurg-queue": 3,
     "broken-link-checker": 0,
     scraper: 1,
     "agent-tasks": 0,
@@ -92,7 +92,7 @@ const defaultAlertCounts = {
 
 const visibleCounts = {
   web: 1,
-  "magnet-bridge": 2,
+  "zurg-queue": 2,
   "broken-link-checker": 0,
   scraper: 1,
   "agent-tasks": 0,
@@ -137,7 +137,7 @@ describe("LogsPage", () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /Web$/i })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /Magnet Bridge$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Zurg Queue$/i })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /BL Finder$/i })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Scraper$/i })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Agent Tasks$/i })).toBeInTheDocument();
@@ -157,7 +157,7 @@ describe("LogsPage", () => {
     mockFetch(defaultResponder);
     renderPage();
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Magnet Bridge 2/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Zurg Queue 2/i })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Scraper 1/i })).toBeInTheDocument();
     });
 
@@ -222,7 +222,7 @@ describe("LogsPage", () => {
     // the inactive tab counts. New errors will be returned by the next poll.
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /Web$/i })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /Magnet Bridge$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Zurg Queue$/i })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Scraper$/i })).toBeInTheDocument();
       expect(screen.queryByText("ERROR: database error")).not.toBeInTheDocument();
     });
@@ -301,7 +301,7 @@ describe("LogsPage", () => {
 
     // Tab badges are cleared after acknowledgement.
     expect(screen.getByRole("button", { name: /Web$/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Magnet Bridge$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Zurg Queue$/i })).toBeInTheDocument();
   });
 
   test("ignores stale log response from previous tab after switching tabs", async () => {
@@ -348,7 +348,7 @@ describe("LogsPage", () => {
     const secondVisible = createDeferred<MockResponse>();
     const zeroCounts = {
       web: 0,
-      "magnet-bridge": 0,
+      "zurg-queue": 0,
       "broken-link-checker": 0,
       scraper: 0,
       "agent-tasks": 0,
@@ -380,7 +380,7 @@ describe("LogsPage", () => {
       secondVisible.resolve({ body: { perService: zeroCounts, total: 0, acknowledgedAt: null } });
     });
     await waitFor(() => {
-      const mb = screen.getByRole("button", { name: /Magnet Bridge$/i });
+      const mb = screen.getByRole("button", { name: /Zurg Queue$/i });
       expect(mb.textContent).not.toMatch(/\d/);
     });
 
@@ -391,7 +391,7 @@ describe("LogsPage", () => {
 
     // Badges should stay cleared.
     await waitFor(() => {
-      const mb = screen.getByRole("button", { name: /Magnet Bridge$/i });
+      const mb = screen.getByRole("button", { name: /Zurg Queue$/i });
       expect(mb.textContent).not.toMatch(/\d/);
       const scraper = screen.getByRole("button", { name: /Scraper$/i });
       expect(scraper.textContent).not.toMatch(/\d/);

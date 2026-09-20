@@ -131,13 +131,6 @@ export interface ArrSeries {
   tvdbId?: number;
 }
 
-// ── Decypharr / Torrent Types ─────────────────────────────────────────────
-
-export interface DecypharrClientConfig {
-  baseUrl: string;
-  arrName: string;
-  downloadFolder: string;
-}
 
 // ── Plex Types ────────────────────────────────────────────────────────────
 

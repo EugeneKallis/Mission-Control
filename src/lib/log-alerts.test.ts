@@ -261,7 +261,7 @@ describe("getAllLogAlertCounts", () => {
     );
     const result = await getAllLogAlertCounts();
     expect(result.perService.web).toBe(0);
-    expect(result.perService["magnet-bridge"]).toBe(0);
+    expect(result.perService["zurg-queue"]).toBe(0);
     expect(result.total).toBe(0);
   });
 });
@@ -311,11 +311,11 @@ describe("getVisibleLogAlertCounts", () => {
     const result = await getVisibleLogAlertCounts();
     expect(result.perService.web).toBe(2);
     expect(result.perService.scraper).toBe(1);
-    expect(result.perService["magnet-bridge"]).toBe(2);
+    expect(result.perService["zurg-queue"]).toBe(2);
     expect(result.perService["broken-link-checker"]).toBe(0);
     expect(result.total).toBe(
       result.perService.web +
-        result.perService["magnet-bridge"] +
+        result.perService["zurg-queue"] +
         result.perService.scraper +
         result.perService["broken-link-checker"],
     );

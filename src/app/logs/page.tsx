@@ -7,7 +7,7 @@ import { isErrorLine } from "@/lib/log-alerts";
 
 const LABELS: Record<string, string> = {
   web: "Web",
-  "magnet-bridge": "Magnet Bridge",
+  "zurg-queue": "Zurg Queue",
   "broken-link-checker": "BL Finder",
   scraper: "Scraper",
   "agent-tasks": "Agent Tasks",

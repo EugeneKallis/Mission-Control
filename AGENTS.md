@@ -76,7 +76,7 @@ cd /opt/mission-control && just install-service
 
 This sets up:
 - `mission-control.service` — the Next.js app (React frontend + API routes)
-- `mission-control-magnet-bridge.service` — long-running Decypharr poller (auto-restart)
+- `mission-control-zurg-queue-cleaner.service` — long-running Zurg poller (auto-restart)
 - `mission-control-broken-link-checker.service` — long-running broken link checker (auto-restart)
 - `mission-control-scraper.service` — one-off scraper task (manual runs only)
 - `mission-control-energy-price-scraper.service` — one-off energy price scraper (manual runs only)
@@ -99,7 +99,7 @@ The `deploy/` directory contains the production system:
 - `cleanup.sh` — remove old systemd services replaced by in-process worker timer scheduler
 - `mission-control.service` — systemd unit for the Next.js app (frontend + API routes)
 - `mission-control-scraper.service` — systemd unit for the scraper task (runs once and exits)
-- `mission-control-magnet-bridge.service` — systemd unit for the magnet bridge worker (long-running, `Restart=always`)
+- `mission-control-zurg-queue-cleaner.service` — systemd unit for the non-destructive Zurg queue cleaner (long-running, `Restart=always`)
 - `mission-control-broken-link-checker.service` — systemd unit for the broken link checker (long-running, `Restart=always`)
 - `mission-control-energy-price-scraper.service` — systemd unit for the EnergizeCT rate scraper (runs once and exits)
 
@@ -122,12 +122,12 @@ The script just does one job and exits; the scheduler calls it on the desired in
 
 ## Long-running workers (systemd service, `Restart=always`)
 
-Some workers (e.g. `src/workers/magnet-bridge.ts`, `src/workers/torrent-watch.ts`,
+Some workers (e.g. `src/workers/zurg-queue-cleaner.ts`, `src/workers/torrent-watch.ts`,
 `src/workers/broken-link-checker.ts`) are **always-on pollers**, not cron jobs. For these, ship a persistent
 `mission-control-<name>.service` unit alongside the code, install it from
 `deploy/install.sh`, and restart it from `deploy/deploy.sh` so it picks up
-new code on every push. The `just magnet-bridge`, `just magnet-bridge-logs`,
-`just magnet-bridge-restart`, and `just magnet-bridge-stop` recipes are
+new code on every push. The `just zurg-queue`, `just zurg-queue-logs`,
+`just zurg-queue-restart`, and `just zurg-queue-stop` recipes are
 the per-service management surface. `bl-finder`, `bl-finder-logs`,
 `bl-finder-restart`, and `bl-finder-stop` mirror the same pattern. Mirror
 this pattern for any new
@@ -210,23 +210,24 @@ env-only `getConfig()` and are unaffected.
 ### Global Config registry and API
 
 `CONFIG_FIELDS` in `src/lib/config-fields.ts` is the canonical registry for the
-five active global settings (`pulse_api_key`, `plex_token`, `plex_url`,
-`real_debrid_api_key`, `decypharr_url`). Each entry carries a `group`
+six active global settings (`pulse_api_key`, `plex_token`, `plex_url`,
+`real_debrid_api_key`, `zurg_url`, `zurg_api_key`). Each entry carries a `group`
 (`"media"` / `"downloads"` / `"monitoring"`), label, description, kind, and
-default; `fieldsForGroup(group)` selects the fields for a scoped modal. The
-retired `/admin/config` page is gone — the fields are edited from gear buttons
-on Pulse (monitoring), Scraper (downloads), and Integration Health (Media /
-Downloads / Monitoring); Arr URLs/API keys are edited from the Arr settings
-modal on Arr Drift and Integration Health. Repeatable records such as Proxmox
-endpoints, notification rules, runbooks, and synthetic journeys remain owned by
-their feature-specific tables and settings pages.
+default; `fieldsForGroup(group)` selects the fields for a scoped modal.
+
+The retired `/admin/config` page is gone. These fields are edited from gear
+buttons on Pulse (monitoring), Scraper (downloads), and Integration Health
+(Media / Downloads / Monitoring); Arr URLs and API keys remain in the Arr
+settings modal. Repeatable records such as Proxmox endpoints, notification
+rules, runbooks, and synthetic journeys remain owned by their feature-specific
+tables and settings pages.
 
 Effective values use environment > settings-modals DB > registry default
 precedence. Typed `AppConfig` consumers call `resolveConfig()` (env > DB >
-default); `getConfig()` is env-only. The three Decypharr consumers
-(`/api/scraper/download`, `src/workers/magnet-bridge.ts`,
-`src/workers/torrent-watch.ts`) use `resolveConfig()` so a DB-stored
-`decypharr_url` reaches them.
+default); `getConfig()` is env-only. Zurg submission consumers are
+`/api/scraper/download` and `src/workers/torrent-watch.ts`; the queue cleaner
+uses the same resolver and forgets completed jobs only after their release is
+visible under `specialMediaPath` (`/mnt/zurg/special` by default).
 
 - `GET /api/config` — Returns all stored config values, including registry and Arr
   keys, with `Cache-Control: no-store`.
@@ -416,7 +417,7 @@ test files.
   `agents/event-stream`, `agents/registry`, `arr-map`, `config`,
   `migrate`, `runner`, `cron-scheduler`).
 - Every HTTP client in `src/lib/clients/` with `fetch` mocked
-  (decypharr, real-debrid, arr, plex, trakt, tvmaze).
+  (zurg, real-debrid, arr, plex, trakt, tvmaze).
 - Both HTML parsers in `src/workers/scrapers/` plus the shared
   helpers (`sanitizeTitle`, `parseSize`, `scrapePixHost`, `fetchHtml`).
 - The scraping status helpers (`withScrapingStatus`,
@@ -433,8 +434,8 @@ test files.
 - The file scanner's pure helpers (`classifyTarget`, `toPosix`,
   `parentOf`, `emptyToEmpty`, `pMap`, `computeFileCounts`).
 - The scraper runner's `parseTargets` argv parser.
-- The magnet-bridge worker's pure helpers (`resolvePath`,
-  `getDirSize`, `cleanupSmallSymlinks`, `moveToLibrary`).
+- The Zurg queue cleaner's `pollOnce` behavior (completed versus incomplete or
+  invisible jobs, per-job failure isolation, and no file deletion).
 - **React components** in `src/components/ui/`, `src/components/layout/`,
   `src/components/toast-provider.tsx`,
   `src/components/macro-log-panel.tsx`, `src/components/browse-scripts.tsx`,
@@ -457,10 +458,9 @@ test files.
   Next.js test harness + RSC rendering. The components they render
   *are* covered, so the logic is tested in isolation.
 - **Worker main-loop bodies** (`agent.ts`, `scraper-worker.ts`,
-  `torrent-watch.ts`, `magnet-bridge.ts` I/O loop) — integration
-  scripts that need real HTTP, real symlinks, or a live agent. The
-  pure helpers they call are covered; the loop bodies are smoke-tested
-  to assert `main()` exists.
+  `torrent-watch.ts`, `zurg-queue-cleaner.ts`) — integration scripts that need
+  real HTTP, real files, or a live agent. Their exported units are tested
+  separately.
 - **`scripts/util/icon-gen.ts`** — sharp + image I/O, low value.
 - **Scripts that perform live OAuth** (`plex-token-extractor.ts`,
   `trakt-exporter.ts`) — interactive, not unit-testable.
@@ -632,7 +632,7 @@ can share it. The web page polls `/api/scraper/status?source=` every 2s.
 | POST   | `/api/scraper/trigger-all`        | Trigger all scrape sources              |
 | POST   | `/api/scraper/hide`               | Hide one result (id)                   |
 | POST   | `/api/scraper/undo`               | Un-hide (source = last hidden, or id)  |
-| POST   | `/api/scraper/download`           | Submit to Decypharr, mark downloaded   |
+| POST   | `/api/scraper/download`           | Submit to Zurg, mark downloaded   |
 | POST   | `/api/scraper/hide-all`           | Hide all (or all for a source)         |
 | POST   | `/api/scraper/refresh`            | Clear + rescrape (source, or all)      |
 
@@ -726,8 +726,8 @@ scripts/arr/                 # Sonarr/Radarr scripts
   sync-profiles.ts           # Interactive Tag / Quality / Delay profile sync
 scripts/media/               # File-system cleanup scripts
   debrid-cleaner.ts          # Remove rclone folders no media symlink references
-  special-cleaner.ts         # Remove <75 MB files + empty dirs in media/special
-  broken-link-finder.ts      # Find broken symlinks + corrupt media (ffprobe)
+  broken-link-finder.ts      # Find broken symlinks and corrupt regular media files
+  special-cleaner.ts         # Dry-run/default cleanup under SPECIAL_MEDIA_PATH
 scripts/plex/                # Plex.tv / Trakt scripts
   plex-token-extractor.ts    # OAuth PIN flow → print PLEX_TOKEN
   plex-to-arr.ts             # Sync Plex CW + Watchlist → Sonarr/Radarr (anime detection)
@@ -739,13 +739,16 @@ scripts/util/                # Utility scripts
   command-runner.ts          # SSH wrapper with fixed key/host
   github-release.ts          # Poll GitHub for latest releases of tracked repos
   remove-legacy-agents.ts    # Drop residual legacy server_agents table (dry-run default)
-src/workers/torrent-watch.ts # Long-running watch dir → Decypharr (NEW worker)
-src/workers/magnet-bridge.ts # Long-running Decypharr poller — moves finished `special`
-                            # torrents into the media library, cleans small symlinks,
-                            # removes the torrent from Decypharr. Pure fs helpers
-                            # (resolvePath / getDirSize / cleanupSmallSymlinks /
-                            # moveToLibrary) are exported + tested in magnet-bridge.test.ts.
+src/workers/torrent-watch.ts # Long-running watch dir → Zurg
+src/workers/zurg-queue-cleaner.ts # Non-destructive completed-job cleaner
+                               # removes only the Zurg queue record after the
+                               # release exists in /mnt/zurg/special.
 ```
+
+The special cleaner intentionally operates on regular files in
+`/mnt/zurg/special`; that view is equivalent to the former
+`/mnt/debrid/media/special`, and removing a visible file does not remove its
+whole Zurg torrent.
 
 ### Script conventions
 

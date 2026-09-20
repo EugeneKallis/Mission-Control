@@ -1,20 +1,19 @@
 #!/usr/bin/env bun
 /**
  * Special cleaner — delete small files (<75 MB) and empty directories
- * under the configured "special" media paths.
+ * under SPECIAL_MEDIA_PATH.
  *
- * Mirrors the Go agent: walks every subdir of MEDIA_BASE_PATH/special,
- * removes any regular file below 75 MB, removes any empty directory
- * after the file sweep. Symlinks are left alone (debrid-cleaner and
- * broken-link-finder handle those).
+ * `/mnt/zurg/special` is Zurg's filtered library view and is equivalent to
+ * the former `/mnt/debrid/media/special` cleanup target. Removing a file
+ * here does not remove the whole torrent.
  *
  * Usage:
  *   just script scripts/media/special-cleaner.ts              # dry run
- *   just script scripts/media/special-cleaner.ts -- --delete  # actually rm
+ *   just script scripts/media/special-cleaner.ts -- --run     # actually rm
  *   just script scripts/media/special-cleaner.ts -- --threshold 50 --workers 8
  *
  * Env:
- *   MEDIA_BASE_PATH
+ *   SPECIAL_MEDIA_PATH (default /mnt/zurg/special)
  */
 
 import { lstat, readdir, rm } from "fs/promises";
@@ -25,7 +24,6 @@ import { humanBytes } from "../_lib/format";
 import { banner, error, info, summary, warn } from "../_lib/log";
 
 export const DEFAULT_THRESHOLD_MB = 75;
-
 /**
  * Pure helpers — exported for unit testing.
  *
@@ -54,7 +52,7 @@ export async function main(argv?: string[]) {
   banner("Special cleaner", { dryRun: !args.run });
 
   const cfg = getConfig();
-  const root = join(cfg.mediaBasePath, "special");
+  const root = cfg.specialMediaPath;
   info(`Scanning: ${root}`);
   info(`Threshold: ${args.threshold} MB`);
   info(`Workers: ${args.workers}`);

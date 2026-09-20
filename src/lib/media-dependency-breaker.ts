@@ -7,7 +7,7 @@ const PROBE_TIMEOUT_MS = 5_000;
 const NZBDAV_PATH = "/mnt/addons/nzbdav";
 
 export interface MediaDependencyProbe {
-  id: "unraid" | "nzbdav" | "nfs" | "rclone";
+  id: "zurg" | "nzbdav" | "nfs" | "zurg-mount";
   name: string;
   ok: boolean;
   detail: string;
@@ -37,22 +37,18 @@ function withTimeout<T>(promise: Promise<T>, ms = PROBE_TIMEOUT_MS): Promise<T> 
   });
 }
 
-async function probeHttp(url: string): Promise<MediaDependencyProbe> {
+async function probeHttp(url: string, apiKey: string): Promise<MediaDependencyProbe> {
   try {
-    const response = await fetch(`${url.replace(/\/+$/, "")}/api/torrents`, {
+    const response = await fetch(`${url.replace(/\/+$/, "")}/api/v2/app/version`, {
       cache: "no-store",
+      headers: { Authorization: `Bearer ${apiKey}` },
       signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
     });
-    return {
-      id: "unraid",
-      name: "Unraid",
-      ok: response.ok,
-      detail: `HTTP ${response.status}`,
-    };
+    return { id: "zurg", name: "Zurg", ok: response.ok, detail: `HTTP ${response.status}` };
   } catch (error) {
     return {
-      id: "unraid",
-      name: "Unraid",
+      id: "zurg",
+      name: "Zurg",
       ok: false,
       detail: error instanceof Error && error.name === "TimeoutError" ? "Timed out" : "Unreachable",
     };
@@ -96,10 +92,10 @@ export async function probeMediaDependencies(): Promise<MediaDependencyProbe[]> 
   const config = await resolveConfig();
   const mountInfo = await readFile("/proc/self/mountinfo", "utf8").catch(() => "");
   return Promise.all([
-    probeHttp(config.decypharrUrl),
+    probeHttp(config.zurgUrl, config.zurgApiKey),
     probeMount("nzbdav", "NZBDav", NZBDAV_PATH, mountInfo),
     probeMount("nfs", "NFS media", config.mediaBasePath, mountInfo),
-    probeMount("rclone", "rclone", config.rclonePath, mountInfo),
+    probeMount("zurg-mount", "Zurg mount", config.specialMediaPath, mountInfo),
   ]);
 }
 

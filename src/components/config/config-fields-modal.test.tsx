@@ -40,7 +40,8 @@ const DOWNLOAD_FIELDS = fieldsForGroup("downloads");
 describe("ConfigFieldsModal", () => {
   test("renders each passed field and pre-fills stored values", async () => {
     globalThis.fetch = mockConfigFetch({
-      decypharr_url: "http://10.0.0.9:8282",
+      zurg_url: "http://10.0.0.9:8282",
+      zurg_api_key: "zurg-secret",
       real_debrid_api_key: "stored-rd-key",
     });
 
@@ -50,11 +51,15 @@ describe("ConfigFieldsModal", () => {
       </ToastProvider>,
     );
 
-    expect(await screen.findByText("Decypharr URL")).toBeInTheDocument();
+    expect(await screen.findByText("Zurg URL")).toBeInTheDocument();
+    expect(screen.getByText("Zurg API Key")).toBeInTheDocument();
     expect(screen.getByText("Real-Debrid API Key")).toBeInTheDocument();
 
-    const urlInput = screen.getByLabelText("Decypharr URL") as HTMLInputElement;
+    const urlInput = screen.getByLabelText("Zurg URL") as HTMLInputElement;
     expect(urlInput.value).toBe("http://10.0.0.9:8282");
+    const zurgKeyInput = screen.getByLabelText("Zurg API Key") as HTMLInputElement;
+    expect(zurgKeyInput.value).toBe("zurg-secret");
+    expect(zurgKeyInput.type).toBe("password");
     const keyInput = screen.getByLabelText("Real-Debrid API Key") as HTMLInputElement;
     expect(keyInput.value).toBe("stored-rd-key");
     expect(keyInput.type).toBe("password");
@@ -64,9 +69,8 @@ describe("ConfigFieldsModal", () => {
     const putBodies: Array<Record<string, string>> = [];
     globalThis.fetch = mockConfigFetch(
       {
-        decypharr_url: "http://10.0.0.9:8282",
-        // A value that belongs to a different group — must NOT be in the PUT body
-        pulse_api_key: "should-not-be-sent",
+        zurg_url: "http://10.0.0.9:8282",
+        zurg_api_key: "zurg-secret",
       },
       putBodies,
     );
@@ -85,7 +89,7 @@ describe("ConfigFieldsModal", () => {
     expect(putBodies.length).toBe(1);
 
     const body = putBodies[0]!;
-    expect(Object.keys(body).sort()).toEqual(["decypharr_url", "real_debrid_api_key"]);
+    expect(Object.keys(body).sort()).toEqual(["real_debrid_api_key", "zurg_api_key", "zurg_url"]);
     expect(body.pulse_api_key).toBeUndefined();
   });
 
@@ -122,7 +126,7 @@ describe("ConfigFieldsModal", () => {
 
     // Clear error state replaces the editable form.
     expect(await screen.findByText(/couldn't load settings/i)).toBeInTheDocument();
-    expect(screen.queryByLabelText("Decypharr URL")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Zurg URL")).not.toBeInTheDocument();
 
     // Attempt Save after the failed GET — it stays disabled and no PUT occurs.
     const saveButton = screen.getByRole("button", { name: "Save" });

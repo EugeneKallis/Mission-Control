@@ -135,14 +135,19 @@ describe("resolveConfig — DB fallback", () => {
     expect(cfg.pulseApiKey).toBe("db-pulse");
   });
 
-  test("fills decypharrUrl from DB when env is empty", async () => {
-    delete process.env.DECYPHARR_URL;
-    await seedConfig({ decypharr_url: "http://db-decypharr:8282" });
+  test("fills Zurg URL and API key from DB when env is empty", async () => {
+    delete process.env.ZURG_URL;
+    delete process.env.ZURG_API_KEY;
+    await seedConfig({
+      zurg_url: "http://db-zurg:9999",
+      zurg_api_key: "db-zurg-key",
+    });
 
-    const mod = await loadFreshConfig("fallback-decypharr");
+    const mod = await loadFreshConfig("fallback-zurg");
     const cfg = await mod.resolveConfig();
 
-    expect(cfg.decypharrUrl).toBe("http://db-decypharr:8282");
+    expect(cfg.zurgUrl).toBe("http://db-zurg:9999");
+    expect(cfg.zurgApiKey).toBe("db-zurg-key");
   });
 
   test("fills all three fields from DB when env is completely empty", async () => {
@@ -210,6 +215,21 @@ describe("resolveConfig — env wins over DB", () => {
     const cfg = await mod.resolveConfig();
 
     expect(cfg.plexUrl).toBe("http://env-plex:32400");
+  });
+
+  test("env Zurg values take precedence over DB values", async () => {
+    process.env.ZURG_URL = "http://env-zurg:9999";
+    process.env.ZURG_API_KEY = "env-zurg-key";
+    await seedConfig({
+      zurg_url: "http://db-zurg:9999",
+      zurg_api_key: "db-zurg-key",
+    });
+
+    const mod = await loadFreshConfig("env-wins-zurg");
+    const cfg = await mod.resolveConfig();
+
+    expect(cfg.zurgUrl).toBe("http://env-zurg:9999");
+    expect(cfg.zurgApiKey).toBe("env-zurg-key");
   });
 });
 

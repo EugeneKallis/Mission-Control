@@ -2,8 +2,8 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # Cleanup script — removes old systemd services that are no longer needed.
 #
-# This removes the scraper and energy-price-scraper services and timers
-# that were replaced by the in-process worker timer scheduler.
+# This removes scraper timer units replaced by the in-process scheduler and the
+# retired magnet bridge service replaced by the Zurg queue cleaner.
 #
 # Usage:
 #   ./deploy/cleanup.sh          # dry run (show what would be removed)
@@ -23,12 +23,13 @@ if $DRY_RUN; then
   echo ""
 fi
 
-# Services to remove (replaced by in-process worker timer scheduler)
+# Services retired by the worker scheduler or Zurg queue cleaner
 OLD_SERVICES=(
   "mission-control-scraper.service"
   "mission-control-scraper.timer"
   "mission-control-energy-price-scraper.service"
   "mission-control-energy-price-scraper.timer"
+  "mission-control-magnet-bridge.service"
 )
 
 echo "The following services will be removed:"

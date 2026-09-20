@@ -17,7 +17,7 @@ describe("global config field registry", () => {
     const downloads = fieldsForGroup("downloads").map((field) => field.key);
     const monitoring = fieldsForGroup("monitoring").map((field) => field.key);
     expect(media).toEqual(["plex_token", "plex_url"]);
-    expect(downloads).toEqual(["real_debrid_api_key", "decypharr_url"]);
+    expect(downloads).toEqual(["real_debrid_api_key", "zurg_url", "zurg_api_key"]);
     expect(monitoring).toEqual(["pulse_api_key"]);
     expect([...media, ...downloads, ...monitoring].sort()).toEqual(CONFIG_FIELDS.map((field) => field.key).sort());
   });

@@ -375,10 +375,11 @@ describe("PUT /api/config", () => {
     expect(body.arr_sonarr_url).toBe("");
   });
 
-  test("saves the five active fields from the canonical registry", async () => {
+  test("saves the six active fields from the canonical registry", async () => {
     const { PUT, GET } = await loadRoute();
     const values = {
-      decypharr_url: "http://decypharr:8282",
+      zurg_url: "http://zurg:9999",
+      zurg_api_key: "zurg-secret",
       real_debrid_api_key: "rd-secret",
       pulse_api_key: "pulse-secret",
       plex_token: "plex-secret",
@@ -391,7 +392,7 @@ describe("PUT /api/config", () => {
   test("rejects invalid URLs", async () => {
     const { PUT } = await loadRoute();
     for (const body of [
-      { decypharr_url: "ftp://bad" },
+      { zurg_url: "ftp://bad" },
       { plex_url: "not-a-url" },
     ]) {
       expect(status(await PUT(jsonRequest("/api/config", body, "PUT")))).toBe(400);

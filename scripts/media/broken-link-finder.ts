@@ -3,10 +3,10 @@
  * Broken-link finder — find broken symlinks and corrupt media in the
  * configured "special" media paths.
  *
- * Walks the special dir, and for each symlink:
- *   - if stat() (which follows the link) throws ENOENT → broken link
- *   - if the link resolves and the target is a media file but ffprobe
- *     can't read it within the configured timeout → corrupt
+ * Walks the special dir:
+ *   - symlinks whose targets are missing are reported as broken
+ *   - readable media symlinks and regular media files that fail ffprobe are
+ *     reported as corrupt
  *
  * Relative symlink targets are resolved transparently by the OS when
  * the symlink path itself is passed to stat() or ffprobe.  We always
@@ -14,7 +14,7 @@
  * link targets work regardless of the process CWD.
  *
  * Writes a markdown report (default: ./broken-links-<ts>.md). Pass
- * `--run` to also remove broken symlinks (never the target).
+ * `--run` to also remove broken symlinks (never their targets).
  *
  * Usage:
  *   just script scripts/media/broken-link-finder.ts              # report only (dry-run)
@@ -24,7 +24,7 @@
  * Requires `ffprobe` on PATH.
  */
 
-import { lstat, readdir, readlink, rm, stat, writeFile } from "fs/promises";
+import { readdir, readlink, rm, stat, writeFile } from "fs/promises";
 import { join } from "path";
 import { getConfig } from "@/lib/config";
 import { parseArgs } from "../_lib/cli";
@@ -42,9 +42,8 @@ export async function main(argv?: string[]) {
     argv,
   );
   banner("Broken-link finder", { dryRun: !args.run });
-
   const cfg = getConfig();
-  const root = join(cfg.mediaBasePath, "special");
+  const root = cfg.specialMediaPath;
   info(`Scanning: ${root}`);
 
   const broken: { path: string; reason: string }[] = [];
@@ -108,23 +107,19 @@ async function walk(
     const full = join(dir, e.name);
     if (e.isSymbolicLink()) {
       try {
-        // stat() follows symlinks — throws ENOENT for dangling targets.
         await stat(full);
-        // Link resolves. Check if the target is media.
         const target = await readlink(full);
-        if (await isMedia(target)) {
-          // Probe the symlink path itself (OS resolves the link transparently),
-          // so relative link targets work regardless of CWD.
-          const ok = await ffprobeOk(full, timeoutSec);
-          if (!ok) corrupt.push({ path: full, reason: `ffprobe failed on ${target}` });
+        if (await isMedia(target) && !(await ffprobeOk(full, timeoutSec))) {
+          corrupt.push({ path: full, reason: `ffprobe failed on ${target}` });
         }
       } catch (err) {
-        const reason =
-          err && typeof err === "object" && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT"
-            ? "target missing or unreadable"
-            : `stat/ffprobe error: ${(err as Error).message}`;
+        const reason = err && typeof err === "object" && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT"
+          ? "dangling symlink"
+          : `probe error: ${(err as Error).message}`;
         broken.push({ path: full, reason });
       }
+    } else if (e.isFile() && isMedia(e.name)) {
+      if (!(await ffprobeOk(full, timeoutSec))) corrupt.push({ path: full, reason: "ffprobe failed" });
     } else if (e.isDirectory()) {
       await walk(full, broken, corrupt, timeoutSec);
     }
@@ -146,10 +141,14 @@ export async function ffprobeOk(target: string, timeoutSec: number): Promise<boo
     stdout: "pipe",
     stderr: "pipe",
   });
-  const timeout = new Promise<"timeout">((resolve) =>
-    setTimeout(() => resolve("timeout"), timeoutSec * 1000),
-  );
-  const result = await Promise.race([proc.exited, timeout]);
+  const timeout = Promise.withResolvers<"timeout">();
+  const timer = setTimeout(() => timeout.resolve("timeout"), timeoutSec * 1000);
+  let result: number | "timeout";
+  try {
+    result = await Promise.race([proc.exited, timeout.promise]);
+  } finally {
+    clearTimeout(timer);
+  }
   if (result === "timeout") {
     try { proc.kill(); } catch { /* ignore */ }
     return false;

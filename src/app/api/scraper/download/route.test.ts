@@ -4,14 +4,14 @@
  * This route:
  *   1. Validates { id }
  *   2. Loads the scrape_result row
- *   3. Calls DecypharrClient.addMagnet (if magnet present) or fetches
- *      the torrent URL + calls addTorrent (if torrentLink present)
+ *   3. Calls ZurgClient.addMagnet for a magnet URI, or fetches an HTTP(S)
+ *      torrent URL and calls addTorrent
  *   4. Marks the row downloaded + hidden
  *
  * It also has an SSRF guard rejecting loopback / private IPs in
  * torrentLink URLs.
  *
- * We mock @/lib/db, @/lib/clients/decypharr, and globalThis.fetch.
+ * We mock @/lib/db, @/lib/clients/zurg, and globalThis.fetch.
  */
 
 import {
@@ -30,12 +30,12 @@ import { jsonRequest, jsonBody, status } from "@/test-utils/route-helpers";
 let testDB: TestDB;
 let addMagnetMock: ReturnType<typeof mock>;
 let addTorrentMock: ReturnType<typeof mock>;
-let decypharrCtorMock: ReturnType<typeof mock>;
+let zurgCtorMock: ReturnType<typeof mock>;
 
-const mockDecypharrModule = {
-  DecypharrClient: class {
-    constructor(_url?: string) {
-      decypharrCtorMock(_url);
+const mockZurgModule = {
+  ZurgClient: class {
+    constructor(_url?: string, _apiKey?: string) {
+      zurgCtorMock(_url, _apiKey);
     }
     addMagnet = (..._args: unknown[]) => addMagnetMock(..._args);
     addTorrent = (..._args: unknown[]) => addTorrentMock(..._args);
@@ -47,7 +47,7 @@ const originalFetch = globalThis.fetch;
 beforeAll(async () => {
   testDB = await makeTestDB();
   mock.module("@/lib/db", () => ({ db: testDB.db }));
-  mock.module("@/lib/clients/decypharr", () => mockDecypharrModule);
+  mock.module("@/lib/clients/zurg", () => mockZurgModule);
 });
 
 afterAll(async () => {
@@ -63,10 +63,8 @@ beforeEach(async () => {
   await testDB.db.scrapeResult.deleteMany();
   addMagnetMock = mock(async () => {});
   addTorrentMock = mock(async () => {});
-  decypharrCtorMock = mock(() => {});
-  // The mock class's instance methods close over these variables, so
-  // reassigning the mocks here is enough — the next `new DecypharrClient()`
-  // will pick up the fresh mocks.
+  zurgCtorMock = mock(() => {});
+  // The mock class methods close over these variables.
 });
 
 async function loadRoute() {
@@ -129,7 +127,7 @@ describe("POST /api/scraper/download", () => {
     expect(body.error).toBe("No magnet or torrent link");
   });
 
-  test("magnet path: calls DecypharrClient.addMagnet and marks the row downloaded", async () => {
+  test("magnet path: calls ZurgClient.addMagnet and marks the row downloaded", async () => {
     const row = await seed({
       source: "141jav",
       title: "magnet item",
@@ -152,30 +150,24 @@ describe("POST /api/scraper/download", () => {
     expect(after?.hiddenAt).toBeInstanceOf(Date);
   });
 
-  test("magnet path: uses DB-stored decypharr_url when env is unset", async () => {
-    // The route must resolve the Decypharr URL through env > DB > default,
-    // so a value configured via /api/config reaches the client.
-    const envUrl = process.env.DECYPHARR_URL;
-    delete process.env.DECYPHARR_URL;
+  test("magnet path: uses DB-stored zurg_url when env is unset", async () => {
+    const envUrl = process.env.ZURG_URL;
+    delete process.env.ZURG_URL;
     try {
       await testDB.db.config.upsert({
         where: { id: 1 },
-        update: { configJson: JSON.stringify({ decypharr_url: "http://db-decypharr:8282" }) },
-        create: { id: 1, configJson: JSON.stringify({ decypharr_url: "http://db-decypharr:8282" }) },
+        update: { configJson: JSON.stringify({ zurg_url: "http://db-zurg:9999" }) },
+        create: { id: 1, configJson: JSON.stringify({ zurg_url: "http://db-zurg:9999" }) },
       });
-      const row = await seed({
-        source: "141jav",
-        title: "db url item",
-        magnetLink: "magnet:?xt=urn:btih:CAFEBABE",
-      });
+      const row = await seed({ source: "141jav", title: "db url item", magnetLink: "magnet:?xt=urn:btih:CAFEBABE" });
       const { POST } = await loadRoute();
       const res = await POST(jsonRequest("/api/scraper/download", { id: row.id }));
       expect(status(res)).toBe(200);
-      expect(decypharrCtorMock).toHaveBeenCalledWith("http://db-decypharr:8282");
+      expect(zurgCtorMock).toHaveBeenCalledWith("http://db-zurg:9999", "");
       expect(addMagnetMock).toHaveBeenCalledTimes(1);
     } finally {
-      if (envUrl === undefined) delete process.env.DECYPHARR_URL;
-      else process.env.DECYPHARR_URL = envUrl;
+      if (envUrl === undefined) delete process.env.ZURG_URL;
+      else process.env.ZURG_URL = envUrl;
       await testDB.db.config.deleteMany({ where: { id: 1 } });
     }
   });
@@ -207,11 +199,29 @@ describe("POST /api/scraper/download", () => {
     expect(after?.isDownloaded).toBe(true);
   });
 
+  test("HTTP URL in magnetLink is uploaded as a torrent", async () => {
+    const torrentUrl = "https://example.com/from-magnet-field.torrent";
+    const row = await seed({
+      source: "141jav",
+      title: "URL in magnet field",
+      magnetLink: torrentUrl,
+    });
+    let requestedUrl = "";
+    globalThis.fetch = mock(async (input) => {
+      requestedUrl = String(input);
+      return new Response(new TextEncoder().encode("torrent").buffer, { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const { POST } = await loadRoute();
+    const res = await POST(jsonRequest("/api/scraper/download", { id: row.id }));
+
+    expect(status(res)).toBe(200);
+    expect(requestedUrl).toBe(torrentUrl);
+    expect(addMagnetMock).not.toHaveBeenCalled();
+    expect(addTorrentMock).toHaveBeenCalledTimes(1);
+  });
+
   test("torrent path: rejects loopback / private / link-local URLs (SSRF guard)", async () => {
-    // Note: the code's IPv6 ULA check (fc00::/7, fe80::/10) has a bug
-    // — it checks the hostname string for the prefix but the hostname
-    // is wrapped in brackets, so those URLs slip through. The tests
-    // here cover what the guard actually catches today.
     const unsafe = [
       "http://localhost/release.torrent",
       "http://localhost.localdomain/release.torrent",
@@ -222,6 +232,11 @@ describe("POST /api/scraper/download", () => {
       "http://192.168.1.1/release.torrent",
       "http://169.254.169.254/latest/meta-data/", // AWS IMDS
       "http://[::1]/release.torrent", // IPv6 loopback
+      "http://[fc00::1]/release.torrent", // IPv6 unique-local
+      "http://[fd12::1]/release.torrent", // IPv6 unique-local
+      "http://[fe80::1]/release.torrent", // IPv6 link-local
+      "http://[fe90::1]/release.torrent", // IPv6 link-local /10
+      "http://[::ffff:127.0.0.1]/release.torrent", // IPv4-mapped loopback
       "ftp://example.com/release.torrent", // wrong protocol
       "not-a-url-at-all", // unparseable
     ];
@@ -260,14 +275,14 @@ describe("POST /api/scraper/download", () => {
     expect(addTorrentMock).not.toHaveBeenCalled();
   });
 
-  test("returns 500 when Decypharr.addMagnet throws", async () => {
+  test("returns 500 when Zurg.addMagnet throws", async () => {
     const row = await seed({
       source: "141jav",
       title: "broken magnet",
       magnetLink: "magnet:?xt=urn:btih:FAIL",
     });
     addMagnetMock = mock(async () => {
-      throw new Error("Decypharr 500");
+      throw new Error("Zurg 500");
     });
     // The mock class's instance method closes over addMagnetMock, so
     // reassigning the variable is enough.
@@ -275,7 +290,7 @@ describe("POST /api/scraper/download", () => {
     const res = await POST(jsonRequest("/api/scraper/download", { id: row.id }));
     expect(status(res)).toBe(500);
     const body = (await jsonBody(res)) as { error: string };
-    expect(body.error).toBe("Failed to submit to Decypharr");
+    expect(body.error).toBe("Failed to submit to Zurg");
 
     // The row should NOT be marked downloaded on failure.
     const after = await testDB.db.scrapeResult.findUnique({

@@ -1,25 +1,19 @@
 #!/usr/bin/env bun
 /**
  * torrent-watch — watches a directory for new `.torrent` and `.magnet`
- * files, submits each to Decypharr, and deletes the file after success.
+ * files, submits each to Zurg, and deletes the file after success.
  *
  * Usage:
  *   just run-worker src/workers/torrent-watch.ts
  *   just run-worker src/workers/torrent-watch.ts -- --watch-dir /watch
  *
- * Env (consumed by AppConfig):
- *   DECYPHARR_URL  (default http://192.168.1.99:8282)
- *   DOWNLOAD_FOLDER (default /mnt/debrid/downloads)
- *
- * Override the Arr name in the form-data via `DECYPHARR_ARR` env var
- * directly — AppConfig does not model this yet.
- *
+ * Env: ZURG_URL, ZURG_API_KEY, and optional ZURG_CATEGORY (default special).
  * The worker runs forever; stop with SIGINT/SIGTERM.
  */
 
 import { readdir, readFile, stat, unlink, watch } from "fs/promises";
 import { basename, extname, join } from "path";
-import { DecypharrClient } from "@/lib/clients/decypharr";
+import { ZurgClient } from "@/lib/clients/zurg";
 import { resolveConfig } from "@/lib/config";
 import { parseArgs } from "../../scripts/_lib/cli";
 import { info, warn } from "../../scripts/_lib/log";
@@ -28,7 +22,7 @@ const TORRENT_EXTS = new Set([".torrent"]);
 const POLL_INTERVAL_MS = 2_000;
 const RETRY_DELAY_MS = 5_000;
 const SIZE_STABILITY_DELAY_MS = 250;
-const DECYPHARR_ARR_DEFAULT = "special";
+const ZURG_CATEGORY_DEFAULT = "special";
 
 async function main() {
   const args = parseArgs({
@@ -36,11 +30,7 @@ async function main() {
   });
 
   const cfg = await resolveConfig();
-  const client = new DecypharrClient(
-    cfg.decypharrUrl,
-    process.env.DECYPHARR_ARR || DECYPHARR_ARR_DEFAULT,
-    process.env.DOWNLOAD_FOLDER || "/mnt/debrid/downloads",
-  );
+  const client = new ZurgClient(cfg.zurgUrl, cfg.zurgApiKey, process.env.ZURG_CATEGORY || ZURG_CATEGORY_DEFAULT);
 
   info(`torrent-watch started — watching ${args.watchDir}`);
 
@@ -71,7 +61,7 @@ async function main() {
   }
 }
 
-async function sweep(dir: string, client: DecypharrClient) {
+async function sweep(dir: string, client: ZurgClient) {
   let entries: import("fs").Dirent[];
   try {
     entries = await readdir(dir, { withFileTypes: true });
@@ -90,13 +80,13 @@ async function sweep(dir: string, client: DecypharrClient) {
   }
 }
 
-async function submitTorrent(path: string, client: DecypharrClient) {
+async function submitTorrent(path: string, client: ZurgClient) {
   try {
     // Wait until the file size is stable (dropper may still be writing).
     if (!(await sizeStable(path))) return;
 
     const data = await readFile(path);
-    // Bun's readFile returns a Buffer; Decypharr's addTorrent wants an ArrayBuffer view.
+    // Bun's readFile returns a Buffer; Zurg receives the bytes as multipart data.
     const ab = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
     await retry(() => client.addTorrent(ab, basename(path)));
     await unlink(path);
@@ -106,7 +96,7 @@ async function submitTorrent(path: string, client: DecypharrClient) {
   }
 }
 
-async function submitMagnet(path: string, client: DecypharrClient) {
+async function submitMagnet(path: string, client: ZurgClient) {
   try {
     // Same size-stability check as submitTorrent — magnet files are tiny
     // and can also be written incrementally by the dropper.

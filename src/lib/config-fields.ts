@@ -17,7 +17,8 @@ export const CONFIG_FIELDS = [
   { key: "plex_token", group: "media", label: "Plex Token", description: "Plex authentication token used for libraries and activity.", kind: "secret", placeholder: "Enter your Plex token" },
   { key: "plex_url", group: "media", label: "Plex Server URL", description: "Local Plex server address including port.", kind: "url", placeholder: "http://192.168.1.x:32400" },
   { key: "real_debrid_api_key", group: "downloads", label: "Real-Debrid API Key", description: "API token from your Real-Debrid account.", kind: "secret", placeholder: "Enter your Real-Debrid API key" },
-  { key: "decypharr_url", group: "downloads", label: "Decypharr URL", description: "Base URL used by downloads, the magnet bridge, and integration health.", kind: "url", placeholder: "http://192.168.1.x:8282", defaultValue: "http://192.168.1.99:8282" },
+  { key: "zurg_url", group: "downloads", label: "Zurg URL", description: "Base URL used by downloads, the queue cleaner, and integration health.", kind: "url", placeholder: "http://192.168.1.x:9999", defaultValue: "http://192.168.1.99:9999" },
+  { key: "zurg_api_key", group: "downloads", label: "Zurg API Key", description: "Bearer API key used to authenticate with Zurg.", kind: "secret", placeholder: "Enter your Zurg API key" },
 ] as const satisfies readonly ConfigFieldDefinition[];
 
 export type ConfigKey = (typeof CONFIG_FIELDS)[number]["key"];

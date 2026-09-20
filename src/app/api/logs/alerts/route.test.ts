@@ -97,9 +97,9 @@ describe("GET /api/logs/alerts", () => {
     expect(Object.keys(body.perService).sort()).toEqual([
       "agent-tasks",
       "broken-link-checker",
-      "magnet-bridge",
       "scraper",
       "web",
+      "zurg-queue",
     ]);
   });
 
@@ -114,14 +114,14 @@ describe("GET /api/logs/alerts", () => {
     expect(body.perService.scraper).toBe(1);
     // web (default output): "ERROR:" + "FATAL:" = 2
     expect(body.perService.web).toBe(2);
-    // magnet-bridge also gets the default output → 2
-    expect(body.perService["magnet-bridge"]).toBe(2);
+    // zurg-queue also gets the default output → 2
+    expect(body.perService["zurg-queue"]).toBe(2);
     // broken-link-checker: no error lines → 0
     expect(body.perService["broken-link-checker"]).toBe(0);
     // total = sum of all four
     const expectedTotal =
       body.perService.web +
-      body.perService["magnet-bridge"] +
+      body.perService["zurg-queue"] +
       body.perService.scraper +
       body.perService["broken-link-checker"];
     expect(body.total).toBe(expectedTotal);
@@ -176,11 +176,11 @@ describe("GET /api/logs/alerts", () => {
     };
     expect(body.perService.scraper).toBe(1);
     expect(body.perService.web).toBe(2);
-    expect(body.perService["magnet-bridge"]).toBe(2);
+    expect(body.perService["zurg-queue"]).toBe(2);
     expect(body.perService["broken-link-checker"]).toBe(0);
     expect(body.total).toBe(
       body.perService.web +
-        body.perService["magnet-bridge"] +
+        body.perService["zurg-queue"] +
         body.perService.scraper +
         body.perService["broken-link-checker"],
     );
@@ -236,7 +236,7 @@ describe("GET /api/logs/alerts", () => {
     // assertions above verify that the watermark is passed to journalctl.
     expect(visibleBody.total).toBe(
       visibleBody.perService.web +
-        visibleBody.perService["magnet-bridge"] +
+        visibleBody.perService["zurg-queue"] +
         visibleBody.perService.scraper +
         visibleBody.perService["broken-link-checker"],
     );

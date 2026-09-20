@@ -388,7 +388,7 @@ export function ScraperPage({
         if (!res.ok || !data.success) {
           throw new Error(data.error ?? `HTTP ${res.status}`);
         }
-        toast.showToast("Sent to Decypharr!", "success");
+        toast.showToast("Sent to Zurg!", "success");
       } catch (err) {
         if (card) {
           card.style.display = "";

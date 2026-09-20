@@ -119,8 +119,8 @@ describe("pollOnce", () => {
 
   test("discovery: upserts each seed", async () => {
     discoverFilesMock = mock(async () => [
-      { filePath: "/mnt/debrid/media/movies/a.mkv", mediaDir: "movies", symlinkTarget: "x", fileSize: 100 },
-      { filePath: "/mnt/debrid/media/special/b.mp4", mediaDir: "special", symlinkTarget: "y", fileSize: 200 },
+      { filePath: "/mnt/zurg/special/a.mkv", mediaDir: "special", fileSize: 100 },
+      { filePath: "/mnt/zurg/special/b.mp4", mediaDir: "special", fileSize: 200 },
     ]);
     const { pollOnce } = await loadWorker();
     const result = await pollOnce({ ...defaultOpts, forceDiscover: true });

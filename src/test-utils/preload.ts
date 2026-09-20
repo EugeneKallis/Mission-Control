@@ -22,7 +22,7 @@
  *     is preserved on `console.error.__original` so individual tests
  *     that need to assert on the log can restore it temporarily.
  *
- * Note on .ts tests: pure TS tests (e.g. decypharr's blob-upload test)
+ * Note on .ts tests: pure TS tests (e.g. zurg's blob-upload test)
  * also get happy-dom registered, which means FormData/Blob/File are
  * happy-dom's classes (not Bun's native). happy-dom's File class does
  * not preserve the `name` passed via `form.append(blob, name)` the

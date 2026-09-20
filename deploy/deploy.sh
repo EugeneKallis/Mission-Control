@@ -113,15 +113,23 @@ echo "→ Applying database migrations..."
 cd "$DEPLOY_DIR"
 bunx prisma migrate deploy
 
-# 5. Restart services
-DEPLOY_STAGE="restart"
-echo "→ Restarting services..."
+echo "Restarting services..."
+
+BUN_PATH="$(command -v bun)"
+sed "s|/usr/local/bin/bun|$BUN_PATH|g" \
+    "$DEPLOY_DIR/deploy/mission-control-zurg-queue-cleaner.service" \
+    > /etc/systemd/system/mission-control-zurg-queue-cleaner.service
+
+systemctl stop mission-control-magnet-bridge.service 2>/dev/null || true
+systemctl disable mission-control-magnet-bridge.service 2>/dev/null || true
+rm -f /etc/systemd/system/mission-control-magnet-bridge.service
+systemctl daemon-reload
 systemctl restart mission-control.service
-systemctl restart mission-control-magnet-bridge.service
+systemctl enable mission-control-zurg-queue-cleaner.service
+systemctl restart mission-control-zurg-queue-cleaner.service
 systemctl restart mission-control-broken-link-checker.service
-# Note: scraper and energy-price scrapers are now run in-process via the
-# worker timer scheduler (configured in the web UI at /timers).
-# The .service units are kept for manual one-off runs.
+
+# Scraper and energy-price workers are scheduled in-process.
 
 DEPLOY_STAGE="complete"
 echo "=== Deploy complete ==="

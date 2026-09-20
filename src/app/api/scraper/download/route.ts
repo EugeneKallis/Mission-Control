@@ -1,8 +1,7 @@
 /**
  * POST /api/scraper/download
  * Body: { id: number }
- * Submits the result's magnet (or torrent) to Decypharr, marks the
- * result downloaded + hidden.
+ * Submits the result's magnet or torrent bytes to Zurg, then marks it downloaded.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -11,7 +10,7 @@ import {
   getScrapeResult,
   markScrapeResultDownloaded,
 } from "@/lib/db/queries";
-import { DecypharrClient } from "@/lib/clients/decypharr";
+import { ZurgClient } from "@/lib/clients/zurg";
 import { resolveConfig } from "@/lib/config";
 
 const schema = z.object({ id: z.number().int().positive() });
@@ -25,16 +24,19 @@ function isAllowedTorrentUrl(urlStr: string): boolean {
     const url = new URL(urlStr);
     if (url.protocol !== "http:" && url.protocol !== "https:") return false;
 
-    const hostname = url.hostname.toLowerCase();
+    const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
     if (hostname === "localhost" || hostname === "localhost.localdomain") return false;
 
-    // IPv6 loopback / unique-local
-    if (hostname === "::1" || hostname === "[::1]") return false;
+    // IPv6 loopback, unspecified, unique-local, link-local, multicast, and
+    // IPv4-mapped addresses. Reject mapped addresses outright so alternate
+    // encodings cannot bypass the IPv4 private-range checks below.
+    if (hostname === "::" || hostname === "::1") return false;
     if (hostname.startsWith("fc") || hostname.startsWith("fd")) return false;
-    if (hostname.startsWith("fe80:")) return false;
+    if (/^fe[89ab]/.test(hostname)) return false;
+    if (hostname.startsWith("ff") || hostname.startsWith("::ffff:")) return false;
 
     // IPv4 checks
-    const ipv4 = hostname.replace(/\[|\]/g, "");
+    const ipv4 = hostname;
     if (ipv4 === "127.0.0.1" || ipv4.startsWith("127.")) return false;
 
     const parts = ipv4.split(".").map(Number);
@@ -93,59 +95,28 @@ export async function POST(request: NextRequest) {
     }
 
     const cfg = await resolveConfig();
-    const decypharr = new DecypharrClient(cfg.decypharrUrl);
-
-    // Determine how to submit. Real magnets start with "magnet:".
-    // Some scrapers (e.g. pornrips.to) store a web redirect URL in the
-    // magnetLink column instead of an actual magnet — when the "magnet"
-    // is not a real magnet but we *do* have a torrentLink, send the
-    // torrent URL to Decypharr directly so it fetches the .torrent file
-    // itself rather than proxying the file bytes through this server.
+    const zurg = new ZurgClient(cfg.zurgUrl, cfg.zurgApiKey);
     const isRealMagnet = magnet ? magnet.startsWith("magnet:") : false;
 
     if (magnet && isRealMagnet) {
-      // Real magnet link — submit directly to Decypharr.
-      await decypharr.addMagnet(magnet);
-    } else if (magnet && !isRealMagnet && torrent) {
-      // Web-URL "magnet" (e.g. pornrips.to) + a real torrent URL exists.
-      // Send the torrent URL to Decypharr so it fetches the .torrent file.
-      if (!isAllowedTorrentUrl(torrent)) {
-        return NextResponse.json(
-          { success: false, error: "Invalid torrent URL" },
-          { status: 400 }
-        );
+      await zurg.addMagnet(magnet);
+    } else {
+      const torrentUrl = torrent || magnet;
+      if (!torrentUrl || !isAllowedTorrentUrl(torrentUrl)) {
+        return NextResponse.json({ success: false, error: "Invalid torrent URL" }, { status: 400 });
       }
-      await decypharr.addMagnet(torrent);
-    } else if (torrent) {
-      // Torrent file URL with no magnet at all — fetch and submit bytes.
-      if (!isAllowedTorrentUrl(torrent)) {
-        return NextResponse.json(
-          { success: false, error: "Invalid torrent URL" },
-          { status: 400 }
-        );
-      }
-      const res = await fetch(torrent, { signal: AbortSignal.timeout(15_000) });
+      const res = await fetch(torrentUrl, { signal: AbortSignal.timeout(15_000) });
       if (!res.ok) {
-        return NextResponse.json(
-          { success: false, error: `Torrent unavailable: HTTP ${res.status}` },
-          { status: 502 }
-        );
+        return NextResponse.json({ success: false, error: `Torrent unavailable: HTTP ${res.status}` }, { status: 502 });
       }
       const data = await res.arrayBuffer();
-      const filename = `${sanitizeFilename(item.title)}.torrent`;
-      await decypharr.addTorrent(data, filename);
-    } else if (magnet) {
-      // Non-magnet URL with no torrent link — submit as-is.
-      await decypharr.addMagnet(magnet);
+      await zurg.addTorrent(data, `${sanitizeFilename(item.title)}.torrent`);
     }
 
     await markScrapeResultDownloaded(parsed.data.id);
     return NextResponse.json({ success: true, id: parsed.data.id });
   } catch (err) {
-    console.error("Failed to submit to Decypharr:", err);
-    return NextResponse.json(
-      { success: false, error: "Failed to submit to Decypharr" },
-      { status: 500 }
-    );
+    console.error("Failed to submit to Zurg:", err);
+    return NextResponse.json({ success: false, error: "Failed to submit to Zurg" }, { status: 500 });
   }
 }

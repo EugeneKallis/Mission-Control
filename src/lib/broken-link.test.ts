@@ -55,7 +55,7 @@ describe("discoverFiles (real temp tree)", () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  test("yields one seed per media symlink, none for non-media or files", async () => {
+  test("yields seeds for media symlinks and regular media files", async () => {
     const movies = join(root, "movies");
     const specials = join(root, "special");
     await mkdir(movies, { recursive: true });
@@ -74,6 +74,8 @@ describe("discoverFiles (real temp tree)", () => {
     await symlink(targetB, join(specials, "beta.mp4"));
     // Non-media symlink (should be skipped).
     await symlink(targetC, join(movies, "cover.jpg"));
+    // Regular media files are also checked (Zurg's visible library uses these).
+    await writeFile(join(specials, "visible.mkv"), "data");
 
     const { discoverFiles } = await import("./broken-link?bust=" + Date.now());
     // The module caches getConfig at import time; pass mediaDirs explicitly
@@ -88,12 +90,15 @@ describe("discoverFiles (real temp tree)", () => {
     expect(paths).toContain(join(root, "movies/alpha.mkv"));
     expect(paths).toContain(join(root, "special/beta.mp4"));
     expect(paths).not.toContain(join(root, "movies/cover.jpg"));
+    expect(paths).toContain(join(root, "special/visible.mkv"));
 
     // mediaDir classification is correct.
     const alpha = seeds.find((s: FileCheckSeed) => s.filePath.endsWith("alpha.mkv"))!;
     expect(alpha.mediaDir).toBe("movies");
-    expect(alpha.symlinkTarget).toBe(targetA);
     expect(alpha.fileSize).toBe(0);
+    const visible = seeds.find((s: FileCheckSeed) => s.filePath.endsWith("visible.mkv"))!;
+    expect(visible.mediaDir).toBe("special");
+    expect(visible.fileSize).toBe(4);
   });
 
   test("includes broken symlinks as seeds (fileSize=null)", async () => {
@@ -181,7 +186,6 @@ describe("probeFileReadable (mocked Bun.spawn)", () => {
     /** If set, the proc.exited promise never resolves (forces timeout). */
     hang?: boolean;
   }) {
-    const stdoutLines = (opts.stdout ?? "").split("\n").filter((l) => l.trim().length > 0).length;
     const stdoutStream = new ReadableStream<Uint8Array>({
       start(controller) {
         const bytes = new TextEncoder().encode(opts.stdout ?? "");
@@ -200,7 +204,7 @@ describe("probeFileReadable (mocked Bun.spawn)", () => {
       stdout: stdoutStream,
       stderr: stderrStream,
       exited: opts.hang
-        ? new Promise(() => {}) // never resolves
+        ? Promise.withResolvers<number>().promise
         : Promise.resolve(opts.exitCode as 0 | 1),
       kill: () => {},
     } as unknown as ReturnType<typeof Bun.spawn>;

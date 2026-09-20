@@ -33,7 +33,9 @@ const envSchema = z.object({
     .default("movies,movies4k,moviesanime,movieskids,movieslocal,special,tv,tv4k,tvanime,tvkids,tvlocal"),
 
   // External service keys
-  DECYPHARR_URL: z.string().default("http://192.168.1.99:8282"),
+  ZURG_URL: z.string().default("http://192.168.1.99:9999"),
+  ZURG_API_KEY: z.string().default(""),
+  SPECIAL_MEDIA_PATH: z.string().default("/mnt/zurg/special"),
   REAL_DEBRID_API_KEY: z.string().default(""),
   PULSE_API_KEY: z.string().default(""),
 
@@ -91,14 +93,15 @@ function resolveArrInstances(env: EnvConfig): ArrInstance[] {
 }
 
 // ── Runtime config object ─────────────────────────────────────────────────
-
 export class AppConfig {
   readonly databaseUrl: string;
   readonly webPort: number;
   readonly rclonePath: string;
   readonly mediaBasePath: string;
   readonly mediaDirectories: string[];
-  readonly decypharrUrl: string;
+  readonly zurgUrl: string;
+  readonly zurgApiKey: string;
+  readonly specialMediaPath: string;
   readonly realDebridApiKey: string;
   readonly pulseApiKey: string;
   readonly plexToken: string;
@@ -118,7 +121,9 @@ export class AppConfig {
     this.rclonePath = env.RCLONE_PATH;
     this.mediaBasePath = env.MEDIA_BASE_PATH;
     this.mediaDirectories = env.MEDIA_DIRECTORIES.split(",").map((s) => s.trim()).filter(Boolean);
-    this.decypharrUrl = env.DECYPHARR_URL;
+    this.zurgUrl = env.ZURG_URL;
+    this.zurgApiKey = env.ZURG_API_KEY;
+    this.specialMediaPath = env.SPECIAL_MEDIA_PATH;
     this.realDebridApiKey = env.REAL_DEBRID_API_KEY;
     this.pulseApiKey = env.PULSE_API_KEY;
     this.plexToken = env.PLEX_TOKEN;
@@ -146,7 +151,8 @@ export class AppConfig {
  * Only string-valued fields are supported (no ports, paths, booleans).
  */
 const DB_ENV_KEY_MAP: Record<string, keyof EnvConfig> = {
-  decypharr_url: "DECYPHARR_URL",
+  zurg_url: "ZURG_URL",
+  zurg_api_key: "ZURG_API_KEY",
   plex_token: "PLEX_TOKEN",
   plex_url: "PLEX_URL",
   real_debrid_api_key: "REAL_DEBRID_API_KEY",

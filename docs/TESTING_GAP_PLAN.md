@@ -7,7 +7,7 @@
 |------|-------|---------|
 | `src/lib/*` (pure logic) | 14 | agents/event-stream, agents/registry, arr-map, clients/* (6), config, cron-scheduler, cron, format, live-bus, migrate, runner, db/queries |
 | `src/workers/scrapers/*` (parsers) | 4 | 141jav, pornrips, shared, status |
-| `src/workers/*.ts` (pure helpers) | 3 | file-scanner, magnet-bridge, scraper-runner (parseTargets) |
+| `src/workers/*.ts` (pure helpers) | 3 | file-scanner, zurg-queue-cleaner, scraper-runner (parseTargets) |
 | `scripts/_lib/*` | 4 | cli, collections, format, log |
 | `scripts/arr/*` | 4 | arr-searcher, radarr-sync, sonarr-sync, sonarr-season-searcher |
 | `scripts/plex/*` | 1 | plex-to-arr |
@@ -192,7 +192,7 @@ All can run in parallel with each other AND with Phase 1 (disjoint files). Each 
 **Shared conventions for all API route subagents:**
 - Import `jsonRequest`, `getRequest`, `jsonBody` from `@/test-utils/route-helpers`.
 - Mock `@/lib/db` with `mock.module` and test-only Prisma client (`makeTestDB` from `@/lib/db/test-helpers`). Each route handler imports from `@/lib/db/queries` which imports `@/lib/db` — on test, inject the test DB.
-- If a route also calls a module that uses fetch (e.g. `decypharr` client), mock that module.
+- If a route also calls a module that uses fetch (e.g. `zurg` client), mock that module.
 - Test: successful requests (status + JSON shape), validation failures (400 + error.details), internal errors (500), edge cases (missing fields, bad JSON).
 - Each route file gets its own `*.test.ts` next to the route (e.g. `src/app/api/schedules/route.test.ts`).
 - Re-import the route module after mocking the DB (`import(`/path/to/route.ts?bust=${Date.now()}`)` to dodge module cache), same pattern as existing queries tests.

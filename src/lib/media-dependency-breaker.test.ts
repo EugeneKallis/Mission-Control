@@ -21,10 +21,10 @@ async function loadModule() {
 }
 
 const healthy = [
-  { id: "unraid", name: "Unraid", ok: true, detail: "HTTP 200" },
+  { id: "zurg", name: "Zurg", ok: true, detail: "HTTP 200" },
   { id: "nzbdav", name: "NZBDav", ok: true, detail: "Mounted" },
   { id: "nfs", name: "NFS media", ok: true, detail: "Mounted" },
-  { id: "rclone", name: "rclone", ok: true, detail: "Mounted" },
+  { id: "zurg-mount", name: "Zurg mount", ok: true, detail: "Mounted" },
 ] as const;
 
 describe("media dependency circuit breaker", () => {
@@ -45,7 +45,7 @@ describe("media dependency circuit breaker", () => {
 
   test("requires two consecutive healthy checks before processing resumes", async () => {
     const { checkMediaDependencies } = await loadModule();
-    const failed = healthy.map((probe) => probe.id === "rclone" ? { ...probe, ok: false } : probe);
+    const failed = healthy.map((probe) => probe.id === "zurg-mount" ? { ...probe, ok: false } : probe);
 
     await checkMediaDependencies([...failed], new Date("2026-01-01T00:00:00Z"));
     const recovering = await checkMediaDependencies([...healthy], new Date("2026-01-01T00:01:00Z"));
@@ -77,10 +77,10 @@ describe("media dependency circuit breaker", () => {
       "1 0 0:1 / / rw - ext4 /dev/root rw",
       "2 1 0:2 / /mnt/debrid rw - nfs 192.168.1.99:/media rw",
       "3 1 0:3 / /mnt/addons/debrid rw - fuse.rclone rclone rw",
+      "4 1 0:4 / /mnt/zurg rw - fuse.zurg zurg rw",
     ].join("\n");
 
-    expect(findMountForPath(mountInfo, "/mnt/debrid/media/special")).toBe("/mnt/debrid");
-    expect(findMountForPath(mountInfo, "/mnt/addons/debrid/__all__")).toBe("/mnt/addons/debrid");
+    expect(findMountForPath(mountInfo, "/mnt/zurg/special")).toBe("/mnt/zurg");
     expect(findMountForPath(mountInfo, "/tmp")).toBe("/");
   });
 });

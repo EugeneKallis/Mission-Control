@@ -1,11 +1,11 @@
 [Unit]
-Description=Mission Control — magnet bridge (long-running Decypharr poller)
+Description=Mission Control — Zurg queue cleaner
 After=network.target
 
 [Service]
 Type=exec
 WorkingDirectory=/opt/mission-control
-ExecStart=/usr/local/bin/bun run src/workers/magnet-bridge.ts
+ExecStart=/usr/local/bin/bun run src/workers/zurg-queue-cleaner.ts
 Environment=NODE_ENV=production
 Restart=always
 RestartSec=5

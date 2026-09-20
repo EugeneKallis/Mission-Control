@@ -12,7 +12,7 @@ import { getRecentAgentTaskHistory } from "@/lib/db/queries";
 /** Maps service keys used by the web UI to systemd unit name suffixes. */
 export const SERVICE_MAP: Record<string, string> = {
   web: "mission-control",
-  "magnet-bridge": "mission-control-magnet-bridge",
+  "zurg-queue": "mission-control-zurg-queue-cleaner",
   "broken-link-checker": "mission-control-broken-link-checker",
   scraper: "mission-control-scraper",
 };

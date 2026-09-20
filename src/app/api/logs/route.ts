@@ -3,7 +3,7 @@ import { fetchLogText } from "@/lib/log-fetcher";
 
 const SERVICE_MAP: Record<string, string> = {
   web: "mission-control",
-  "magnet-bridge": "mission-control-magnet-bridge",
+  "zurg-queue": "mission-control-zurg-queue-cleaner",
   "broken-link-checker": "mission-control-broken-link-checker",
   scraper: "mission-control-scraper",
 };
