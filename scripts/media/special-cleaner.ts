@@ -53,7 +53,7 @@ export async function main(argv?: string[]) {
 
   const cfg = getConfig();
   const root = cfg.specialMediaPath;
-  info(`Scanning: ${root}`);
+  info(`Working directory: ${root}`);
   info(`Threshold: ${args.threshold} MB`);
   info(`Workers: ${args.workers}`);
 
