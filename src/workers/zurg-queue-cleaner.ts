@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
-/** Poll completed Zurg jobs and forget them after they appear in the special view. */
+/** Move completed Zurg content into the special media path, then forget its queue job. */
 
-import { access } from "fs/promises";
+import { access, mkdir, rename } from "fs/promises";
 import { basename, join } from "path";
 import { ZurgClient, type ZurgTorrent } from "@/lib/clients/zurg";
 import { resolveConfig } from "@/lib/config";
@@ -24,11 +24,18 @@ export async function pollOnce(client: Pick<ZurgClient, "listTorrents" | "remove
     if (torrent.state !== COMPLETED_STATE || !torrent.content_path) continue;
     const release = basename(torrent.content_path);
     if (!release || release === "." || release === "/") continue;
+    const destination = join(specialMediaPath, release);
     try {
-      await access(join(specialMediaPath, release));
+      await access(destination);
     } catch {
-      info(`Waiting for special view: ${release}`);
-      continue;
+      try {
+        await mkdir(specialMediaPath, { recursive: true });
+        await rename(torrent.content_path, destination);
+        info(`Moved completed Zurg content: ${torrent.content_path} -> ${destination}`);
+      } catch (error) {
+        warn(`Failed to move Zurg content ${torrent.content_path}: ${(error as Error).message}`);
+        continue;
+      }
     }
     try {
       await client.removeTorrent(torrent.hash);
@@ -52,7 +59,7 @@ export async function main(): Promise<void> {
     const cfg = await resolveConfig();
     if (!announced) {
       info(`Zurg: ${cfg.zurgUrl}`);
-      info(`Special view: ${cfg.specialMediaPath}`);
+      info(`Special destination: ${cfg.specialMediaPath}`);
       announced = true;
     }
     const client = new ZurgClient(cfg.zurgUrl, cfg.zurgApiKey, args.category);

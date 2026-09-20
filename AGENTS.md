@@ -226,8 +226,8 @@ Effective values use environment > settings-modals DB > registry default
 precedence. Typed `AppConfig` consumers call `resolveConfig()` (env > DB >
 default); `getConfig()` is env-only. Zurg submission consumers are
 `/api/scraper/download` and `src/workers/torrent-watch.ts`; the queue cleaner
-uses the same resolver and forgets completed jobs only after their release is
-visible under `specialMediaPath` (`/mnt/zurg/special` by default).
+uses the same resolver, moves each completed job's exact Zurg `content_path`
+into `specialMediaPath` (`/mnt/zurg/special` by default), then forgets the job.
 
 - `GET /api/config` — Returns all stored config values, including registry and Arr
   keys, with `Cache-Control: no-store`.
@@ -435,7 +435,8 @@ test files.
   `parentOf`, `emptyToEmpty`, `pMap`, `computeFileCounts`).
 - The scraper runner's `parseTargets` argv parser.
 - The Zurg queue cleaner's `pollOnce` behavior (completed versus incomplete or
-  invisible jobs, per-job failure isolation, and no file deletion).
+  missing jobs, moving `content_path` into the special path before queue removal,
+  per-job failure isolation, and no file deletion).
 - **React components** in `src/components/ui/`, `src/components/layout/`,
   `src/components/toast-provider.tsx`,
   `src/components/macro-log-panel.tsx`, `src/components/browse-scripts.tsx`,
@@ -740,9 +741,9 @@ scripts/util/                # Utility scripts
   github-release.ts          # Poll GitHub for latest releases of tracked repos
   remove-legacy-agents.ts    # Drop residual legacy server_agents table (dry-run default)
 src/workers/torrent-watch.ts # Long-running watch dir → Zurg
-src/workers/zurg-queue-cleaner.ts # Non-destructive completed-job cleaner
-                               # removes only the Zurg queue record after the
-                               # release exists in /mnt/zurg/special.
+src/workers/zurg-queue-cleaner.ts # Completed-job mover and queue cleaner
+                               # moves content_path into /mnt/zurg/special,
+                               # then removes only the Zurg queue record.
 ```
 
 The special cleaner intentionally operates on regular files in
