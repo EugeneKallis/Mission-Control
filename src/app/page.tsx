@@ -163,7 +163,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section id={panelIds.terminal} role="tabpanel" aria-labelledby={tabIds.terminal} hidden={activeView !== "terminal"} className="min-h-0 flex-1 flex-col">
+        <section id={panelIds.terminal} role="tabpanel" aria-labelledby={tabIds.terminal} hidden={activeView !== "terminal"} className="flex min-h-0 flex-1 flex-col">
           <div ref={containerRef} onScroll={handleScroll} className="min-h-0 min-w-0 flex-1 overflow-y-auto p-5 font-mono text-sm leading-relaxed terminal-scanline terminal-glow" style={{ background: "var(--terminal-bg)", color: "var(--terminal-fg)" }} tabIndex={0}>
             {lines.length === 0 ? <div className="flex flex-col gap-1.5 text-on-surface-variant italic"><span>Mission Control v0.1.0 — Terminal ready.</span><span className="text-on-surface-variant/80">Select a macro from the Dashboard or sidebar to start.</span></div> : lines.map((line, i) => <div key={i} className="whitespace-pre-wrap break-words" style={{ animation: "fade-up 0.12s ease-out both" }}>{line}</div>)}
           </div>

@@ -59,6 +59,15 @@ test("uses navbar icon and color customizations on page cards", async () => {
   expect(icon?.parentElement?.className).toContain("text-rose-500");
 });
 
+test("keeps the terminal panel as a constrained flex column for scrolling", () => {
+  render(<Home />);
+  const terminal = document.getElementById("home-panel-terminal")!;
+  expect(terminal.classList.contains("flex")).toBe(true);
+  expect(terminal.className).toContain("flex-col");
+  expect(terminal.className).toContain("min-h-0");
+  expect(terminal.querySelector(".overflow-y-auto")).not.toBeNull();
+});
+
 test("supports keyboard tab movement and one-click macro transition", async () => {
   render(<Home />);
   const dashboard = document.getElementById("home-panel-dashboard")!;
