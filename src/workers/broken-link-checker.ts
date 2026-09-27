@@ -178,11 +178,12 @@ export interface PollOnceOptions {
 export async function pollOnce(opts: PollOnceOptions): Promise<BlFinderPassResult> {
   const result: BlFinderPassResult = { discovered: 0, checked: 0, ok: 0, broken: 0, error: null };
 
-  // Read live config and check enabled. If the worker is disabled, return
-  // immediately (the status spinner stays off). The config is re-read here
-  // (not from opts) so the UI toggle takes effect within one tick interval.
+  // Read live config and check enabled. A disabled worker must not run even
+  // when a pass was forced by startup, a manual trigger, or --once. The
+  // config is re-read here (not from opts) so the UI toggle takes effect
+  // within one tick interval.
   const liveConfig = await getBlFinderConfig().catch(() => null);
-  if (liveConfig && !liveConfig.enabled && !opts.forceDiscover) {
+  if (liveConfig && !liveConfig.enabled) {
     return result;
   }
 

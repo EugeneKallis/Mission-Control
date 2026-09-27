@@ -9,6 +9,7 @@ import {
   DEFAULT_BLFINDER_CONFIG,
   getBlFinderConfig,
   setBlFinderConfig,
+  setBlFinderStatus,
 } from "@/lib/db/queries";
 
 const configSchema = z.object({
@@ -56,6 +57,20 @@ export async function PUT(request: NextRequest) {
   }
   try {
     const config = await setBlFinderConfig(parsed.data);
+    if (!config.enabled) {
+      // Do not leave the page showing a recent pass after the checker has
+      // been disabled. Also cancel a queued forced wake so it cannot run
+      // after the setting changes.
+      await setBlFinderStatus({
+        running: false,
+        lastPassAt: null,
+        processed: 0,
+        ok: 0,
+        broken: 0,
+        error: null,
+        forceWakeAt: null,
+      });
+    }
     return NextResponse.json({ config });
   } catch (err) {
     console.error("PUT /api/bl-finder/config failed:", err);

@@ -280,4 +280,25 @@ describe("pollOnce", () => {
     // The probe was never called.
     expect(probeFileReadableMock.mock.calls).toHaveLength(0);
   });
+
+  test("does not run a forced pass when disabled", async () => {
+    await seedRow({ filePath: "/m/a.mkv" });
+    await testDB.db.setting.create({
+      data: {
+        key: "blfinder_config",
+        value: JSON.stringify({ ...defaultOpts, enabled: false, mediaDirs: [] }),
+      },
+    });
+    discoverFilesMock = mock(async () => [
+      { filePath: "/m/a.mkv", mediaDir: "special", fileSize: 100 },
+    ]);
+
+    const { pollOnce } = await loadWorker();
+    const result = await pollOnce({ ...defaultOpts, forceDiscover: true });
+
+    expect(result.discovered).toBe(0);
+    expect(result.checked).toBe(0);
+    expect(discoverFilesMock.mock.calls).toHaveLength(0);
+    expect(probeFileReadableMock.mock.calls).toHaveLength(0);
+  });
 });

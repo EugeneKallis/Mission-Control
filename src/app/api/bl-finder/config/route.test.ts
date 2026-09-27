@@ -96,7 +96,23 @@ describe("PUT /api/bl-finder/config", () => {
     expect(body.config.intervalSec).toBe(60);
   });
 
-  test("accepts enabled=false and persists it", async () => {
+  test("accepts enabled=false, persists it, and clears stale pass status", async () => {
+    await testDB.db.setting.create({
+      data: {
+        key: "blfinder_status",
+        value: JSON.stringify({
+          running: false,
+          setAt: Date.now(),
+          lastPassAt: Date.now(),
+          processed: 4,
+          ok: 3,
+          broken: 1,
+          error: null,
+          forceWakeAt: Date.now() + 5000,
+        }),
+      },
+    });
+
     const { PUT, GET } = await loadRoute();
     const r1 = await PUT(jsonRequest("/api/bl-finder/config", { enabled: false }, "PUT"));
     expect(status(r1)).toBe(200);
@@ -105,5 +121,15 @@ describe("PUT /api/bl-finder/config", () => {
     const r2 = await GET(getRequest("/api/bl-finder/config"));
     const b2 = (await jsonBody(r2)) as { config: { enabled: boolean } };
     expect(b2.config.enabled).toBe(false);
+
+    const statusRow = await testDB.db.setting.findUniqueOrThrow({
+      where: { key: "blfinder_status" },
+    });
+    const workerStatus = JSON.parse(statusRow.value!);
+    expect(workerStatus.lastPassAt).toBeNull();
+    expect(workerStatus.forceWakeAt).toBeNull();
+    expect(workerStatus.processed).toBe(0);
+    expect(workerStatus.ok).toBe(0);
+    expect(workerStatus.broken).toBe(0);
   });
 });

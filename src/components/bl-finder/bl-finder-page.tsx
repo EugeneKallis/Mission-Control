@@ -335,12 +335,13 @@ export function BlFinderPage() {
 
   // ── Derived ─────────────────────────────────────────────────────────
   const lastPassDisplay = useMemo(() => {
+    if (config && !config.enabled) return "paused";
     if (!status?.lastPassAt) return "never";
     const ms = Date.now() - status.lastPassAt;
     if (ms < 60_000) return `${Math.floor(ms / 1000)}s ago`;
     if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m ago`;
     return `${Math.floor(ms / 3_600_000)}h ago`;
-  }, [status?.lastPassAt]);
+  }, [config?.enabled, status?.lastPassAt]);
 
   /**
    * Effective media dirs — the override from config if non-empty,
