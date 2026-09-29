@@ -28,11 +28,20 @@ import { makeTestDB, type TestDB } from "@/lib/db/test-helpers";
 import { jsonRequest, jsonBody, status } from "@/test-utils/route-helpers";
 
 let testDB: TestDB;
+
+class MockZurgRejectedError extends Error {
+  constructor() {
+    super("Zurg rejected submission");
+    this.name = "ZurgRejectedError";
+  }
+}
+
 let addMagnetMock: ReturnType<typeof mock>;
 let addTorrentMock: ReturnType<typeof mock>;
 let zurgCtorMock: ReturnType<typeof mock>;
 
 const mockZurgModule = {
+  ZurgRejectedError: MockZurgRejectedError,
   ZurgClient: class {
     constructor(_url?: string, _apiKey?: string) {
       zurgCtorMock(_url, _apiKey);
@@ -117,14 +126,17 @@ describe("POST /api/scraper/download", () => {
     expect(status(res)).toBe(400);
   });
 
-  test("returns 400 when the row has neither magnet nor torrent", async () => {
+  test("hides a row that has neither magnet nor torrent", async () => {
     const row = await seed({ source: "141jav", title: "no links" });
     const { POST } = await loadRoute();
     const res = await POST(jsonRequest("/api/scraper/download", { id: row.id }));
-    expect(status(res)).toBe(400);
-    const body = (await jsonBody(res)) as { success: boolean; error: string };
-    expect(body.success).toBe(false);
-    expect(body.error).toBe("No magnet or torrent link");
+    expect(status(res)).toBe(200);
+    expect(await jsonBody(res)).toEqual({
+      success: false, id: row.id, hidden: true, error: "No magnet or torrent link",
+    });
+    const after = await testDB.db.scrapeResult.findUnique({ where: { id: row.id } });
+    expect(after?.isHidden).toBe(true);
+    expect(after?.isDownloaded).toBe(false);
   });
 
   test("magnet path: calls ZurgClient.addMagnet and marks the row downloaded", async () => {
@@ -249,18 +261,19 @@ describe("POST /api/scraper/download", () => {
       });
       const { POST } = await loadRoute();
       const res = await POST(jsonRequest("/api/scraper/download", { id: row.id }));
-      expect(status(res)).toBe(400);
-      const body = (await jsonBody(res)) as { success: boolean; error: string };
-      expect(body.error).toBe("Invalid torrent URL");
-      // The row should not be marked downloaded.
+      expect(status(res)).toBe(200);
+      expect(await jsonBody(res)).toEqual({
+        success: false, id: row.id, hidden: true, error: "Invalid torrent URL",
+      });
       const after = await testDB.db.scrapeResult.findUnique({
         where: { id: row.id },
       });
       expect(after?.isDownloaded).toBe(false);
+      expect(after?.isHidden).toBe(true);
     }
   });
 
-  test("torrent path: returns 502 when the torrent fetch returns non-2xx", async () => {
+  test("torrent path: hides the row when the torrent fetch returns non-2xx", async () => {
     const row = await seed({
       source: "pornrips",
       title: "404 torrent",
@@ -269,34 +282,89 @@ describe("POST /api/scraper/download", () => {
     globalThis.fetch = mock(async () => new Response("not found", { status: 404 })) as unknown as typeof fetch;
     const { POST } = await loadRoute();
     const res = await POST(jsonRequest("/api/scraper/download", { id: row.id }));
-    expect(status(res)).toBe(502);
-    const body = (await jsonBody(res)) as { error: string };
-    expect(body.error).toBe("Torrent unavailable: HTTP 404");
+    expect(status(res)).toBe(200);
+    expect(await jsonBody(res)).toEqual({
+      success: false, id: row.id, hidden: true, error: "Torrent unavailable: HTTP 404",
+    });
     expect(addTorrentMock).not.toHaveBeenCalled();
+    const after = await testDB.db.scrapeResult.findUnique({ where: { id: row.id } });
+    expect(after?.isHidden).toBe(true);
+    expect(after?.isDownloaded).toBe(false);
   });
 
-  test("returns 500 when Zurg.addMagnet throws", async () => {
+  test("torrent path: hides the row when fetching the source times out", async () => {
     const row = await seed({
-      source: "141jav",
-      title: "broken magnet",
-      magnetLink: "magnet:?xt=urn:btih:FAIL",
+      source: "pornrips",
+      title: "timed out torrent",
+      torrentLink: "https://example.com/slow.torrent",
     });
-    addMagnetMock = mock(async () => {
-      throw new Error("Zurg 500");
-    });
-    // The mock class's instance method closes over addMagnetMock, so
-    // reassigning the variable is enough.
+    globalThis.fetch = mock(async () => {
+      throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+    }) as unknown as typeof fetch;
+
     const { POST } = await loadRoute();
     const res = await POST(jsonRequest("/api/scraper/download", { id: row.id }));
-    expect(status(res)).toBe(500);
-    const body = (await jsonBody(res)) as { error: string };
-    expect(body.error).toBe("Failed to submit to Zurg");
+    expect(status(res)).toBe(200);
+    expect(await jsonBody(res)).toEqual({
+      success: false, id: row.id, hidden: true, error: "Torrent source unavailable",
+    });
+    expect(addTorrentMock).not.toHaveBeenCalled();
+    const after = await testDB.db.scrapeResult.findUnique({ where: { id: row.id } });
+    expect(after?.isHidden).toBe(true);
+    expect(after?.isDownloaded).toBe(false);
+  });
 
-    // The row should NOT be marked downloaded on failure.
+  test("hides the row when Zurg explicitly rejects the submission", async () => {
+    const row = await seed({
+      source: "141jav",
+      title: "rejected magnet",
+      magnetLink: "magnet:?xt=urn:btih:REJECTED",
+    });
+    addMagnetMock = mock(async () => {
+      throw new MockZurgRejectedError();
+    });
+
+    const { POST } = await loadRoute();
+    const res = await POST(jsonRequest("/api/scraper/download", { id: row.id }));
+    expect(status(res)).toBe(200);
+    expect(await jsonBody(res)).toEqual({
+      success: false,
+      id: row.id,
+      hidden: true,
+      error: "Zurg rejected submission",
+    });
+
     const after = await testDB.db.scrapeResult.findUnique({
       where: { id: row.id },
     });
     expect(after?.isDownloaded).toBe(false);
+    expect(after?.isHidden).toBe(true);
+    expect(after?.hiddenAt).toBeInstanceOf(Date);
+  });
+
+  test("does not hide the row when Zurg is unavailable", async () => {
+    const row = await seed({
+      source: "141jav",
+      title: "unavailable magnet",
+      magnetLink: "magnet:?xt=urn:btih:UNAVAILABLE",
+    });
+    addMagnetMock = mock(async () => {
+      throw new Error("Zurg request timed out");
+    });
+
+    const { POST } = await loadRoute();
+    const res = await POST(jsonRequest("/api/scraper/download", { id: row.id }));
+    expect(status(res)).toBe(500);
+    expect(await jsonBody(res)).toEqual({
+      success: false,
+      error: "Failed to submit to Zurg",
+    });
+
+    const after = await testDB.db.scrapeResult.findUnique({
+      where: { id: row.id },
+    });
+    expect(after?.isDownloaded).toBe(false);
+    expect(after?.isHidden).toBe(false);
   });
 
   test("prefers magnet when both magnet AND torrent are present", async () => {

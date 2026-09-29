@@ -6,6 +6,14 @@ export interface ZurgTorrent {
   content_path: string;
 }
 
+/** Zurg reached the add endpoint and explicitly refused this torrent. */
+export class ZurgRejectedError extends Error {
+  constructor() {
+    super("Zurg rejected submission");
+    this.name = "ZurgRejectedError";
+  }
+}
+
 export class ZurgClient {
   private readonly baseUrl: string;
   private readonly apiKey: string;
@@ -27,7 +35,7 @@ export class ZurgClient {
   private async checkAddResponse(response: Response): Promise<void> {
     const text = await response.text();
     if (!response.ok) throw new Error(`Zurg returned ${response.status}: ${text}`);
-    if (text.trim() === "Fails.") throw new Error("Zurg rejected submission");
+    if (text.trim() === "Fails.") throw new ZurgRejectedError();
   }
 
   async addMagnet(magnet: string): Promise<void> {

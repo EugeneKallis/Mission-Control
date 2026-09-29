@@ -386,6 +386,10 @@ export function ScraperPage({
         });
         const data = await res.json();
         if (!res.ok || !data.success) {
+          if (data.hidden) {
+            toast.showToast(data.error ?? "Zurg rejected the torrent; item hidden", "error");
+            return;
+          }
           throw new Error(data.error ?? `HTTP ${res.status}`);
         }
         toast.showToast("Sent to Zurg!", "success");

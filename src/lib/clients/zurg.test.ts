@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { ZurgClient } from "./zurg";
+import { ZurgClient, ZurgRejectedError } from "./zurg";
 
 const originalFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = originalFetch; });
@@ -57,8 +57,12 @@ describe("ZurgClient", () => {
   test("rejects missing key, failures, and non-2xx", async () => {
     await expect(new ZurgClient("http://zurg").addMagnet("magnet:x")).rejects.toThrow(/API key/);
     globalThis.fetch = (async () => new Response("Fails.")) as unknown as typeof fetch;
-    await expect(new ZurgClient("http://zurg", "secret").addMagnet("magnet:x")).rejects.toThrow(/rejected/);
+    await expect(new ZurgClient("http://zurg", "secret").addMagnet("magnet:x")).rejects.toBeInstanceOf(ZurgRejectedError);
     globalThis.fetch = (async () => new Response("bad", { status: 500 })) as unknown as typeof fetch;
     await expect(new ZurgClient("http://zurg", "secret").addMagnet("magnet:x")).rejects.toThrow(/500/);
+    globalThis.fetch = (async () => new Response("Fails.", { status: 503 })) as unknown as typeof fetch;
+    const unavailable = new ZurgClient("http://zurg", "secret").addMagnet("magnet:x");
+    await expect(unavailable).rejects.toThrow(/503/);
+    await expect(unavailable).rejects.not.toBeInstanceOf(ZurgRejectedError);
   });
 });

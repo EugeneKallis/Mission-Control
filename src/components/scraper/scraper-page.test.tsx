@@ -705,6 +705,71 @@ describe("ScraperPage", () => {
     });
   });
 
+  test("keeps a card hidden when Zurg rejects the submission", async () => {
+    sessionStorage.setItem("scraper_warning_accepted", String(Date.now()));
+    const fetchCalls: string[] = [];
+    let resolveDownload!: (response: Response) => void;
+    globalThis.fetch = mock(async (url: unknown) => {
+      const requestUrl = String(url);
+      fetchCalls.push(requestUrl);
+      if (requestUrl.includes("/api/scraper/results")) {
+        return new Response(JSON.stringify(sampleResults), { status: 200 });
+      }
+      if (requestUrl.includes("/api/scraper/status")) {
+        return new Response(JSON.stringify({ is_scraping: false }), { status: 200 });
+      }
+      if (requestUrl.includes("/api/scraper/download")) {
+        return new Promise<Response>((resolve) => {
+          resolveDownload = resolve;
+        });
+      }
+      return new Response(JSON.stringify({ success: true }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    renderPage();
+    await waitFor(() => expect(screen.getByText("First Result")).toBeInTheDocument());
+
+    const firstCard = document.querySelector<HTMLElement>('.scraper-card[data-id="1"]')!;
+    fireEvent.click(document.getElementById("dl-btn-1")!);
+    await waitFor(() => expect(resolveDownload).toBeDefined());
+
+    await act(async () => {
+      resolveDownload(new Response(JSON.stringify({
+        success: false,
+        hidden: true,
+        error: "Zurg rejected submission",
+      }), { status: 200 }));
+    });
+
+    expect(fetchCalls.some((url) => url.includes("/api/scraper/download"))).toBe(true);
+    expect(firstCard.style.display).toBe("none");
+    expect(firstCard.classList.contains("is-user-hidden")).toBe(true);
+    expect(screen.getByLabelText("1 visible record")).toBeInTheDocument();
+  });
+
+  test("restores the card when Zurg is unavailable", async () => {
+    sessionStorage.setItem("scraper_warning_accepted", String(Date.now()));
+    globalThis.fetch = mock(async (url: unknown) => {
+      const requestUrl = String(url);
+      if (requestUrl.includes("/api/scraper/results")) {
+        return new Response(JSON.stringify(sampleResults), { status: 200 });
+      }
+      if (requestUrl.includes("/api/scraper/status")) {
+        return new Response(JSON.stringify({ is_scraping: false }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ success: false, error: "Failed to submit to Zurg" }), { status: 500 });
+    }) as unknown as typeof fetch;
+
+    renderPage();
+    await waitFor(() => expect(screen.getByText("First Result")).toBeInTheDocument());
+    const firstCard = document.querySelector<HTMLElement>('.scraper-card[data-id="1"]')!;
+    fireEvent.click(document.getElementById("dl-btn-1")!);
+    expect(firstCard.style.display).toBe("none");
+    await waitFor(() => expect(firstCard.style.display).toBe(""));
+    expect(firstCard.classList.contains("is-user-hidden")).toBe(false);
+    expect(screen.getByLabelText("2 visible records")).toBeInTheDocument();
+  });
+
   test("clicking 'Scrape Now' posts to /api/scraper/trigger with the source", async () => {
     const fetchCalls: Array<{ url: string; init?: RequestInit }> = [];
     let pendingResults: Response | null = null;

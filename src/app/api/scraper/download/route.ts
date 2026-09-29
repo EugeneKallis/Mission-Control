@@ -8,9 +8,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import {
   getScrapeResult,
+  hideScrapeResult,
   markScrapeResultDownloaded,
 } from "@/lib/db/queries";
-import { ZurgClient } from "@/lib/clients/zurg";
+import { ZurgClient, ZurgRejectedError } from "@/lib/clients/zurg";
 import { resolveConfig } from "@/lib/config";
 
 const schema = z.object({ id: z.number().int().positive() });
@@ -67,6 +68,16 @@ function sanitizeFilename(name: string): string {
     .slice(0, 100);
 }
 
+async function hideFailedSubmission(id: number, error: string) {
+  try {
+    await hideScrapeResult(id);
+  } catch (hideErr) {
+    console.error("Failed to hide scraper result after download failure:", hideErr);
+    return NextResponse.json({ success: false, error: "Failed to hide result" }, { status: 500 });
+  }
+  return NextResponse.json({ success: false, id, hidden: true, error });
+}
+
 export async function POST(request: NextRequest) {
   let body: unknown;
   try {
@@ -88,10 +99,7 @@ export async function POST(request: NextRequest) {
     const torrent = item.torrentLink;
 
     if (!magnet && !torrent) {
-      return NextResponse.json(
-        { success: false, error: "No magnet or torrent link" },
-        { status: 400 }
-      );
+      return await hideFailedSubmission(parsed.data.id, "No magnet or torrent link");
     }
 
     const cfg = await resolveConfig();
@@ -103,19 +111,29 @@ export async function POST(request: NextRequest) {
     } else {
       const torrentUrl = torrent || magnet;
       if (!torrentUrl || !isAllowedTorrentUrl(torrentUrl)) {
-        return NextResponse.json({ success: false, error: "Invalid torrent URL" }, { status: 400 });
+        return await hideFailedSubmission(parsed.data.id, "Invalid torrent URL");
       }
-      const res = await fetch(torrentUrl, { signal: AbortSignal.timeout(15_000) });
-      if (!res.ok) {
-        return NextResponse.json({ success: false, error: `Torrent unavailable: HTTP ${res.status}` }, { status: 502 });
+      let data: ArrayBuffer;
+      try {
+        const res = await fetch(torrentUrl, { signal: AbortSignal.timeout(15_000) });
+        if (!res.ok) {
+          return await hideFailedSubmission(parsed.data.id, `Torrent unavailable: HTTP ${res.status}`);
+        }
+        data = await res.arrayBuffer();
+      } catch (err) {
+        console.error("Failed to fetch torrent source:", err);
+        return await hideFailedSubmission(parsed.data.id, "Torrent source unavailable");
       }
-      const data = await res.arrayBuffer();
       await zurg.addTorrent(data, `${sanitizeFilename(item.title)}.torrent`);
     }
 
     await markScrapeResultDownloaded(parsed.data.id);
     return NextResponse.json({ success: true, id: parsed.data.id });
   } catch (err) {
+    if (err instanceof ZurgRejectedError) {
+      return await hideFailedSubmission(parsed.data.id, err.message);
+    }
+
     console.error("Failed to submit to Zurg:", err);
     return NextResponse.json({ success: false, error: "Failed to submit to Zurg" }, { status: 500 });
   }
