@@ -11,6 +11,7 @@
 
 import { CronJob } from "cron";
 import { createHistory, getEnabledSchedules } from "@/lib/db/queries";
+import { db } from "@/lib/db";
 import {
   ScheduledRunController,
   skippedRunOutput,
@@ -113,12 +114,30 @@ class CronScheduler {
       this.jobs.delete(id);
     }
 
+    // The DB is authoritative even if a stale timer or queued trigger survives.
+    const isCurrent = async () => {
+      const schedule = await db.schedule.findUnique({ where: { id } });
+      if (!schedule?.enabled) {
+        await this.removeSchedule(id);
+        return false;
+      }
+      if (schedule.macroId !== macroId || schedule.cronExpression !== cronExpression ||
+          schedule.concurrencyPolicy !== concurrencyPolicy) {
+        await this.updateSchedule(id, schedule.macroId, schedule.cronExpression, true,
+          schedule.concurrencyPolicy as ConcurrencyPolicy);
+        return false;
+      }
+      return true;
+    };
+
     const job = new CronJob(
       cronExpression,
       async () => {
+        if (!await isCurrent()) return;
         await this.runs.trigger(`macro:${macroId}`, concurrencyPolicy, {
           execute: async (setHistoryId) => {
             try {
+              if (!await isCurrent()) return;
               const fn = await getRunMacro();
               await fn(macroId, "schedule", setHistoryId);
             } catch (err) {
@@ -147,5 +166,9 @@ class CronScheduler {
   }
 }
 
-/** Singleton instance — imported by instrumentation.ts and the schedules API. */
-export const cronScheduler = new CronScheduler();
+// Next.js bundles instrumentation and API routes separately. A module-level
+// singleton would leave startup jobs unreachable from toggle/update/delete routes.
+const globalForCron = globalThis as unknown as {
+  missionControlCronScheduler: CronScheduler | undefined;
+};
+export const cronScheduler = globalForCron.missionControlCronScheduler ??= new CronScheduler();

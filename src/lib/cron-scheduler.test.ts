@@ -9,6 +9,7 @@
 
 import { describe, test, expect, mock, beforeAll, afterAll, beforeEach } from "bun:test";
 import { makeTestDB, type TestDB } from "@/lib/db/test-helpers";
+import type { CronJob } from "cron";
 
 let testDB: TestDB;
 let q: typeof import("@/lib/db/queries");
@@ -30,6 +31,8 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await scheduler?.stopAll();
+  Reflect.deleteProperty(globalThis, "missionControlCronScheduler");
   await testDB.cleanup();
 });
 
@@ -37,12 +40,19 @@ beforeEach(async () => {
   await testDB.db.history.deleteMany();
   await testDB.db.schedule.deleteMany();
   await testDB.db.macro.deleteMany();
-  // Fresh scheduler instance for each test
+  // Fresh process-wide scheduler for each test, without leaking live timers.
+  await scheduler?.stopAll();
+  Reflect.deleteProperty(globalThis, "missionControlCronScheduler");
   scheduler = (await import(`./cron-scheduler?bust=${Date.now()}-${Math.random()}`)).cronScheduler;
   runMacroCalls = [];
 });
 
 describe("cronScheduler.init()", () => {
+  test("separate module evaluations share the same scheduler", async () => {
+    const other = (await import(`./cron-scheduler?bust=api-${Date.now()}`)).cronScheduler;
+    expect(other).toBe(scheduler);
+  });
+
   test("loads all enabled schedules from the DB", async () => {
     const macro = await testDB.db.macro.create({ data: { name: "m" } });
     await testDB.db.schedule.create({
@@ -95,6 +105,30 @@ describe("cronScheduler.removeSchedule()", () => {
 
   test("is a no-op when the schedule id is not registered", async () => {
     await expect(scheduler.removeSchedule(99999)).resolves.toBeUndefined();
+  });
+
+  test("a stale in-memory job does not run after its DB schedule is disabled", async () => {
+    const macro = await testDB.db.macro.create({ data: { name: "m" } });
+    const schedule = await testDB.db.schedule.create({
+      data: { macroId: macro.id, cronExpression: "0 0 * * *", enabled: true },
+    });
+
+    await scheduler.addSchedule(schedule.id, macro.id, schedule.cronExpression);
+    const jobs = (scheduler as unknown as { jobs: Map<number, CronJob> }).jobs;
+    const job = jobs.get(schedule.id)!;
+    job.stop();
+    job.waitForCompletion = true;
+    await job.fireOnTick();
+    expect(runMacroCalls).toEqual([{ macroId: macro.id, triggeredBy: "schedule" }]);
+
+    await testDB.db.schedule.update({
+      where: { id: schedule.id },
+      data: { enabled: false },
+    });
+    runMacroCalls = [];
+    await job.fireOnTick();
+    expect(runMacroCalls).toEqual([]);
+    expect(jobs.has(schedule.id)).toBe(false);
   });
 });
 
