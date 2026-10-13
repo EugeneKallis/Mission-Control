@@ -3,7 +3,7 @@ import { ScraperPage } from "@/components/scraper/scraper-page";
 import { isValidSource, type ScraperSource } from "@/components/scraper/scraper-types";
 
 /**
- * The page's ?source= query drives the active tab. Default is "141jav" to
+ * The page's ?source= query drives the active tab. Default is "projectjav" to
  * match the Go server's behavior. Server component reads the query so deep
  * links work; the client component handles tab switching after mount.
  */
@@ -14,7 +14,7 @@ export default async function Page({
 }) {
   const sp = await searchParams;
   const requested = sp.source;
-  const initialSource: ScraperSource = isValidSource(requested) ? requested : "141jav";
+  const initialSource: ScraperSource = isValidSource(requested) ? requested : "projectjav";
 
   return (
     <AppShell noScroll>

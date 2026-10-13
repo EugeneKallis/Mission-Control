@@ -14,7 +14,7 @@ import {
 } from "@/lib/db/queries";
 
 const schema = z.union([
-  z.object({ source: z.enum(["141jav", "pornrips"]) }),
+  z.object({ source: z.enum(["projectjav", "pornrips"]) }),
   z.object({ id: z.number().int().positive() }),
 ]);
 

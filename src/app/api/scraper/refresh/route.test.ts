@@ -4,7 +4,7 @@
  * Clears non-downloaded rows and triggers a re-scrape:
  *   - { source } → delete rows for that source, then trigger that source
  *   - {} (no source) → delete all non-downloaded rows, then trigger
- *                       141jav only (PornRips is intentionally explicit)
+ *                       projectjav only (PornRips is intentionally explicit)
  *
  * NOTE: `mock.module("@/workers/scraper-runner", ...)` is hoisted to the
  * top of the file. The DB mock for `@/lib/db` stays in `beforeAll`
@@ -89,18 +89,18 @@ describe("POST /api/scraper/refresh", () => {
   });
 
   test("with { source } — deletes non-downloaded rows for that source and triggers that source", async () => {
-    const a = await seed({ source: "141jav", title: "A" });
+    const a = await seed({ source: "projectjav", title: "A" });
     const b = await seed({ source: "pornrips", title: "B" });
     const c = await seed({ source: "pornrips", title: "C" });
     const { POST } = await loadRoute();
     const res = await POST(jsonRequest("/api/scraper/refresh", {
-      source: "141jav",
+      source: "projectjav",
     }));
     expect(status(res)).toBe(200);
     const body = (await jsonBody(res)) as { success: boolean; source: string };
-    expect(body).toEqual({ success: true, source: "141jav" });
+    expect(body).toEqual({ success: true, source: "projectjav" });
 
-    // The 141jav row is gone, the others remain.
+    // The projectjav row is gone, the others remain.
     expect(
       await testDB.db.scrapeResult.findUnique({ where: { id: a.id } }),
     ).toBeNull();
@@ -113,7 +113,7 @@ describe("POST /api/scraper/refresh", () => {
 
     // Runner was triggered with the specific source.
     expect(triggerSourceInBackgroundMock).toHaveBeenCalledTimes(1);
-    expect(triggerSourceInBackgroundMock.mock.calls[0][0]).toBe("141jav");
+    expect(triggerSourceInBackgroundMock.mock.calls[0][0]).toBe("projectjav");
   });
 
   test("with { source } — keeps downloaded rows even for the same source", async () => {
@@ -138,12 +138,12 @@ describe("POST /api/scraper/refresh", () => {
     ).toBeNull();
   });
 
-  test("with no source — deletes ALL non-downloaded rows and triggers 141jav only", async () => {
-    const a = await seed({ source: "141jav", title: "A" });
+  test("with no source — deletes ALL non-downloaded rows and triggers projectjav only", async () => {
+    const a = await seed({ source: "projectjav", title: "A" });
     const b = await seed({ source: "pornrips", title: "B" });
-    const c = await seed({ source: "141jav", title: "C" });
+    const c = await seed({ source: "projectjav", title: "C" });
     const downloaded = await seed({
-      source: "141jav",
+      source: "projectjav",
       title: "downloaded",
       isDownloaded: true,
     });
@@ -168,17 +168,17 @@ describe("POST /api/scraper/refresh", () => {
       await testDB.db.scrapeResult.findUnique({ where: { id: downloaded.id } }),
     ).not.toBeNull();
 
-    // Runner was triggered for 141jav only; PornRips requires an explicit source.
+    // Runner was triggered for projectjav only; PornRips requires an explicit source.
     expect(triggerSourceInBackgroundMock).toHaveBeenCalledTimes(1);
     const calledSources = triggerSourceInBackgroundMock.mock.calls.map(
       (c) => c[0],
     );
-    expect(calledSources).toContain("141jav");
+    expect(calledSources).toContain("projectjav");
     expect(calledSources).not.toContain("pornrips");
   });
 
   test("empty body / malformed JSON is treated as no-source (delete all, trigger one)", async () => {
-    await seed({ source: "141jav", title: "A" });
+    await seed({ source: "projectjav", title: "A" });
     const { POST } = await loadRoute();
     const req = new Request("http://localhost/api/scraper/refresh", {
       method: "POST",
@@ -198,7 +198,7 @@ describe("POST /api/scraper/refresh", () => {
     }));
     const { POST } = await loadRoute();
     const res = await POST(jsonRequest("/api/scraper/refresh", {
-      source: "141jav",
+      source: "projectjav",
     }));
     expect(status(res)).toBe(500);
     const body = (await jsonBody(res)) as { error: string };

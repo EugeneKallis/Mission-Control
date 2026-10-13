@@ -91,11 +91,11 @@ describe("POST /api/scraper/undo", () => {
   });
 
   test("with { source } — un-hides the most-recently hidden row for that source", async () => {
-    const older = await seedHidden({ source: "141jav", title: "older", hiddenAgoMs: 60_000 });
-    const newer = await seedHidden({ source: "141jav", title: "newer", hiddenAgoMs: 1000 });
+    const older = await seedHidden({ source: "projectjav", title: "older", hiddenAgoMs: 60_000 });
+    const newer = await seedHidden({ source: "projectjav", title: "newer", hiddenAgoMs: 1000 });
     const { POST } = await loadRoute();
     const res = await POST(jsonRequest("/api/scraper/undo", {
-      source: "141jav",
+      source: "projectjav",
     }));
     expect(status(res)).toBe(200);
     const body = (await jsonBody(res)) as { success: boolean; id: number };

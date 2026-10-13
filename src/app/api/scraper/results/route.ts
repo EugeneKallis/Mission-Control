@@ -17,7 +17,7 @@ const PAGE_SIZE = 20;
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const source = searchParams.get("source") ?? "141jav";
+  const source = searchParams.get("source") ?? "projectjav";
   const cursorCreatedAt = searchParams.get("cursorCreatedAt");
   const cursorId = searchParams.get("cursorId");
   const hasCursorCreatedAt = cursorCreatedAt !== null;

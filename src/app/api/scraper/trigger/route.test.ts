@@ -91,13 +91,13 @@ describe("POST /api/scraper/trigger", () => {
   test("triggers the runner and returns success on the happy path", async () => {
     const { POST } = await loadRoute();
     const res = await POST(jsonRequest("/api/scraper/trigger", {
-      source: "141jav",
+      source: "projectjav",
     }));
     expect(status(res)).toBe(200);
     const body = (await jsonBody(res)) as { success: boolean; source: string };
-    expect(body).toEqual({ success: true, source: "141jav" });
+    expect(body).toEqual({ success: true, source: "projectjav" });
     expect(triggerSourceInBackgroundMock).toHaveBeenCalledTimes(1);
-    expect(triggerSourceInBackgroundMock.mock.calls[0][0]).toBe("141jav");
+    expect(triggerSourceInBackgroundMock.mock.calls[0][0]).toBe("projectjav");
   });
 
   test("returns already_running=true and skips the runner when status is true", async () => {
@@ -123,7 +123,7 @@ describe("POST /api/scraper/trigger", () => {
   });
 
   test("accepts every valid source enum value", async () => {
-    for (const source of ["141jav", "pornrips"]) {
+    for (const source of ["projectjav", "pornrips"]) {
       const { POST } = await loadRoute();
       const res = await POST(jsonRequest("/api/scraper/trigger", { source }));
       expect(status(res)).toBe(200);

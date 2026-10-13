@@ -9,7 +9,7 @@
  * process from the web server.
  *
  *   just run-worker                            # all sources
- *   just run-worker src/workers/scraper-runner.ts -- 141jav
+ *   just run-worker src/workers/scraper-runner.ts -- projectjav
  *   just run-worker src/workers/scraper-runner.ts -- pornrips
  *
  * A 20-day-old hidden-result cleanup runs at the start of every invocation,
@@ -18,11 +18,11 @@
 
 import { cleanOldScrapeResults } from "@/lib/db/queries";
 import { withScrapingStatus } from "./scrapers/status";
-import { run141JavScrape } from "./scrapers/141jav";
+import { runProjectJAVScrape } from "./scrapers/projectjav";
 import { runPornRipsScrape } from "./scrapers/pornrips";
 
-type Source = "141jav" | "pornrips";
-const SOURCES: Source[] = ["141jav", "pornrips"];
+type Source = "projectjav" | "pornrips";
+const SOURCES: Source[] = ["projectjav", "pornrips"];
 
 function parseTargets(argv: string[]): Source[] {
   const args = argv.slice(2);
@@ -41,8 +41,8 @@ async function runOne(source: Source): Promise<void> {
     console.log(`\n=== ${source} starting ===`);
     try {
       switch (source) {
-        case "141jav":
-          await run141JavScrape();
+        case "projectjav":
+          await runProjectJAVScrape();
           break;
         case "pornrips":
           await runPornRipsScrape();

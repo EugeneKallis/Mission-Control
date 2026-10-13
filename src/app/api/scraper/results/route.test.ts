@@ -69,14 +69,14 @@ async function seed(opts: {
 describe("GET /api/scraper/results", () => {
   test("returns 200 and empty results when no rows exist", async () => {
     const { GET } = await loadRoute();
-    const res = await GET(getRequest("/api/scraper/results?source=141jav"));
+    const res = await GET(getRequest("/api/scraper/results?source=projectjav"));
     expect(status(res)).toBe(200);
     const body = (await jsonBody(res)) as { results: unknown[] };
     expect(body.results).toEqual([]);
   });
 
-  test("defaults source to 141jav when query param is missing", async () => {
-    await seed({ source: "141jav", title: "Default source item" });
+  test("defaults source to projectjav when query param is missing", async () => {
+    await seed({ source: "projectjav", title: "Default source item" });
     await seed({ source: "pornrips", title: "Other source" });
     const { GET } = await loadRoute();
     const res = await GET(getRequest("/api/scraper/results"));
@@ -85,17 +85,17 @@ describe("GET /api/scraper/results", () => {
       results: Array<{ source: string; title: string }>;
     };
     expect(body.results).toHaveLength(1);
-    expect(body.results[0].source).toBe("141jav");
+    expect(body.results[0].source).toBe("projectjav");
   });
 
   test("returns visible rows for the given source", async () => {
     const visible = await seed({
-      source: "141jav",
+      source: "projectjav",
       title: "Visible item",
       magnetLink: "magnet:?xt=urn:btih:ABC",
     });
     const { GET } = await loadRoute();
-    const res = await GET(getRequest("/api/scraper/results?source=141jav"));
+    const res = await GET(getRequest("/api/scraper/results?source=projectjav"));
     expect(status(res)).toBe(200);
     const body = (await jsonBody(res)) as {
       results: Array<{ id: number; source: string; title: string; magnet: string }>;
@@ -107,10 +107,10 @@ describe("GET /api/scraper/results", () => {
   });
 
   test("hides hidden rows from the response", async () => {
-    await seed({ source: "141jav", title: "Visible A" });
-    await seed({ source: "141jav", title: "Hidden B", isHidden: true });
+    await seed({ source: "projectjav", title: "Visible A" });
+    await seed({ source: "projectjav", title: "Hidden B", isHidden: true });
     const { GET } = await loadRoute();
-    const res = await GET(getRequest("/api/scraper/results?source=141jav"));
+    const res = await GET(getRequest("/api/scraper/results?source=projectjav"));
     const body = (await jsonBody(res)) as { results: Array<{ title: string }> };
     expect(body.results).toHaveLength(1);
     expect(body.results[0].title).toBe("Visible A");
@@ -118,20 +118,20 @@ describe("GET /api/scraper/results", () => {
 
   test("splits tags by comma and drops empty entries", async () => {
     await seed({
-      source: "141jav",
+      source: "projectjav",
       title: "Tagged item",
       tags: "tag1,tag2,,tag3",
     });
     const { GET } = await loadRoute();
-    const res = await GET(getRequest("/api/scraper/results?source=141jav"));
+    const res = await GET(getRequest("/api/scraper/results?source=projectjav"));
     const body = (await jsonBody(res)) as { results: Array<{ tags: string[] }> };
     expect(body.results[0].tags).toEqual(["tag1", "tag2", "tag3"]);
   });
 
   test("returns empty tags array when tags is null", async () => {
-    await seed({ source: "141jav", title: "Untagged" });
+    await seed({ source: "projectjav", title: "Untagged" });
     const { GET } = await loadRoute();
-    const res = await GET(getRequest("/api/scraper/results?source=141jav"));
+    const res = await GET(getRequest("/api/scraper/results?source=projectjav"));
     const body = (await jsonBody(res)) as { results: Array<{ tags: string[] }> };
     expect(body.results[0].tags).toEqual([]);
   });
@@ -157,12 +157,12 @@ describe("GET /api/scraper/results", () => {
 
   test("non-pornrips source keeps imageUrl as-is in image field, images empty", async () => {
     await seed({
-      source: "141jav",
+      source: "projectjav",
       title: "Single image",
       imageUrl: "https://a.example/cover.jpg",
     });
     const { GET } = await loadRoute();
-    const res = await GET(getRequest("/api/scraper/results?source=141jav"));
+    const res = await GET(getRequest("/api/scraper/results?source=projectjav"));
     const body = (await jsonBody(res)) as {
       results: Array<{ image: string; images: string[] }>;
     };
@@ -172,14 +172,14 @@ describe("GET /api/scraper/results", () => {
 
   test("maps response fields from DB column names (magnet/torrent/is_downloaded/is_hidden/created_at)", async () => {
     await seed({
-      source: "141jav",
+      source: "projectjav",
       title: "Field mapping item",
       magnetLink: "magnet:?xt=urn:btih:XYZ",
       torrentLink: "https://example.com/x.torrent",
       isDownloaded: true,
     });
     const { GET } = await loadRoute();
-    const res = await GET(getRequest("/api/scraper/results?source=141jav"));
+    const res = await GET(getRequest("/api/scraper/results?source=projectjav"));
     const body = (await jsonBody(res)) as {
       results: Array<{
         magnet: string;
@@ -197,8 +197,8 @@ describe("GET /api/scraper/results", () => {
   });
 
   test("filters results by source and reports visible counts for every source", async () => {
-    await seed({ source: "141jav", title: "A" });
-    await seed({ source: "141jav", title: "Hidden A", isHidden: true });
+    await seed({ source: "projectjav", title: "A" });
+    await seed({ source: "projectjav", title: "Hidden A", isHidden: true });
     await seed({ source: "pornrips", title: "B" });
     await seed({ source: "pornrips", title: "C" });
     await seed({ source: "pornrips", title: "Hidden C", isHidden: true });
@@ -209,7 +209,7 @@ describe("GET /api/scraper/results", () => {
       counts: Record<string, number>;
     };
     expect(body.results.map((result) => result.title)).toEqual(["C", "B"]);
-    expect(body.counts).toEqual({ "141jav": 1, pornrips: 2 });
+    expect(body.counts).toEqual({ "projectjav": 1, pornrips: 2 });
   });
 
   test("returns keyset-paginated pages with deterministic equal-timestamp ordering", async () => {
@@ -218,7 +218,7 @@ describe("GET /api/scraper/results", () => {
     for (let index = 0; index < 25; index++) {
       rows.push(
         await seed({
-          source: "141jav",
+          source: "projectjav",
           title: `Paginated ${index}`,
           createdAt,
         }),
@@ -226,7 +226,7 @@ describe("GET /api/scraper/results", () => {
     }
 
     const { GET } = await loadRoute();
-    const firstResponse = await GET(getRequest("/api/scraper/results?source=141jav"));
+    const firstResponse = await GET(getRequest("/api/scraper/results?source=projectjav"));
     const firstBody = (await jsonBody(firstResponse)) as {
       results: Array<{ id: number }>;
       counts: Record<string, number>;
@@ -236,12 +236,12 @@ describe("GET /api/scraper/results", () => {
 
     expect(firstBody.results).toHaveLength(20);
     expect(firstBody.results.map((result) => result.id)).toEqual(expectedIds.slice(0, 20));
-    expect(firstBody.counts["141jav"]).toBe(25);
+    expect(firstBody.counts["projectjav"]).toBe(25);
     expect(firstBody.nextCursor).not.toBeNull();
 
     const cursor = firstBody.nextCursor!;
     const secondUrl =
-      `/api/scraper/results?source=141jav&cursorCreatedAt=${encodeURIComponent(cursor.createdAt)}` +
+      `/api/scraper/results?source=projectjav&cursorCreatedAt=${encodeURIComponent(cursor.createdAt)}` +
       `&cursorId=${cursor.id}`;
     const secondResponse = await GET(getRequest(secondUrl));
     const secondBody = (await jsonBody(secondResponse)) as {
@@ -254,16 +254,16 @@ describe("GET /api/scraper/results", () => {
     expect(secondIds).toHaveLength(5);
     expect(secondIds).toEqual(expectedIds.slice(20));
     expect(new Set([...firstBody.results.map((result) => result.id), ...secondIds]).size).toBe(25);
-    expect(secondBody.counts["141jav"]).toBe(25);
+    expect(secondBody.counts["projectjav"]).toBe(25);
     expect(secondBody.nextCursor).toBeNull();
   });
 
   test("rejects partial and malformed pagination cursors", async () => {
     const invalidUrls = [
-      "/api/scraper/results?source=141jav&cursorCreatedAt=2026-09-17T00%3A00%3A00.000Z",
-      "/api/scraper/results?source=141jav&cursorId=1",
-      "/api/scraper/results?source=141jav&cursorCreatedAt=not-a-date&cursorId=1",
-      "/api/scraper/results?source=141jav&cursorCreatedAt=2026-09-17T00%3A00%3A00.000Z&cursorId=0",
+      "/api/scraper/results?source=projectjav&cursorCreatedAt=2026-09-17T00%3A00%3A00.000Z",
+      "/api/scraper/results?source=projectjav&cursorId=1",
+      "/api/scraper/results?source=projectjav&cursorCreatedAt=not-a-date&cursorId=1",
+      "/api/scraper/results?source=projectjav&cursorCreatedAt=2026-09-17T00%3A00%3A00.000Z&cursorId=0",
     ];
 
     const { GET } = await loadRoute();
@@ -281,7 +281,7 @@ describe("GET /api/scraper/results", () => {
       },
     }));
     const { GET } = await loadRoute();
-    const res = await GET(getRequest("/api/scraper/results?source=141jav"));
+    const res = await GET(getRequest("/api/scraper/results?source=projectjav"));
     expect(status(res)).toBe(500);
     const body = (await jsonBody(res)) as { error: string };
     expect(body.error).toBe("Failed to list scrape results");

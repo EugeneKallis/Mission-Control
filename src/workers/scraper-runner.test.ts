@@ -16,21 +16,21 @@ describe("__parseTargets", () => {
 
   test("with no user args, returns every source", () => {
     expect(__parseTargets(["bun", "scraper-runner.ts"])).toEqual([
-      "141jav",
+      "projectjav",
       "pornrips",
     ]);
   });
 
   test("with a single valid source, returns just that one", () => {
-    expect(__parseTargets(["bun", "scraper-runner.ts", "141jav"])).toEqual([
-      "141jav",
+    expect(__parseTargets(["bun", "scraper-runner.ts", "projectjav"])).toEqual([
+      "projectjav",
     ]);
   });
 
   test("with multiple valid sources, preserves their order", () => {
     expect(
-      __parseTargets(["bun", "scraper-runner.ts", "pornrips", "141jav"]),
-    ).toEqual(["pornrips", "141jav"]);
+      __parseTargets(["bun", "scraper-runner.ts", "pornrips", "projectjav"]),
+    ).toEqual(["pornrips", "projectjav"]);
   });
 
   test("drops unknown source names", () => {
@@ -38,12 +38,12 @@ describe("__parseTargets", () => {
       __parseTargets([
         "bun",
         "scraper-runner.ts",
-        "141jav",
+        "projectjav",
         "garbage",
         "pornrips",
         "more-junk",
       ]),
-    ).toEqual(["141jav", "pornrips"]);
+    ).toEqual(["projectjav", "pornrips"]);
   });
 
   test("all-unknown args yields an empty list", () => {

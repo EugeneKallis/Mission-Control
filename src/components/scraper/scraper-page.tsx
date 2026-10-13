@@ -53,7 +53,7 @@ export function ScraperPage({
   const [source, setSource] = useState<ScraperSource>(initialSource);
   const [results, setResults] = useState<ScrapeResultView[]>([]);
   const [counts, setCounts] = useState<Record<ScraperSource, number>>({
-    "141jav": 0,
+    "projectjav": 0,
     pornrips: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -95,7 +95,7 @@ export function ScraperPage({
       if (generation !== requestGenerationRef.current) return;
       setResults(data.results ?? []);
       setCounts({
-        "141jav": data.counts?.["141jav"] ?? 0,
+        "projectjav": data.counts?.["projectjav"] ?? 0,
         pornrips: data.counts?.pornrips ?? 0,
       });
       nextCursorRef.current = data.nextCursor ?? null;
@@ -147,7 +147,7 @@ export function ScraperPage({
       });
       if (data.counts) {
         setCounts({
-          "141jav": data.counts["141jav"] ?? 0,
+          "projectjav": data.counts["projectjav"] ?? 0,
           pornrips: data.counts.pornrips ?? 0,
         });
       }
@@ -664,7 +664,7 @@ export function ScraperPage({
                       active ? "text-on-surface border-rose-500" : "text-on-surface-variant border-transparent hover:text-on-surface"
                     }`}
                   >
-                    {s === "141jav" ? "141JAV" : "PornRips"}{" "}
+                    {s === "projectjav" ? "ProjectJAV" : "PornRips"}{" "}
                     <span
                       title={`${counts[s]} visible ${counts[s] === 1 ? "record" : "records"}`}
                       aria-label={`${counts[s]} visible ${counts[s] === 1 ? "record" : "records"}`}

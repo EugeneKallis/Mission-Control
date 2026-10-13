@@ -17,7 +17,7 @@ export interface ScrapeResultView {
   created_at: string | null;
 }
 
-export type ScraperSource = "141jav" | "pornrips";
+export type ScraperSource = "projectjav" | "pornrips";
 
 export interface ScrapeResultsCursor {
   createdAt: string;
@@ -30,8 +30,8 @@ export interface ScrapeResultsPage {
   nextCursor: ScrapeResultsCursor | null;
 }
 
-export const SOURCES: ScraperSource[] = ["141jav", "pornrips"];
+export const SOURCES: ScraperSource[] = ["projectjav", "pornrips"];
 
 export function isValidSource(value: string | null | undefined): value is ScraperSource {
-  return value === "141jav" || value === "pornrips";
+  return value === "projectjav" || value === "pornrips";
 }

@@ -7,7 +7,7 @@
  * its 30-minute interval.
  *
  * For manual one-off runs of a single source:
- *   just run-worker src/workers/scraper-runner.ts -- 141jav
+ *   just run-worker src/workers/scraper-runner.ts -- projectjav
  *   just run-worker src/workers/scraper-runner.ts -- pornrips
  */
 

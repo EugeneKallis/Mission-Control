@@ -58,13 +58,13 @@ async function loadRoute() {
 describe("GET /api/scraper/status", () => {
   test("returns 200 with is_scraping=false when not scraping", async () => {
     const { GET } = await loadRoute();
-    const res = await GET(getRequest("/api/scraper/status?source=141jav"));
+    const res = await GET(getRequest("/api/scraper/status?source=projectjav"));
     expect(status(res)).toBe(200);
     const body = (await jsonBody(res)) as {
       is_scraping: boolean;
       source: string;
     };
-    expect(body).toEqual({ is_scraping: false, source: "141jav" });
+    expect(body).toEqual({ is_scraping: false, source: "projectjav" });
   });
 
   test("returns is_scraping=true when the status helper returns true", async () => {
@@ -81,17 +81,17 @@ describe("GET /api/scraper/status", () => {
     expect(body).toEqual({ is_scraping: true, source: "pornrips" });
   });
 
-  test("defaults source to 141jav when query param is missing", async () => {
-    getScrapingStatusMock = mock(async (source: string) => source === "141jav");
+  test("defaults source to projectjav when query param is missing", async () => {
+    getScrapingStatusMock = mock(async (source: string) => source === "projectjav");
     statusState.getScrapingStatus = (..._args: unknown[]) =>
       getScrapingStatusMock(..._args);
     const { GET } = await loadRoute();
     const res = await GET(getRequest("/api/scraper/status"));
     expect(status(res)).toBe(200);
     const body = (await jsonBody(res)) as { source: string };
-    expect(body.source).toBe("141jav");
+    expect(body.source).toBe("projectjav");
     // The helper should have been called with the default source.
-    expect(getScrapingStatusMock.mock.calls[0][0]).toBe("141jav");
+    expect(getScrapingStatusMock.mock.calls[0][0]).toBe("projectjav");
   });
 
   test("passes the source query param through to the helper", async () => {
@@ -108,12 +108,12 @@ describe("GET /api/scraper/status", () => {
     statusState.getScrapingStatus = (..._args: unknown[]) =>
       getScrapingStatusMock(..._args);
     const { GET } = await loadRoute();
-    const res = await GET(getRequest("/api/scraper/status?source=141jav"));
+    const res = await GET(getRequest("/api/scraper/status?source=projectjav"));
     expect(status(res)).toBe(500);
     const body = (await jsonBody(res)) as {
       is_scraping: boolean;
       source: string;
     };
-    expect(body).toEqual({ is_scraping: false, source: "141jav" });
+    expect(body).toEqual({ is_scraping: false, source: "projectjav" });
   });
 });

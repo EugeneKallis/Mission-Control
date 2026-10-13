@@ -30,31 +30,11 @@ import type { ScrapeResultView } from "./scraper-types";
 
 const originalFetch = globalThis.fetch;
 
-interface MockResponse {
-  status?: number;
-  body?: unknown;
-}
-
-function mockFetch(responder: (url: string, init?: RequestInit) => MockResponse) {
-  const mocked = mock(async (input: any, init: any = {}) => {
-    const url =
-      typeof input === "string" ? input : input instanceof URL ? input.toString() : String(input);
-    const r = responder(url, init);
-    return new Response(r.body !== undefined ? JSON.stringify(r.body) : "ok", {
-      status: r.status ?? 200,
-      headers: { "content-type": "application/json" },
-    });
-  });
-  // `typeof fetch` has more methods than Mock provides; cast through any.
-  (globalThis as any).fetch = mocked;
-  return mocked;
-}
-
 const sampleResults: { results: ScrapeResultView[]; counts: Record<string, number> } = {
   results: [
     {
       id: 1,
-      source: "141jav",
+      source: "projectjav",
       title: "First Result",
       image: "https://example.com/1.jpg",
       images: [],
@@ -67,7 +47,7 @@ const sampleResults: { results: ScrapeResultView[]; counts: Record<string, numbe
     },
     {
       id: 2,
-      source: "141jav",
+      source: "projectjav",
       title: "Second Result",
       image: null,
       images: [],
@@ -79,11 +59,11 @@ const sampleResults: { results: ScrapeResultView[]; counts: Record<string, numbe
       created_at: "2026-06-25T00:00:00Z",
     },
   ],
-  counts: { "141jav": 2, pornrips: 7 },
+  counts: { "projectjav": 2, pornrips: 7 },
 };
 
 function makeResults(
-  source: "141jav" | "pornrips",
+  source: "projectjav" | "pornrips",
   startId: number,
   count: number,
   label: string,
@@ -103,7 +83,7 @@ function makeResults(
   }));
 }
 
-function renderPage(initialSource: "141jav" | "pornrips" = "141jav") {
+function renderPage(initialSource: "projectjav" | "pornrips" = "projectjav") {
   return render(
     <ToastProvider>
       <ScraperPage initialSource={initialSource} />
@@ -129,7 +109,7 @@ describe("ScraperPage", () => {
         resolveResults = resolve;
       });
     }) as unknown as typeof fetch);
-    (globalThis as any).fetch = mocked;
+    globalThis.fetch = mocked as unknown as typeof fetch;
 
     renderPage();
     // Loading text is present until the fetch resolves
@@ -151,8 +131,8 @@ describe("ScraperPage", () => {
   test("fetches /api/scraper/results and renders cards", async () => {
     let resultsResolve!: (v: Response) => void;
     const responses: Array<{ url: string; body?: unknown; status?: number }> = [];
-    globalThis.fetch = mock(async (url: any) => {
-      const u = url.toString();
+    globalThis.fetch = mock(async (url: unknown) => {
+      const u = String(url);
       responses.push({ url: u });
       if (u.includes("/api/scraper/results")) {
         return new Promise<Response>((resolve) => {
@@ -173,7 +153,7 @@ describe("ScraperPage", () => {
     expect(screen.getByText("Second Result")).toBeInTheDocument();
     expect(screen.getByLabelText("2 visible records")).toBeInTheDocument();
     expect(screen.getByLabelText("7 visible records")).toBeInTheDocument();
-    expect(responses.some((r) => r.url.includes("/api/scraper/results?source=141jav"))).toBe(true);
+    expect(responses.some((r) => r.url.includes("/api/scraper/results?source=projectjav"))).toBe(true);
   });
 
   test("renders the empty state when no results are returned", async () => {
@@ -197,8 +177,8 @@ describe("ScraperPage", () => {
   });
 
   test("appends bottom-scroll pages, serializes continuation, and stops at the terminal page", async () => {
-    const firstResults = makeResults("141jav", 1, 20, "First page");
-    const secondResults = makeResults("141jav", 21, 5, "Second page");
+    const firstResults = makeResults("projectjav", 1, 20, "First page");
+    const secondResults = makeResults("projectjav", 21, 5, "Second page");
     const requests: string[] = [];
     let resolveFirst!: (response: Response) => void;
     let resolveSecond!: (response: Response) => void;
@@ -230,7 +210,7 @@ describe("ScraperPage", () => {
         new Response(
           JSON.stringify({
             results: firstResults,
-            counts: { "141jav": 25, pornrips: 0 },
+            counts: { "projectjav": 25, pornrips: 0 },
             nextCursor: { createdAt: "2026-09-17T00:00:00.000Z", id: 21 },
           }),
           { status: 200 },
@@ -273,7 +253,7 @@ describe("ScraperPage", () => {
         new Response(
           JSON.stringify({
             results: secondResults,
-            counts: { "141jav": 25, pornrips: 0 },
+            counts: { "projectjav": 25, pornrips: 0 },
             nextCursor: null,
           }),
           { status: 200 },
@@ -291,8 +271,8 @@ describe("ScraperPage", () => {
   });
 
   test("ignores a stale continuation after switching source tabs", async () => {
-    const first141Results = makeResults("141jav", 1, 20, "141 first");
-    const stale141Results = makeResults("141jav", 21, 1, "141 stale");
+    const first141Results = makeResults("projectjav", 1, 20, "141 first");
+    const stale141Results = makeResults("projectjav", 21, 1, "141 stale");
     const pornResults = makeResults("pornrips", 101, 1, "Porn result");
     let resolveInitial141!: (response: Response) => void;
     let resolveStale141!: (response: Response) => void;
@@ -302,12 +282,12 @@ describe("ScraperPage", () => {
       const parsed = new URL(String(url), "http://localhost");
       if (parsed.pathname === "/api/scraper/results") {
         const requestedSource = parsed.searchParams.get("source");
-        if (requestedSource === "141jav" && parsed.searchParams.has("cursorId")) {
+        if (requestedSource === "projectjav" && parsed.searchParams.has("cursorId")) {
           return new Promise<Response>((resolve) => {
             resolveStale141 = resolve;
           });
         }
-        if (requestedSource === "141jav") {
+        if (requestedSource === "projectjav") {
           return new Promise<Response>((resolve) => {
             resolveInitial141 = resolve;
           });
@@ -329,7 +309,7 @@ describe("ScraperPage", () => {
         new Response(
           JSON.stringify({
             results: first141Results,
-            counts: { "141jav": 21, pornrips: 1 },
+            counts: { "projectjav": 21, pornrips: 1 },
             nextCursor: { createdAt: "2026-09-17T00:00:00.000Z", id: 21 },
           }),
           { status: 200 },
@@ -358,7 +338,7 @@ describe("ScraperPage", () => {
         new Response(
           JSON.stringify({
             results: pornResults,
-            counts: { "141jav": 21, pornrips: 1 },
+            counts: { "projectjav": 21, pornrips: 1 },
             nextCursor: null,
           }),
           { status: 200 },
@@ -372,7 +352,7 @@ describe("ScraperPage", () => {
         new Response(
           JSON.stringify({
             results: stale141Results,
-            counts: { "141jav": 21, pornrips: 1 },
+            counts: { "projectjav": 21, pornrips: 1 },
             nextCursor: null,
           }),
           { status: 200 },
@@ -385,8 +365,8 @@ describe("ScraperPage", () => {
   });
 
   test("clicking the already-active source tab keeps incremental loading working", async () => {
-    const firstResults = makeResults("141jav", 1, 20, "Active first");
-    const nextResults = makeResults("141jav", 21, 5, "Active next");
+    const firstResults = makeResults("projectjav", 1, 20, "Active first");
+    const nextResults = makeResults("projectjav", 21, 5, "Active next");
     const requests: string[] = [];
     let resolveFirst!: (response: Response) => void;
     let resolveNext!: (response: Response) => void;
@@ -418,7 +398,7 @@ describe("ScraperPage", () => {
         new Response(
           JSON.stringify({
             results: firstResults,
-            counts: { "141jav": 21, pornrips: 0 },
+            counts: { "projectjav": 21, pornrips: 0 },
             nextCursor: { createdAt: "2026-09-17T00:00:00.000Z", id: 21 },
           }),
           { status: 200 },
@@ -430,7 +410,7 @@ describe("ScraperPage", () => {
     );
 
     // Clicking the tab that is already active must not clear the cursor.
-    fireEvent.click(screen.getByRole("button", { name: /141JAV/ }));
+    fireEvent.click(screen.getByRole("button", { name: /ProjectJAV/ }));
 
     const container = document.getElementById("scraper-content-container")!;
     Object.defineProperty(container, "scrollHeight", {
@@ -458,7 +438,7 @@ describe("ScraperPage", () => {
         new Response(
           JSON.stringify({
             results: nextResults,
-            counts: { "141jav": 21, pornrips: 0 },
+            counts: { "projectjav": 21, pornrips: 0 },
             nextCursor: null,
           }),
           { status: 200 },
@@ -471,9 +451,9 @@ describe("ScraperPage", () => {
   });
 
   test("a same-source refresh paginates from the fresh cursor and drops the stale page", async () => {
-    const initialResults = makeResults("141jav", 1, 20, "Before refresh");
-    const refreshedResults = makeResults("141jav", 201, 5, "After refresh");
-    const staleResults = makeResults("141jav", 21, 5, "Stale page");
+    const initialResults = makeResults("projectjav", 1, 20, "Before refresh");
+    const refreshedResults = makeResults("projectjav", 201, 5, "After refresh");
+    const staleResults = makeResults("projectjav", 21, 5, "Stale page");
     const requests: string[] = [];
     let firstPageCount = 0;
     let continuationCount = 0;
@@ -515,7 +495,7 @@ describe("ScraperPage", () => {
         new Response(
           JSON.stringify({
             results: initialResults,
-            counts: { "141jav": 25, pornrips: 0 },
+            counts: { "projectjav": 25, pornrips: 0 },
             nextCursor: { createdAt: "2026-09-17T00:00:00.000Z", id: 21 },
           }),
           { status: 200 },
@@ -544,7 +524,7 @@ describe("ScraperPage", () => {
         new Response(
           JSON.stringify({
             results: refreshedResults,
-            counts: { "141jav": 5, pornrips: 0 },
+            counts: { "projectjav": 5, pornrips: 0 },
             nextCursor: { createdAt: "2026-09-18T00:00:00.000Z", id: 401 },
           }),
           { status: 200 },
@@ -559,7 +539,7 @@ describe("ScraperPage", () => {
         new Response(
           JSON.stringify({
             results: staleResults,
-            counts: { "141jav": 5, pornrips: 0 },
+            counts: { "projectjav": 5, pornrips: 0 },
             nextCursor: null,
           }),
           { status: 200 },
@@ -579,7 +559,7 @@ describe("ScraperPage", () => {
   });
 
   test("a stale action refresh does not clobber the newly selected source", async () => {
-    const firstResults = makeResults("141jav", 1, 20, "Stale first");
+    const firstResults = makeResults("projectjav", 1, 20, "Stale first");
     const pornResults = makeResults("pornrips", 101, 1, "Porn result");
     const requests: string[] = [];
     let resolveInitial!: (response: Response) => void;
@@ -618,7 +598,7 @@ describe("ScraperPage", () => {
         new Response(
           JSON.stringify({
             results: firstResults,
-            counts: { "141jav": 21, pornrips: 1 },
+            counts: { "projectjav": 21, pornrips: 1 },
             nextCursor: { createdAt: "2026-09-17T00:00:00.000Z", id: 21 },
           }),
           { status: 200 },
@@ -637,7 +617,7 @@ describe("ScraperPage", () => {
         new Response(
           JSON.stringify({
             results: pornResults,
-            counts: { "141jav": 21, pornrips: 1 },
+            counts: { "projectjav": 21, pornrips: 1 },
             nextCursor: null,
           }),
           { status: 200 },
@@ -652,7 +632,7 @@ describe("ScraperPage", () => {
 
     const stale141Requests = requests.filter(
       (request) =>
-        request.includes("/api/scraper/results") && request.includes("source=141jav"),
+        request.includes("/api/scraper/results") && request.includes("source=projectjav"),
     );
     expect(stale141Requests).toHaveLength(1);
     expect(screen.getByText("Porn result 1")).toBeInTheDocument();
@@ -773,8 +753,8 @@ describe("ScraperPage", () => {
   test("clicking 'Scrape Now' posts to /api/scraper/trigger with the source", async () => {
     const fetchCalls: Array<{ url: string; init?: RequestInit }> = [];
     let pendingResults: Response | null = null;
-    globalThis.fetch = mock(async (url: any, init: any = {}) => {
-      const u = url.toString();
+    globalThis.fetch = mock(async (url: unknown, init: RequestInit = {}) => {
+      const u = String(url);
       fetchCalls.push({ url: u, init });
       if (u.includes("/api/scraper/results")) {
         return pendingResults ?? new Response(JSON.stringify({ results: [] }), { status: 200 });
@@ -803,14 +783,14 @@ describe("ScraperPage", () => {
       expect(trigger).toBeDefined();
       expect(trigger!.init?.method).toBe("POST");
       const body = JSON.parse((trigger!.init?.body as string) || "{}");
-      expect(body.source).toBe("141jav");
+      expect(body.source).toBe("projectjav");
     });
   });
 
   test("clicking 'Scrape All' posts to /api/scraper/trigger-all", async () => {
     const fetchCalls: Array<{ url: string; init?: RequestInit }> = [];
-    globalThis.fetch = mock(async (url: any, init: any = {}) => {
-      const u = url.toString();
+    globalThis.fetch = mock(async (url: unknown, init: RequestInit = {}) => {
+      const u = String(url);
       fetchCalls.push({ url: u, init });
       if (u.includes("/api/scraper/results")) {
         return new Response(JSON.stringify({ results: [] }), { status: 200 });
@@ -836,8 +816,8 @@ describe("ScraperPage", () => {
 
   test("clicking 'Undo' posts to /api/scraper/undo with the source", async () => {
     const fetchCalls: Array<{ url: string; init?: RequestInit }> = [];
-    globalThis.fetch = mock(async (url: any, init: any = {}) => {
-      const u = url.toString();
+    globalThis.fetch = mock(async (url: unknown, init: RequestInit = {}) => {
+      const u = String(url);
       fetchCalls.push({ url: u, init });
       if (u.includes("/api/scraper/results")) {
         return new Response(JSON.stringify({ results: [] }), { status: 200 });
@@ -858,14 +838,14 @@ describe("ScraperPage", () => {
       const undo = fetchCalls.find((c) => c.url.includes("/api/scraper/undo"));
       expect(undo).toBeDefined();
       const body = JSON.parse((undo!.init?.body as string) || "{}");
-      expect(body.source).toBe("141jav");
+      expect(body.source).toBe("projectjav");
     });
   });
 
   test("clicking 'Clear & Rescrape' posts to /api/scraper/refresh with the source", async () => {
     const fetchCalls: Array<{ url: string; init?: RequestInit }> = [];
-    globalThis.fetch = mock(async (url: any, init: any = {}) => {
-      const u = url.toString();
+    globalThis.fetch = mock(async (url: unknown, init: RequestInit = {}) => {
+      const u = String(url);
       fetchCalls.push({ url: u, init });
       if (u.includes("/api/scraper/results")) {
         return new Response(JSON.stringify({ results: [] }), { status: 200 });
@@ -886,14 +866,14 @@ describe("ScraperPage", () => {
       const refresh = fetchCalls.find((c) => c.url.includes("/api/scraper/refresh"));
       expect(refresh).toBeDefined();
       const body = JSON.parse((refresh!.init?.body as string) || "{}");
-      expect(body.source).toBe("141jav");
+      expect(body.source).toBe("projectjav");
     });
   });
 
   test("'Hide All' opens confirm dialog; confirming POSTs /api/scraper/hide-all", async () => {
     const fetchCalls: Array<{ url: string; init?: RequestInit }> = [];
-    globalThis.fetch = mock(async (url: any, init: any = {}) => {
-      const u = url.toString();
+    globalThis.fetch = mock(async (url: unknown, init: RequestInit = {}) => {
+      const u = String(url);
       fetchCalls.push({ url: u, init });
       if (u.includes("/api/scraper/results")) {
         // Return 2 results so the confirm dialog title is meaningful
@@ -931,7 +911,7 @@ describe("ScraperPage", () => {
       const hideAll = fetchCalls.find((c) => c.url.includes("/api/scraper/hide-all"));
       expect(hideAll).toBeDefined();
       const body = JSON.parse((hideAll!.init?.body as string) || "{}");
-      expect(body.source).toBe("141jav");
+      expect(body.source).toBe("projectjav");
     });
   });
 });

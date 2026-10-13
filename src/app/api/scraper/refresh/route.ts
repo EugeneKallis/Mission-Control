@@ -14,7 +14,7 @@ import {
 import { triggerSourceInBackground } from "@/workers/scraper-runner";
 
 const schema = z.object({
-  source: z.enum(["141jav", "pornrips"]).optional(),
+  source: z.enum(["projectjav", "pornrips"]).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     await deleteAllScrapeResults();
     // PornRips is intentionally not included in an unscoped refresh because
     // it is less aggressive. Refresh it explicitly with a source.
-    triggerSourceInBackground("141jav");
+    triggerSourceInBackground("projectjav");
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("Failed to refresh scraper results:", err);

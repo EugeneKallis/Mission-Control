@@ -355,7 +355,7 @@ Expansion phases 19–33 are specified in `docs/EXPANSION_PLAN.md`.
 
 ```
 src/workers/scrapers/      # One source-specific scraper per file
-  141jav.ts                # Big Tits tag listing (3 pages, all magnets)
+  projectjav.ts             # Big Tits tag listing (3 pages, all magnets)
   pornrips.ts              # 1080p category (1 page, PixHost image enrichment)
   shared.ts                # sanitizeTitle, parseSize, fetchHtml, scrapePixHost
   status.ts                # DB-backed is_scraping flag (so web and worker share state)

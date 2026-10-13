@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getScrapingStatus } from "@/workers/scrapers/status";
 
 export async function GET(request: NextRequest) {
-  const source = request.nextUrl.searchParams.get("source") ?? "141jav";
+  const source = request.nextUrl.searchParams.get("source") ?? "projectjav";
   try {
     const isScraping = await getScrapingStatus(source);
     return NextResponse.json({ is_scraping: isScraping, source });
