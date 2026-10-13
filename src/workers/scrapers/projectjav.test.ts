@@ -52,6 +52,21 @@ describe("parseProjectJAVListing", () => {
     expect(items[0].files[0].leechers).toBe(5);
   });
 
+  test("decodes ProjectJAV's double-escaped magnet separators without URL-decoding values", () => {
+    const magnet = "magnet:?xt=urn:btih:29ca1178bf03028c80462970c39841bc350d3072"
+      + "&dn=Scene%20%26%20Title%26amp%3B&tr=udp%3A%2F%2Ftracker.example%3A80%2Fannounce";
+
+    for (const href of [magnet, magnet.replaceAll("&", "&amp;"), magnet.replaceAll("&", "&amp;amp;")]) {
+      const html = `<div class="video-item">
+        <div class="name"><a href="/video/example/">Example</a></div>
+        <table><tr><td><a href="${href}">magnet</a></td></tr></table>
+      </div>`;
+      const parsed = parseProjectJAVListing(html)[0].files[0].magnet;
+      expect(parsed).toBe(magnet);
+      expect([...new URL(parsed).searchParams.keys()]).toEqual(["xt", "dn", "tr"]);
+    }
+  });
+
   test("keeps an absolute page URL untouched", () => {
     const html = `<div class="video-item">
       <div class="name"><a href="https://other.example.com/v/1">X</a></div>

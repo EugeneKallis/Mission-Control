@@ -82,7 +82,9 @@ export function parseProjectJAVListing(html: string): ParsedItem[] {
       const $tr = $(tr);
       const magnetLink = $tr.find("a[href^='magnet:']");
       if (magnetLink.length === 0) return;
-      const magnet = magnetLink.attr("href") ?? "";
+      // ProjectJAV double-escapes separators as &amp;amp; in the HTML.
+      // Cheerio removes one layer; remove the remaining &amp; before storage.
+      const magnet = (magnetLink.attr("href") ?? "").replaceAll("&amp;", "&");
       if (!magnet) return;
 
       // td.1 = size, td.2 = seeds, td.3 = leechers
