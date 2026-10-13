@@ -465,23 +465,23 @@ export async function createScrapeResult(data: {
 
 export async function listScrapeResults(
   source: string,
-  options: { limit: number; before?: { createdAt: Date; id: number } },
+  options: { limit: number; after?: { createdAt: Date; id: number } },
 ) {
-  const before = options.before;
+  const after = options.after;
   return db.scrapeResult.findMany({
     where: {
       isHidden: false,
       source,
-      ...(before
+      ...(after
         ? {
             OR: [
-              { createdAt: { lt: before.createdAt } },
-              { createdAt: before.createdAt, id: { lt: before.id } },
+              { createdAt: { gt: after.createdAt } },
+              { createdAt: after.createdAt, id: { gt: after.id } },
             ],
           }
         : {}),
     },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     take: options.limit,
   });
 }

@@ -1,10 +1,10 @@
 /**
  * GET /api/scraper/results?source=
- * Returns the visible (not hidden) scrape results for the given source, newest
+ * Returns the visible (not hidden) scrape results for the given source, oldest
  * first, in pages of at most 20.
  *
  * Resume with the previous response's `nextCursor` as `cursorCreatedAt` +
- * `cursorId` (both required together) to fetch rows strictly older than that
+ * `cursorId` (both required together) to fetch rows strictly newer than that
  * cursor row; `nextCursor: null` marks the terminal page. A partial or
  * malformed cursor is a 400. Mirrors the Go APIScraperResults handler.
  */
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Invalid pagination cursor" }, { status: 400 });
   }
 
-  let before: { createdAt: Date; id: number } | undefined;
+  let after: { createdAt: Date; id: number } | undefined;
   if (hasCursorCreatedAt && hasCursorId) {
     const createdAt = new Date(cursorCreatedAt);
     const id = Number(cursorId);
@@ -39,12 +39,12 @@ export async function GET(request: NextRequest) {
     ) {
       return NextResponse.json({ error: "Invalid pagination cursor" }, { status: 400 });
     }
-    before = { createdAt, id };
+    after = { createdAt, id };
   }
 
   try {
     const [rows, groupedCounts] = await Promise.all([
-      listScrapeResults(source, { limit: PAGE_SIZE + 1, before }),
+      listScrapeResults(source, { limit: PAGE_SIZE + 1, after }),
       db.scrapeResult.groupBy({
         by: ["source"],
         where: { isHidden: false },

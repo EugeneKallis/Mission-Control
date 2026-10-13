@@ -637,7 +637,7 @@ can share it. The web page polls `/api/scraper/status?source=` every 2s.
 | POST   | `/api/scraper/hide-all`           | Hide all (or all for a source)         |
 | POST   | `/api/scraper/refresh`            | Clear + rescrape (source, or all)      |
 
-`GET /api/scraper/results` returns the source's newest results first, at most 20 per
+`GET /api/scraper/results` returns the source's oldest results first, at most 20 per
 response, in `{ results, counts, nextCursor }`. `nextCursor` is `{ createdAt, id }` for
 the next page or `null` on the terminal page; a client resumes with `cursorCreatedAt` +
 `cursorId` (both together — a partial or malformed cursor is a 400).

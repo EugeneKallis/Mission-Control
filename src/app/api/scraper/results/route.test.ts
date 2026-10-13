@@ -208,8 +208,28 @@ describe("GET /api/scraper/results", () => {
       results: Array<{ title: string }>;
       counts: Record<string, number>;
     };
-    expect(body.results.map((result) => result.title)).toEqual(["C", "B"]);
+    expect(body.results.map((result) => result.title)).toEqual(["B", "C"]);
     expect(body.counts).toEqual({ "projectjav": 1, pornrips: 2 });
+  });
+
+  test("sorts both scraper sources oldest first", async () => {
+    const older = new Date("2026-09-16T00:00:00.000Z");
+    const newer = new Date("2026-09-17T00:00:00.000Z");
+
+    for (const source of ["projectjav", "pornrips"] as const) {
+      await seed({ source, title: `${source} newer`, createdAt: newer });
+      await seed({ source, title: `${source} older`, createdAt: older });
+    }
+
+    const { GET } = await loadRoute();
+    for (const source of ["projectjav", "pornrips"] as const) {
+      const res = await GET(getRequest(`/api/scraper/results?source=${source}`));
+      const body = (await jsonBody(res)) as { results: Array<{ title: string }> };
+      expect(body.results.map((result) => result.title)).toEqual([
+        `${source} older`,
+        `${source} newer`,
+      ]);
+    }
   });
 
   test("returns keyset-paginated pages with deterministic equal-timestamp ordering", async () => {
@@ -232,7 +252,7 @@ describe("GET /api/scraper/results", () => {
       counts: Record<string, number>;
       nextCursor: { createdAt: string; id: number } | null;
     };
-    const expectedIds = rows.map((row) => row.id).sort((a, b) => b - a);
+    const expectedIds = rows.map((row) => row.id).sort((a, b) => a - b);
 
     expect(firstBody.results).toHaveLength(20);
     expect(firstBody.results.map((result) => result.id)).toEqual(expectedIds.slice(0, 20));
