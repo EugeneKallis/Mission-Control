@@ -5,7 +5,8 @@
  *  - Constructor normalises trailing slashes
  *  - listMovies / listSeries hit the right path
  *  - lookupSeries URL-encodes the search term
- *  - getWantedMissing default + override query
+ *  - getWantedMissing and queue pagination hit the right paths
+ *  - queue cleanup sends the safe blocklist/redownload flags
  *  - trigger*Search commands POST the right payload + path
  *  - delete* issues a DELETE
  *  - addSeries / addMovie POST JSON
@@ -88,7 +89,7 @@ describe("ArrClient", () => {
     const client = new ArrClient(sonarr);
     await client.getWantedMissing();
     expect(calls[0].url).toBe(
-      "http://192.168.1.111:8989/api/v3/wanted/missing?page=1&pageSize=50&sortKey=airDateUtc&sortDir=desc",
+      "http://192.168.1.111:8989/api/v3/wanted/missing?page=1&pageSize=50&sortKey=airDateUtc&sortDir=desc&includeSeries=true",
     );
   });
 
@@ -97,8 +98,25 @@ describe("ArrClient", () => {
     const client = new ArrClient(sonarr);
     await client.getWantedMissing(3, 10);
     expect(calls[0].url).toBe(
-      "http://192.168.1.111:8989/api/v3/wanted/missing?page=3&pageSize=10&sortKey=airDateUtc&sortDir=desc",
+      "http://192.168.1.111:8989/api/v3/wanted/missing?page=3&pageSize=10&sortKey=airDateUtc&sortDir=desc&includeSeries=true",
     );
+  });
+
+  test("getQueue accepts page/pageSize", async () => {
+    const calls = installFetch(() => new Response('{"records":[],"totalRecords":0}'));
+    const client = new ArrClient(radarr);
+    await client.getQueue(2, 100);
+    expect(calls[0].url).toBe("http://192.168.1.111:7878/api/v3/queue?page=2&pageSize=100");
+  });
+
+  test("removeQueueItem removes, blocklists, and allows Arr to redownload", async () => {
+    const calls = installFetch(() => new Response(null, { status: 200 }));
+    const client = new ArrClient(radarr);
+    await client.removeQueueItem(42);
+    expect(calls[0].url).toBe(
+      "http://192.168.1.111:7878/api/v3/queue/42?removeFromClient=true&blocklist=true&skipRedownload=false",
+    );
+    expect(calls[0].init.method).toBe("DELETE");
   });
 
   test("triggerMovieSearch posts MoviesSearch command", async () => {

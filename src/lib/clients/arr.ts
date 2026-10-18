@@ -26,10 +26,11 @@ export class ArrClient {
       ...init,
       headers: { ...this.headers, ...init?.headers },
     });
+    const body = await res.text();
     if (!res.ok) {
-      throw new Error(`Arr API error (${res.status}): ${await res.text()}`);
+      throw new Error(`Arr API error (${res.status}): ${body}`);
     }
-    return res.json();
+    return (body ? JSON.parse(body) : undefined) as T;
   }
 
   // ── Movies (Radarr) ────────────────────────────────────────────────────
@@ -51,7 +52,19 @@ export class ArrClient {
   // ── Wanted / Missing (Sonarr) ──────────────────────────────────────────
 
   async getWantedMissing(page = 1, pageSize = 50): Promise<{ records: ArrEpisodeResponse[]; totalRecords: number }> {
-    return this.fetch(`/wanted/missing?page=${page}&pageSize=${pageSize}&sortKey=airDateUtc&sortDir=desc`);
+    return this.fetch(`/wanted/missing?page=${page}&pageSize=${pageSize}&sortKey=airDateUtc&sortDir=desc&includeSeries=true`);
+  }
+
+  // ── Queue ────────────────────────────────────────────────────────────────
+
+  async getQueue(page = 1, pageSize = 100): Promise<ArrQueueResponse> {
+    return this.fetch(`/queue?page=${page}&pageSize=${pageSize}`);
+  }
+
+  async removeQueueItem(id: number): Promise<void> {
+    return this.fetch(`/queue/${id}?removeFromClient=true&blocklist=true&skipRedownload=false`, {
+      method: "DELETE",
+    });
   }
 
   // ── Quality Profiles & Root Folders ─────────────────────────────────────
@@ -227,13 +240,34 @@ interface ArrSeriesResponse {
   images?: { coverType: string; remoteUrl: string }[];
 }
 
-interface ArrEpisodeResponse {
+export interface ArrEpisodeResponse {
   id: number;
   seriesId: number;
   episodeNumber: number;
   seasonNumber: number;
+  title?: string;
+  series?: { title?: string };
   airDateUtc?: string;
   hasFile?: boolean;
+}
+
+export interface ArrQueueItem {
+  id: number;
+  movieId?: number;
+  seriesId?: number;
+  episodeId?: number;
+  title: string;
+  added?: string;
+  status?: string;
+  trackedDownloadStatus?: string;
+  trackedDownloadState?: string;
+  statusMessages?: { title?: string; messages?: string[] }[];
+  errorMessage?: string;
+}
+
+export interface ArrQueueResponse {
+  records: ArrQueueItem[];
+  totalRecords: number;
 }
 
 interface ArrEpisodeFileResponse {

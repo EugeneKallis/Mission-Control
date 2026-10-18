@@ -43,6 +43,7 @@ async function loadScript() {
 describe("arr-searcher", () => {
   test("queries Radarr instances in priority order: Radarr → RadarrKids → Radarr4K → RadarrAnime", async () => {
     const calls = captureFetch({
+      "GET /api/v3/queue": () => ({ records: [], totalRecords: 0 }),
       "GET /api/v3/movie": () => [
         { id: 1, title: "Real Missing", status: "released", hasFile: false, monitored: true, titleSlug: "a" },
       ],
@@ -62,6 +63,7 @@ describe("arr-searcher", () => {
 
   test("queries Anime instances", async () => {
     const calls = captureFetch({
+      "GET /api/v3/queue": () => ({ records: [], totalRecords: 0 }),
       "GET /api/v3/movie": () => [],
       "GET /api/v3/wanted/missing": () => ({ records: [], totalRecords: 0 }),
     });
@@ -76,6 +78,7 @@ describe("arr-searcher", () => {
 
   test("missing-movie filter excludes announced / hasFile / unmonitored", async () => {
     const calls = captureFetch({
+      "GET /api/v3/queue": () => ({ records: [], totalRecords: 0 }),
       "GET /api/v3/movie": () => [
         { id: 1, title: "Announced", status: "announced", hasFile: false, monitored: true, titleSlug: "a" },
         { id: 2, title: "HasFile", status: "released", hasFile: true, monitored: true, titleSlug: "b" },
@@ -98,6 +101,7 @@ describe("arr-searcher", () => {
 
   test("--limit caps the number of trigger calls per instance", async () => {
     const calls = captureFetch({
+      "GET /api/v3/queue": () => ({ records: [], totalRecords: 0 }),
       "GET /api/v3/movie": () =>
         Array.from({ length: 20 }, (_, i) => ({
           id: i + 1,
@@ -118,8 +122,100 @@ describe("arr-searcher", () => {
     expect(triggers.length).toBe(12);
   });
 
-  test("dry-run (no --run) logs without issuing command POSTs", async () => {
+  test("clears only blocked completed imports older than one hour and skips queued searches", async () => {
+    const old = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    const recent = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     const calls = captureFetch({
+      "GET /api/v3/queue": () => ({
+        records: [
+          { id: 101, movieId: 1, title: "Stuck", added: old, status: "completed", trackedDownloadState: "importBlocked" },
+          { id: 102, movieId: 2, title: "Downloading", added: old, status: "downloading", trackedDownloadState: "downloading" },
+          { id: 103, movieId: 3, title: "Recent", added: recent, status: "completed", trackedDownloadState: "importBlocked" },
+        ],
+        totalRecords: 3,
+      }),
+      "DELETE /api/v3/queue/": () => undefined,
+      "GET /api/v3/movie": () => [1, 2, 3].map((id) => ({
+        id,
+        title: `Missing ${id}`,
+        status: "released",
+        hasFile: false,
+        monitored: true,
+        titleSlug: `movie-${id}`,
+      })),
+      "POST /api/v3/command": () => ({ status: "ok" }),
+    });
+
+    const script = await loadScript();
+    await script.main(["--radarr-only", "--run"]);
+
+    const deletes = calls.filter((call) => call.method === "DELETE");
+    expect(deletes).toHaveLength(4);
+    expect(deletes.every((call) => call.url.endsWith(
+      "/api/v3/queue/101?removeFromClient=true&blocklist=true&skipRedownload=false",
+    ))).toBe(true);
+    expect(calls.some((call) => call.url.endsWith("/api/v3/command"))).toBe(false);
+  });
+
+  test("clears stale Sonarr imports and searches only episodes outside the queue", async () => {
+    const calls = captureFetch({
+      "GET /api/v3/queue": () => ({
+        records: [{
+          id: 201,
+          episodeId: 11,
+          seriesId: 5,
+          title: "Stuck episode",
+          added: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+          status: "completed",
+          trackedDownloadState: "importBlocked",
+        }],
+        totalRecords: 1,
+      }),
+      "DELETE /api/v3/queue/": () => undefined,
+      "GET /api/v3/wanted/missing": () => ({
+        records: [
+          { id: 11, seriesId: 5, seasonNumber: 1, episodeNumber: 1, title: "Pilot", series: { title: "The Show" } },
+          { id: 12, seriesId: 5, seasonNumber: 1, episodeNumber: 2, title: "Second Episode", series: { title: "The Show" } },
+        ],
+        totalRecords: 2,
+      }),
+      "POST /api/v3/command": () => ({ status: "ok" }),
+    });
+
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...values) => logs.push(values.join(" "));
+    try {
+      const script = await loadScript();
+      await script.main(["--sonarr-only", "--run"]);
+    } finally {
+      console.log = originalLog;
+    }
+
+    expect(calls.filter((call) => call.method === "DELETE")).toHaveLength(4);
+    const searchedIds = calls
+      .filter((call) => call.url.endsWith("/api/v3/command"))
+      .flatMap((call) => (call.body as { episodeIds: number[] }).episodeIds);
+    expect(searchedIds).toEqual([12, 12, 12, 12]);
+    expect(logs.some((line) => line.includes("deleted + blocklisted: [queue 201] Stuck episode"))).toBe(true);
+    expect(logs.some((line) => line.includes(
+      "search requested: The Show S01E02 — Second Episode [episode 12]",
+    ))).toBe(true);
+  });
+
+  test("dry-run reports stale imports without deleting or searching queued items", async () => {
+    const calls = captureFetch({
+      "GET /api/v3/queue": () => ({
+        records: [{
+          id: 101,
+          movieId: 1,
+          title: "Stuck",
+          added: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+          status: "completed",
+          trackedDownloadState: "importBlocked",
+        }],
+        totalRecords: 1,
+      }),
       "GET /api/v3/movie": () => [
         { id: 1, title: "Real Missing", status: "released", hasFile: false, monitored: true, titleSlug: "a" },
       ],
@@ -128,6 +224,7 @@ describe("arr-searcher", () => {
     const script = await loadScript();
     await script.main(["--radarr-only"]);
 
-    expect(calls.some((c) => c.url.endsWith("/api/v3/command"))).toBe(false);
+    expect(calls.some((call) => call.method === "DELETE")).toBe(false);
+    expect(calls.some((call) => call.url.endsWith("/api/v3/command"))).toBe(false);
   });
 });
